@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+logs/
+coverage/
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+# Prisma
+backend/src/prisma/generated/
+# Bun
+.bun/
+# Vite
+frontend/dev-dist/
+# data volumes
+data/
+uploads/
+plane.md
+mobile.md

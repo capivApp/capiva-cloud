@@ -1,0 +1,534 @@
+// ============================================================
+// Capiva Cloud — Prisma schema (FONTE DA VERDADE do banco)
+//
+// Banco configurável por ambiente via DATABASE_PROVIDER.
+// Para trocar de provider, ajuste `provider` abaixo e DATABASE_URL.
+// O schema evita tipos exclusivos de um único banco (compatível
+// com PostgreSQL, MySQL e SQLite). Configs flexíveis usam Json/String.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/prisma/generated/client"
+}
+
+datasource db {
+  provider = "postgresql" // postgresql | mysql | sqlite
+}
+
+// ----------------------------- Identidade & Tenancy -----------------------------
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Organization {
+  id           String          @id @default(cuid())
+  name         String
+  slug         String          @unique
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  memberships  Membership[]
+  teams        Team[]
+  environments Environment[]
+  clusters     Cluster[]
+  gitConns     GitConnection[]
+  projects     Project[]
+  backupConfig BackupConfig?
+
+  @@map("organizations")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  DEVELOPER
+  VIEWER
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role         @default(DEVELOPER)
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+model Team {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("teams")
+}
+
+// ----------------------------- Auth / Sessões -----------------------------
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  // hash SHA-256 do refresh token ATUAL (nunca o valor cru)
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  revoked     Boolean  @default(false)
+  // device / fingerprint para auditoria
+  ip          String?
+  userAgent   String?
+  fingerprint String?
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  event     String
+  userId    String?
+  sessionId String?
+  detail    String?
+  ip        String?
+  userAgent String?
+  at        DateTime @default(now())
+
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+// ----------------------------- Infraestrutura -----------------------------
+
+enum ClusterProvisioner {
+  MANUAL // registrado por kubeconfig/token (cluster já existe)
+  SSH // a plataforma instala via SSH
+  COPY_PASTE // usuário cola o comando; nó faz callback p/ auto-registro
+}
+
+enum NodeRole {
+  CONTROL_PLANE
+  WORKER
+}
+
+model Cluster {
+  id               String             @id @default(cuid())
+  organizationId   String
+  name             String
+  region           String?
+  provisioner      ClusterProvisioner @default(MANUAL)
+  // kubeconfig/service-account CIFRADO em repouso (AES-256-GCM). Pode ser nulo
+  // enquanto o cluster é provisionado (SSH/copy-paste).
+  kubeconfigCipher String?
+  // Para join de nós (k3s): URL do server e node-token (cifrado).
+  serverUrl        String?
+  nodeTokenCipher  String?
+  // Token de uso único para o callback de auto-registro (modo copy-paste).
+  registrationToken String?           @unique
+  status           String             @default("unknown")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  environments     Environment[]
+  nodes            ClusterNode[]
+  tasks            ProvisioningTask[]
+
+  @@map("clusters")
+}
+
+model ClusterNode {
+  id                  String   @id @default(cuid())
+  clusterId           String
+  role                NodeRole @default(WORKER)
+  host                String
+  sshUser             String?
+  sshPort             Int      @default(22)
+  // chave/senha SSH CIFRADA em repouso
+  sshCredentialCipher String?
+  internalIp          String?
+  status              String   @default("pending") // pending/provisioning/ready/draining/removed
+  createdAt           DateTime @default(now())
+  cluster             Cluster  @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  @@map("cluster_nodes")
+}
+
+model ProvisioningTask {
+  id         String    @id @default(cuid())
+  clusterId  String
+  nodeId     String?
+  kind       String // install-server / join-worker / add-control-plane / remove-node
+  status     String    @default("running") // running/success/failed
+  log        String    @default("")
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+  cluster    Cluster   @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  @@index([clusterId])
+  @@map("provisioning_tasks")
+}
+
+enum EnvironmentKind {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+model Environment {
+  id             String            @id @default(cuid())
+  organizationId String
+  clusterId      String?
+  name           String
+  kind           EnvironmentKind   @default(DEVELOPMENT)
+  namespace      String
+  createdAt      DateTime          @default(now())
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cluster        Cluster?          @relation(fields: [clusterId], references: [id])
+  applications   Application[]
+  databases      ManagedDatabase[]
+
+  @@map("environments")
+}
+
+model BackupConfig {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  s3Endpoint        String
+  s3Bucket          String
+  s3Region          String?
+  // credenciais S3 CIFRADAS
+  credentialsCipher String
+  retentionDays     Int          @default(7)
+  schedule          String       @default("0 3 * * *")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("backup_configs")
+}
+
+// ----------------------------- Git -----------------------------
+
+enum GitProviderKind {
+  GITHUB
+  GITLAB
+  GITEA
+}
+
+model GitConnection {
+  id                String          @id @default(cuid())
+  organizationId    String
+  provider          GitProviderKind
+  // token de acesso CIFRADO + segredo de webhook
+  accessTokenCipher String
+  webhookSecret     String
+  accountLogin      String?
+  baseUrl           String? // p/ Gitea/GitLab self-hosted
+  createdAt         DateTime        @default(now())
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applications      Application[]
+
+  @@map("git_connections")
+}
+
+model GitCommit {
+  id          String       @id @default(cuid())
+  sha         String
+  authorName  String?
+  authorEmail String?
+  branch      String?
+  message     String?
+  pullRequest String?
+  createdAt   DateTime     @default(now())
+  deployments Deployment[]
+
+  @@unique([sha, branch])
+  @@map("git_commits")
+}
+
+// ----------------------------- Projetos & Aplicações -----------------------------
+
+model Project {
+  id             String            @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applications   Application[]
+  databases      ManagedDatabase[]
+  workers        Worker[]
+  cronJobs       CronJob[]
+
+  @@unique([organizationId, slug])
+  @@map("projects")
+}
+
+enum SourceKind {
+  DOCKER_IMAGE
+  GITHUB
+  GITLAB
+  GITEA
+  DOCKER_COMPOSE
+  NIXPACKS
+  RAILPACK
+  BUILDPACKS
+  STATIC
+}
+
+enum RolloutStrategy {
+  ROLLING
+  BLUE_GREEN
+  CANARY
+}
+
+enum ResourceProfileKind {
+  NANO
+  SMALL
+  MEDIUM
+  LARGE
+  XLARGE
+  CUSTOM
+}
+
+model Application {
+  id              String              @id @default(cuid())
+  projectId       String
+  environmentId   String
+  name            String
+  source          SourceKind
+  // configuração da origem (imagem, repo, dockerfile, branch...) — flexível
+  sourceConfig    Json
+  // tags (string[]) para filtros e relatórios
+  tags            Json?
+  gitConnectionId String?
+  profile         ResourceProfileKind @default(SMALL)
+  // requests/limits quando CUSTOM
+  customResources Json?
+  rolloutStrategy RolloutStrategy     @default(ROLLING)
+  rolloutConfig   Json? // canary: tráfego inicial, incremento, intervalo, autoRollback
+  port            Int?                @default(3000)
+  // estado desejado x observado
+  desiredStatus   String              @default("running")
+  observedStatus  String              @default("pending")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment   Environment         @relation(fields: [environmentId], references: [id])
+  gitConnection GitConnection?      @relation(fields: [gitConnectionId], references: [id])
+  deployments   Deployment[]
+  domains       Domain[]
+  envVars       EnvVar[]
+  scaling       ScalingPolicy?
+  depsAsSource  ServiceDependency[] @relation("DepSource")
+  depsAsTarget  ServiceDependency[] @relation("DepTarget")
+
+  @@map("applications")
+}
+
+enum DeploymentStatus {
+  QUEUED
+  BUILDING
+  PUSHING
+  DEPLOYING
+  HEALTHY
+  FAILED
+  ROLLED_BACK
+}
+
+model Deployment {
+  id            String            @id @default(cuid())
+  applicationId String
+  commitId      String?
+  version       String
+  imageRef      String?
+  strategy      RolloutStrategy   @default(ROLLING)
+  status        DeploymentStatus  @default(QUEUED)
+  progress      Int               @default(0)
+  podCount      Int               @default(0)
+  startedAt     DateTime          @default(now())
+  finishedAt    DateTime?
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  commit        GitCommit?        @relation(fields: [commitId], references: [id])
+  events        DeploymentEvent[]
+
+  @@index([applicationId])
+  @@map("deployments")
+}
+
+model DeploymentEvent {
+  id           String     @id @default(cuid())
+  deploymentId String
+  label        String
+  detail       String?
+  at           DateTime   @default(now())
+  deployment   Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId])
+  @@map("deployment_events")
+}
+
+model Domain {
+  id            String      @id @default(cuid())
+  applicationId String
+  host          String      @unique
+  // certificado: lets_encrypt | uploaded
+  tlsMode       String      @default("lets_encrypt")
+  tlsStatus     String      @default("pending")
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("domains")
+}
+
+enum EnvVarSource {
+  MANUAL
+  INJECTED
+}
+
+model EnvVar {
+  id            String       @id @default(cuid())
+  applicationId String
+  key           String
+  // valor CIFRADO quando secret
+  value         String
+  secret        Boolean      @default(false)
+  source        EnvVarSource @default(MANUAL)
+  // se INJECTED, qual dependência originou (permite sobrescrita)
+  overridden    Boolean      @default(false)
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, key])
+  @@map("env_vars")
+}
+
+enum ScalingMetric {
+  CPU
+  MEMORY
+  REQUESTS
+}
+
+model ScalingPolicy {
+  id            String        @id @default(cuid())
+  applicationId String        @unique
+  minReplicas   Int           @default(2)
+  maxReplicas   Int           @default(10)
+  metric        ScalingMetric @default(CPU)
+  target        Int           @default(70)
+  application   Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("scaling_policies")
+}
+
+model ServiceDependency {
+  id           String      @id @default(cuid())
+  sourceId     String
+  targetId     String
+  // variáveis geradas/injetadas pela conexão (ex.: DATABASE_URL)
+  injectedKeys Json?
+  createdAt    DateTime    @default(now())
+  source       Application @relation("DepSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target       Application @relation("DepTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId])
+  @@map("service_dependencies")
+}
+
+// ----------------------------- Serviços gerenciados -----------------------------
+
+enum ManagedServiceKind {
+  POSTGRESQL
+  MYSQL
+  REDIS
+  RABBITMQ
+  KAFKA
+  MINIO
+  ELASTICSEARCH
+  CLICKHOUSE
+}
+
+enum ManagedSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+model ManagedDatabase {
+  id               String             @id @default(cuid())
+  projectId        String
+  environmentId    String
+  name             String
+  kind             ManagedServiceKind
+  size             ManagedSize        @default(SMALL)
+  highAvailability Boolean            @default(false)
+  // credenciais geradas CIFRADAS, config do operator, etc.
+  config           Json?
+  observedStatus   String             @default("pending")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  project          Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment      Environment        @relation(fields: [environmentId], references: [id])
+  backups          Backup[]
+
+  @@map("managed_databases")
+}
+
+model Worker {
+  id             String              @id @default(cuid())
+  projectId      String
+  name           String
+  source         SourceKind
+  sourceConfig   Json
+  profile        ResourceProfileKind @default(SMALL)
+  replicas       Int                 @default(1)
+  observedStatus String              @default("pending")
+  createdAt      DateTime            @default(now())
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("workers")
+}
+
+model CronJob {
+  id             String              @id @default(cuid())
+  projectId      String
+  name           String
+  schedule       String // cron expression
+  source         SourceKind
+  sourceConfig   Json
+  profile        ResourceProfileKind @default(NANO)
+  observedStatus String              @default("pending")
+  createdAt      DateTime            @default(now())
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("cron_jobs")
+}
+
+model Backup {
+  id          String          @id @default(cuid())
+  databaseId  String
+  status      String          @default("running")
+  destination String?
+  sizeBytes   BigInt?
+  startedAt   DateTime        @default(now())
+  finishedAt  DateTime?
+  database    ManagedDatabase @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  @@index([databaseId])
+  @@map("backups")
+}

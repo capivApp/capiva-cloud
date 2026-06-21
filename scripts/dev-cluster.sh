@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# ============================================================
+# Capiva Cloud — cluster Kubernetes LOCAL para desenvolvimento.
+#
+# Cria um cluster real (k3d = k3s em Docker) e imprime os campos
+# (API URL + token) para registrar na UI em Configurações → Clusters
+# (sem YAML). Com isso a plataforma deixa de operar em "dry-run" e
+# passa a APLICAR recursos de verdade no cluster.
+#
+# Uso:
+#   ./scripts/dev-cluster.sh up      # cria o cluster + addons + token
+#   ./scripts/dev-cluster.sh down    # remove o cluster
+# Requisitos: docker + k3d (https://k3d.io).  Traefik já vem no k3s.
+# ============================================================
+set -euo pipefail
+CLUSTER="capiva"
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "❌ '$1' não encontrado. Instale antes (veja https://k3d.io)."; exit 1; }; }
+
+up() {
+  need docker; need k3d; need kubectl
+  if ! k3d cluster list | grep -q "^${CLUSTER}"; then
+    echo "🚀 Criando cluster k3d '${CLUSTER}' (Traefik já incluso no k3s)..."
+    k3d cluster create "${CLUSTER}" --servers 1 --agents 1 \
+      --port "8081:80@loadbalancer" --port "8443:443@loadbalancer" --wait
+  fi
+
+  echo "🔐 Criando ServiceAccount 'capiva' com permissões de admin..."
+  kubectl create serviceaccount capiva -n default --dry-run=client -o yaml | kubectl apply -f -
+  kubectl create clusterrolebinding capiva-admin --clusterrole=cluster-admin \
+    --serviceaccount=default:capiva --dry-run=client -o yaml | kubectl apply -f -
+
+  echo "🧩 Instalando addons recomendados (cert-manager)..."
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml >/dev/null 2>&1 || true
+
+  TOKEN=$(kubectl create token capiva -n default --duration=8760h)
+  API=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+
+  cat <<EOF
+
+✅ Cluster pronto. Registre na UI (Configurações → Clusters), SEM YAML:
+
+   Nome:                capiva-local
+   Endereço (API URL):  ${API}
+   Token de acesso:     ${TOKEN}
+   Certificado CA:      (deixe vazio — usa insecure-skip-tls-verify em dev)
+
+Depois disso, criar uma aplicação/banco APLICA recursos reais no cluster.
+Veja-os com:  kubectl get all -A
+EOF
+}
+
+down() {
+  k3d cluster delete "${CLUSTER}"
+}
+
+case "${1:-up}" in
+  up) up ;;
+  down) down ;;
+  *) echo "uso: $0 [up|down]"; exit 1 ;;
+esac
