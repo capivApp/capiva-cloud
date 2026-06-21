@@ -3,6 +3,7 @@ import type {
   ResourceProfileKind,
   RolloutStrategy,
   SourceKind,
+  TlsMode,
 } from "@prisma-generated/client";
 import type { Prisma } from "@prisma-generated/client";
 
@@ -21,6 +22,9 @@ export class ApplicationModel implements Application {
   rolloutStrategy!: RolloutStrategy;
   rolloutConfig!: Prisma.JsonValue;
   port!: number | null;
+  tlsMode!: TlsMode;
+  tlsCertificateId!: string | null;
+  registryId!: string | null;
   desiredStatus!: string;
   observedStatus!: string;
   createdAt!: Date;

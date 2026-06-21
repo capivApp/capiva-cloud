@@ -4,7 +4,7 @@ import { ApplicationService } from "@service/ApplicationService";
 import { DeploymentService } from "@service/DeploymentService";
 import { DependencyService } from "@service/DependencyService";
 import { RolloutService } from "@service/RolloutService";
-import { createApplicationSchema, updateStrategySchema, updateTagsSchema } from "@schemas/application.schema";
+import { createApplicationSchema, updateStrategySchema, updateTagsSchema, volumeSchema } from "@schemas/application.schema";
 import { HttpError } from "@functions/HttpError";
 
 function org(req: Request): { organizationId: string } {
@@ -99,5 +99,19 @@ export class ApplicationController {
   updateTags = async (req: Request, res: Response): Promise<void> => {
     const { tags } = updateTagsSchema.parse(req.body);
     res.json(await this.apps.updateTags(String(req.params.id), tags, org(req)));
+  };
+
+  listVolumes = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.apps.listVolumes(String(req.params.id), org(req)));
+  };
+
+  addVolume = async (req: Request, res: Response): Promise<void> => {
+    const dto = volumeSchema.parse(req.body);
+    res.status(201).json(await this.apps.addVolume(String(req.params.id), dto, org(req)));
+  };
+
+  removeVolume = async (req: Request, res: Response): Promise<void> => {
+    await this.apps.removeVolume(String(req.params.id), String(req.params.volId), org(req));
+    res.status(204).end();
   };
 }

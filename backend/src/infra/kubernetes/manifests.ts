@@ -16,6 +16,34 @@ export interface AppManifestInput {
   profile: string;
   customResources?: Record<string, unknown> | null;
   envVars?: { key: string; value: string }[];
+  /** volumes montados: claimName = <app>-<volName>. RWX → mesma pasta em todos os pods. */
+  volumes?: { name: string; mountPath: string }[];
+  /** registry privado → imagePullSecrets */
+  imagePullSecret?: string;
+}
+
+/** Monta volumeMounts (container) e volumes (pod) a partir dos volumes da app. */
+function volumeBits(input: AppManifestInput) {
+  const vols = input.volumes ?? [];
+  return {
+    volumeMounts: vols.map((v) => ({ name: v.name, mountPath: v.mountPath })),
+    volumes: vols.map((v) => ({ name: v.name, persistentVolumeClaim: { claimName: `${input.name}-${v.name}` } })),
+    imagePullSecrets: input.imagePullSecret ? [{ name: input.imagePullSecret }] : undefined,
+  };
+}
+
+/** PVC de um volume da aplicação. RWX usa Longhorn (share-manager). */
+export function pvcManifest(claimName: string, namespace: string, sizeGi: number, accessMode: "RWO" | "RWX"): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "PersistentVolumeClaim",
+    metadata: { name: claimName, namespace, labels: { "app.kubernetes.io/part-of": "capiva" } },
+    spec: {
+      accessModes: [accessMode === "RWX" ? "ReadWriteMany" : "ReadWriteOnce"],
+      storageClassName: process.env.CAPIVA_STORAGE_CLASS || "longhorn",
+      resources: { requests: { storage: `${sizeGi}Gi` } },
+    },
+  };
 }
 
 /** Deployment (estratégia Rolling). Para Blue/Green e Canary usa-se Rollout (Argo). */
@@ -31,6 +59,7 @@ export function deploymentManifest(input: AppManifestInput, replicas = 2): K8sMa
       template: {
         metadata: { labels: labels(input.name) },
         spec: {
+          ...(volumeBits(input).imagePullSecrets ? { imagePullSecrets: volumeBits(input).imagePullSecrets } : {}),
           containers: [
             {
               name: input.name,
@@ -38,9 +67,11 @@ export function deploymentManifest(input: AppManifestInput, replicas = 2): K8sMa
               ports: [{ containerPort: input.port }],
               resources: { requests: res, limits: res },
               env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
+              volumeMounts: volumeBits(input).volumeMounts,
               readinessProbe: { httpGet: { path: "/", port: input.port }, initialDelaySeconds: 5, periodSeconds: 10 },
             },
           ],
+          volumes: volumeBits(input).volumes,
         },
       },
     },
@@ -157,14 +188,17 @@ export function workerManifest(
       template: {
         metadata: { labels: labels(name) },
         spec: {
+          ...(volumeBits(input).imagePullSecrets ? { imagePullSecrets: volumeBits(input).imagePullSecrets } : {}),
           containers: [
             {
               name,
               image,
               resources: { requests: res, limits: res },
               env: envVars.map((e) => ({ name: e.key, value: e.value })),
+              volumeMounts: volumeBits(input).volumeMounts,
             },
           ],
+          volumes: volumeBits(input).volumes,
         },
       },
     },

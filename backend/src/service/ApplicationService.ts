@@ -2,6 +2,7 @@ import { Injectable } from "@di/index";
 import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { ServiceDependencyRepository } from "@repository/ServiceDependencyRepository";
+import { VolumeRepository } from "@repository/VolumeRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { KubeContextResolver } from "@service/KubeContextResolver";
@@ -24,6 +25,7 @@ export interface CreateApplicationInput {
   /** Variáveis de build (build args). */
   buildArgs?: { key: string; value: string }[];
   tags?: string[];
+  volumes?: { name: string; mountPath: string; sizeGi: number; accessMode: "RWO" | "RWX" }[];
 }
 
 /**
@@ -37,6 +39,7 @@ export class ApplicationService {
     private readonly apps: ApplicationRepository,
     private readonly envVars: EnvVarRepository,
     private readonly deps: ServiceDependencyRepository,
+    private readonly volumes: VolumeRepository,
     private readonly reconcilers: ReconcilerFactory,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
@@ -66,6 +69,11 @@ export class ApplicationService {
         for (const e of input.env ?? []) {
           if (e.key.trim()) await this.envVars.upsert({ applicationId: created.id, key: e.key, value: e.value, source: "MANUAL" });
         }
+        for (const v of input.volumes ?? []) {
+          if (v.name.trim() && v.mountPath.trim()) {
+            await this.volumes.create({ applicationId: created.id, name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode });
+          }
+        }
         return created;
       },
       { tenant },
@@ -81,18 +89,19 @@ export class ApplicationService {
     return app;
   }
 
-  /** Reconcilia a aplicação (idempotente). Atualiza o estado observado. */
-  async reconcile(app: Application, tenant: { organizationId: string }, replicas = 2): Promise<void> {
+  /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
+  async reconcile(app: Application, tenant: { organizationId: string }, replicas = 2, imageOverride?: string) {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     const cfg = app.sourceConfig as Record<string, unknown>;
-    const image = (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
+    const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const domain = cfg?.domain as string | undefined;
 
-    const [envVars, deps] = await withTransaction(
-      async () => [await this.envVars.listByApplication(app.id), await this.deps.listForApplication(app.id)] as const,
+    const [envVars, deps, volumes] = await withTransaction(
+      async () => [await this.envVars.listByApplication(app.id), await this.deps.listForApplication(app.id), await this.volumes.listByApplication(app.id)] as const,
       { tenant },
     );
     const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
+    const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" }));
 
     // Origens que dependem desta app (target == app) → liberadas na NetworkPolicy.
     const allowedSourceIds = deps.filter((d) => d.targetId === app.id).map((d) => d.sourceId);
@@ -102,10 +111,37 @@ export class ApplicationService {
     );
 
     const status = await this.reconcilers.forApplication().reconcile(
-      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain },
+      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, volumes: volumeSpecs },
       ctx,
     );
     await withTransaction(() => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"), { tenant });
+    return status;
+  }
+
+  /** Lista volumes da aplicação. */
+  listVolumes(applicationId: string, tenant: { organizationId: string }) {
+    return withTransaction(() => this.volumes.listByApplication(applicationId), { tenant });
+  }
+
+  /** Cria um volume e reconcilia (PVC + mount). */
+  async addVolume(
+    applicationId: string,
+    input: { name: string; mountPath: string; sizeGi: number; accessMode: "RWO" | "RWX" },
+    tenant: { organizationId: string },
+  ) {
+    const app = await this.getById(applicationId, tenant);
+    const vol = await withTransaction(
+      () => this.volumes.create({ applicationId, name: input.name, mountPath: input.mountPath, sizeGi: input.sizeGi, accessMode: input.accessMode }),
+      { tenant },
+    );
+    await this.reconcile(app, tenant).catch((e) => console.error("[volume] reconcile:", (e as Error).message));
+    return vol;
+  }
+
+  async removeVolume(applicationId: string, volumeId: string, tenant: { organizationId: string }): Promise<void> {
+    const app = await this.getById(applicationId, tenant);
+    await withTransaction(() => this.volumes.delete(volumeId), { tenant });
+    await this.reconcile(app, tenant).catch((e) => console.error("[volume] reconcile:", (e as Error).message));
   }
 
   async getById(id: string, tenant: { organizationId: string }): Promise<Application> {

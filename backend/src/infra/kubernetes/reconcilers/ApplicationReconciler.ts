@@ -5,11 +5,19 @@ import {
   deploymentManifest,
   ingressManifest,
   networkPolicyManifest,
+  pvcManifest,
   rolloutManifest,
   serviceManifest,
 } from "@infra/kubernetes/manifests";
 import type { IResourceReconciler, KubeContext, ObservedStatus } from "@interface/integrations";
 import type { Application } from "@prisma-generated/client";
+
+export interface AppVolumeSpec {
+  name: string;
+  mountPath: string;
+  sizeGi: number;
+  accessMode: "RWO" | "RWX";
+}
 
 export interface AppReconcileInput {
   app: Application;
@@ -18,8 +26,12 @@ export interface AppReconcileInput {
   envVars?: { key: string; value: string }[];
   /** Origens permitidas (grafo de dependências) para a NetworkPolicy. */
   allowedFrom?: string[];
-  /** Domínio custom → HTTPRoute (Gateway API) + TLS automático. */
+  /** Domínio custom → Ingress (Traefik) + TLS. */
   domain?: string;
+  /** Volumes persistentes (PVC) montados nos pods. */
+  volumes?: AppVolumeSpec[];
+  /** Nome do imagePullSecret (registry privado). */
+  imagePullSecret?: string;
 }
 
 /**
@@ -32,7 +44,7 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
   constructor(private readonly k8s: KubernetesAdapter) {}
 
   async reconcile(input: AppReconcileInput, ctx: KubeContext): Promise<ObservedStatus> {
-    const { app, image, replicas = 2, envVars = [], allowedFrom = [], domain } = input;
+    const { app, image, replicas = 2, envVars = [], allowedFrom = [], domain, volumes = [], imagePullSecret } = input;
     const port = app.port ?? 3000;
     const base = {
       name: app.name,
@@ -42,7 +54,14 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
       profile: app.profile,
       customResources: app.customResources as Record<string, unknown> | null,
       envVars,
+      volumes: volumes.map((v) => ({ name: v.name, mountPath: v.mountPath })),
+      imagePullSecret,
     };
+
+    // Volumes persistentes (PVC por volume) antes dos workloads.
+    for (const v of volumes) {
+      await this.k8s.apply(ctx, pvcManifest(`${app.name}-${v.name}`, ctx.namespace, v.sizeGi, v.accessMode));
+    }
 
     // Isolamento de rede (default-deny + origens do grafo de dependências).
     await this.k8s.apply(ctx, networkPolicyManifest(app.name, ctx.namespace, allowedFrom));

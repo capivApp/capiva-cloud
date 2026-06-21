@@ -1,6 +1,7 @@
 import { Injectable } from "@di/index";
 import { DeploymentRepository } from "@repository/DeploymentRepository";
 import { ApplicationRepository } from "@repository/ApplicationRepository";
+import { ApplicationService } from "@service/ApplicationService";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
@@ -27,6 +28,7 @@ export class DeploymentService {
     private readonly builds: BuildStrategyResolver,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
+    private readonly appService: ApplicationService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -84,13 +86,8 @@ export class DeploymentService {
     await step("Imagem publicada", "PUSHING", 40);
     await step("Deploy iniciado", "DEPLOYING", 60);
 
-    const envVars = await withTransaction(() => this.envVars.listByApplication(app.id), { tenant });
-    const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
-
-    const status = await this.reconcilers.forApplication().reconcile(
-      { app: { ...app, sourceConfig: { ...(app.sourceConfig as any), image: imageRef } }, image: imageRef, envVars: resolvedEnv },
-      ctx,
-    );
+    // Reconcilia via ApplicationService (carrega envs, volumes, deps, domínio, TLS).
+    const status = await this.appService.reconcile(app, tenant, undefined, imageRef);
 
     await withTransaction(async () => {
       const label = status.ready ? "Health Check OK" : "Health Check pendente";
@@ -152,13 +149,7 @@ export class DeploymentService {
       { tenant },
     );
 
-    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-    const envVars = await withTransaction(() => this.envVars.listByApplication(app.id), { tenant });
-    const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
-    const status = await this.reconcilers.forApplication().reconcile(
-      { app: { ...app, sourceConfig: { ...(app.sourceConfig as any), image: target.imageRef } }, image: target.imageRef!, envVars: resolvedEnv },
-      ctx,
-    );
+    const status = await this.appService.reconcile(app, tenant, undefined, target.imageRef!);
 
     await withTransaction(async () => {
       const label = automatic ? "Rollback automático concluído" : "Rollback concluído";

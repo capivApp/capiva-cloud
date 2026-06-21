@@ -40,7 +40,11 @@ export function k3sControlPlaneJoinScript(serverUrl: string, nodeToken: string):
   ].join("\n");
 }
 
-/** Addons recomendados aplicados após o cluster subir. */
+/** Addons recomendados aplicados após o cluster subir (cert-manager, Longhorn, metrics-server). */
 export const K3S_ADDONS = [
   "kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml",
+  // Longhorn: armazenamento distribuído com RWX (volumes compartilhados entre pods).
+  "kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml",
+  // metrics-server (k3s já inclui; reforça em distros sem ele).
+  "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
 ];

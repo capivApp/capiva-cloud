@@ -26,5 +26,8 @@ export const registry = (router: Router): void => {
   router.post("/:id/start", ctrl.start);
   router.post("/:id/restart", ctrl.restart);
   router.patch("/:id/tags", ctrl.updateTags);
+  router.get("/:id/volumes", ctrl.listVolumes);
+  router.post("/:id/volumes", ctrl.addVolume);
+  router.delete("/:id/volumes/:volId", ctrl.removeVolume);
   router.delete("/:id", ctrl.remove);
 };
