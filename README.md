@@ -3,11 +3,29 @@
 
 # Capiva Cloud
 
-### Kubernetes without Kubernetes 🐹
+### Kubernetes without Kubernetes
 
 Deploy applications, databases, workers and cron jobs through a visual interface. No YAML, no kubectl, and no Kubernetes expertise required.
 
 </div>
+
+## App Preview
+
+<p align="center">
+  <img src="./screenshots/1.png" width="900" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/2.png" width="900" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/3.png" width="900" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/4.png" width="900" />
+</p>
 
 ---
 
