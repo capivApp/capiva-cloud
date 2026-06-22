@@ -1,13 +1,9 @@
 import { Pencil, Plus, Server, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBackupConfig } from "@/hooks/useBackupConfig";
 import { useClusters } from "@/hooks/useClusters";
 import { useEnvironments } from "@/hooks/useEnvironments";
 import { useGitConnections } from "@/hooks/useGitConnections";
@@ -26,12 +22,10 @@ export function SettingsPage() {
           <TabsTrigger value="clusters">Clusters</TabsTrigger>
           <TabsTrigger value="environments">Ambientes</TabsTrigger>
           <TabsTrigger value="git">Git</TabsTrigger>
-          <TabsTrigger value="storage">Armazenamento</TabsTrigger>
         </TabsList>
         <TabsContent value="clusters" className="pt-5"><ClustersTab /></TabsContent>
         <TabsContent value="environments" className="pt-5"><EnvironmentsTab /></TabsContent>
         <TabsContent value="git" className="pt-5"><GitTab /></TabsContent>
-        <TabsContent value="storage" className="pt-5"><StorageTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -117,38 +111,5 @@ function GitTab() {
       ))}
       <GitConnectionDrawer open={drawer} onClose={() => setDrawer(false)} editing={editing} onSaved={refetch} />
     </div>
-  );
-}
-
-function StorageTab() {
-  const { config, save, isSaving, refetch } = useBackupConfig();
-  const [f, setF] = useState({ s3Endpoint: "", s3Bucket: "", s3Region: "", accessKeyId: "", secretAccessKey: "", retentionDays: 7, schedule: "0 3 * * *" });
-  const set = (p: Partial<typeof f>) => setF({ ...f, ...p });
-
-  useEffect(() => {
-    if (config) setF((s) => ({ ...s, s3Endpoint: config.s3Endpoint, s3Bucket: config.s3Bucket, s3Region: config.s3Region ?? "", retentionDays: config.retentionDays, schedule: config.schedule }));
-  }, [config]);
-
-  async function submit() {
-    if (!f.s3Endpoint || !f.s3Bucket || !f.accessKeyId || !f.secretAccessKey) return toast.error("Preencha endpoint, bucket e credenciais.");
-    await save({ ...f, s3Region: f.s3Region || undefined }).then(() => { toast.success("Armazenamento salvo"); refetch(); }).catch((e) => toast.error((e as Error).message));
-  }
-
-  return (
-    <Card>
-      <CardContent className="space-y-3 pt-5">
-        <p className="text-sm font-medium">Armazenamento S3 (backups globais)</p>
-        <p className="text-xs text-muted-foreground">Destino dos backups de todos os bancos da organização. (Múltiplos providers chegam na Fase 3.1.)</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5"><Label>Endpoint</Label><Input value={f.s3Endpoint} onChange={(e) => set({ s3Endpoint: e.target.value })} placeholder="https://s3.amazonaws.com" /></div>
-          <div className="space-y-1.5"><Label>Bucket</Label><Input value={f.s3Bucket} onChange={(e) => set({ s3Bucket: e.target.value })} placeholder="capiva-backups" /></div>
-          <div className="space-y-1.5"><Label>Região</Label><Input value={f.s3Region} onChange={(e) => set({ s3Region: e.target.value })} placeholder="us-east-1" /></div>
-          <div className="space-y-1.5"><Label>Retenção (dias)</Label><Input type="number" value={f.retentionDays} onChange={(e) => set({ retentionDays: +e.target.value })} /></div>
-          <div className="space-y-1.5"><Label>Access Key ID</Label><Input value={f.accessKeyId} onChange={(e) => set({ accessKeyId: e.target.value })} /></div>
-          <div className="space-y-1.5"><Label>Secret Access Key</Label><Input type="password" value={f.secretAccessKey} onChange={(e) => set({ secretAccessKey: e.target.value })} /></div>
-        </div>
-        <Button variant="gradient" onClick={submit} disabled={isSaving}>Salvar armazenamento</Button>
-      </CardContent>
-    </Card>
   );
 }
