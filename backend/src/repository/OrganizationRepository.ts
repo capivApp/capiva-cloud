@@ -32,4 +32,28 @@ export class OrganizationRepository extends BaseRepository {
   roleOf(userId: string, organizationId: string): Promise<Role | undefined> {
     return this.findMembership(userId, organizationId).then((m) => m?.role);
   }
+
+  listMembers(organizationId: string) {
+    return this.tx.membership.findMany({
+      where: { organizationId },
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  updateMemberRole(userId: string, organizationId: string, role: Role): Promise<Membership> {
+    return this.tx.membership.update({ where: { userId_organizationId: { userId, organizationId } }, data: { role } });
+  }
+
+  removeMember(userId: string, organizationId: string): Promise<Membership> {
+    return this.tx.membership.delete({ where: { userId_organizationId: { userId, organizationId } } });
+  }
+
+  countOwners(organizationId: string): Promise<number> {
+    return this.tx.membership.count({ where: { organizationId, role: "OWNER" } });
+  }
+
+  findById(id: string): Promise<Organization | null> {
+    return this.tx.organization.findUnique({ where: { id } });
+  }
 }

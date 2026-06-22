@@ -41,9 +41,19 @@ export const createApplicationSchema = z.object({
   tags: z.array(z.string()).default([]),
   /** Volumes persistentes. */
   volumes: z.array(volumeSchema).default([]),
+  /** TLS do domínio: lets_encrypt (cert-manager) | uploaded (cert da org) | none. */
+  tlsMode: z.enum(["LETS_ENCRYPT", "UPLOADED", "NONE"]).default("LETS_ENCRYPT"),
+  tlsCertificateId: z.string().optional(),
+  /** Registry privado opcional (gera imagePullSecret). */
+  registryId: z.string().optional(),
 });
 
 export const updateTagsSchema = z.object({ tags: z.array(z.string()) });
+
+export const updateTlsSchema = z.object({
+  tlsMode: z.enum(["LETS_ENCRYPT", "UPLOADED", "NONE"]),
+  tlsCertificateId: z.string().optional(),
+});
 
 export const updateStrategySchema = z.object({
   strategy: rolloutStrategy,

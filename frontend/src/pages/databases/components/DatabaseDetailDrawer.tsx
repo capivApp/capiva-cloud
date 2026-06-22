@@ -1,11 +1,72 @@
-import { Copy } from "lucide-react";
+import { Copy, DatabaseBackup as BackupIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDatabases, type DatabaseDetail } from "@/hooks/useDatabases";
+import { useDatabaseBackups } from "@/hooks/useDatabaseBackups";
+import { useStorageProviders } from "@/hooks/useStorageProviders";
+
+const bkVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
+
+/** Painel de backups manuais (dump → S3) de um banco PostgreSQL/MySQL. */
+function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: string }) {
+  const { backups, isLoading, run, isRunning } = useDatabaseBackups(databaseId);
+  const { providers } = useStorageProviders();
+  const [scope, setScope] = useState<"single" | "all">("single");
+  const [mode, setMode] = useState<"full" | "incremental">("full");
+  const [storageProviderId, setStorageProviderId] = useState("");
+  const supported = kind === "POSTGRESQL" || kind === "MYSQL";
+
+  if (!supported) return null;
+
+  const trigger = () =>
+    run({ scope, mode, storageProviderId: storageProviderId || undefined })
+      .then(() => toast.success("Backup disparado"))
+      .catch((e) => toast.error((e as Error).message));
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-3">
+      <p className="flex items-center gap-2 text-sm font-medium"><BackupIcon className="size-4" /> Backups sob demanda</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Escopo</Label>
+          <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={scope} onChange={(e) => setScope(e.target.value as "single" | "all")}>
+            <option value="single">Este banco</option>
+            <option value="all">Todos os bancos do servidor (1 arquivo cada)</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Tipo</Label>
+          <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={mode} onChange={(e) => setMode(e.target.value as "full" | "incremental")}>
+            <option value="full">Full</option>
+            <option value="incremental">Incremental</option>
+          </select>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Destino (S3)</Label>
+        <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={storageProviderId} onChange={(e) => setStorageProviderId(e.target.value)}>
+          <option value="">Provedor padrão da organização</option>
+          {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <Button variant="outline" size="sm" onClick={trigger} disabled={isRunning}><BackupIcon className="size-3.5" /> Fazer backup agora</Button>
+      {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+      <div className="space-y-1">
+        {backups.map((b) => (
+          <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+            <span className="text-muted-foreground">{new Date(b.startedAt).toLocaleString()}</span>
+            <Badge variant={bkVariant(b.status)}>{b.status}</Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** Drawer de configuração de um banco: URL de conexão + backups + senha. */
 export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onClose: () => void; id: string | null }) {
@@ -78,8 +139,10 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
                 <div className="space-y-1.5"><Label>Retenção (dias)</Label><Input type="number" value={retentionDays} onChange={(e) => setRetentionDays(+e.target.value)} /></div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Configure o destino S3 global em Configurações → Armazenamento.</p>
+            <p className="text-xs text-muted-foreground">Configure os destinos S3 em Organização → Storage.</p>
           </div>
+
+          {id && <DatabaseBackupsPanel databaseId={id} kind={detail.kind} />}
         </div>
       )}
     </Drawer>

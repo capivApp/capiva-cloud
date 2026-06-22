@@ -4,7 +4,11 @@ import { ApplicationService } from "@service/ApplicationService";
 import { DeploymentService } from "@service/DeploymentService";
 import { DependencyService } from "@service/DependencyService";
 import { RolloutService } from "@service/RolloutService";
-import { createApplicationSchema, updateStrategySchema, updateTagsSchema, volumeSchema } from "@schemas/application.schema";
+import { VolumeBackupService } from "@service/VolumeBackupService";
+import { AuditService } from "@service/AuditService";
+import { UptimeService } from "@service/UptimeService";
+import { ReportService } from "@service/ReportService";
+import { createApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
 import { HttpError } from "@functions/HttpError";
 
 function org(req: Request): { organizationId: string } {
@@ -20,7 +24,35 @@ export class ApplicationController {
     private readonly deployments: DeploymentService,
     private readonly dependencies: DependencyService,
     private readonly rollouts: RolloutService,
+    private readonly volumeBackups: VolumeBackupService,
+    private readonly audit: AuditService,
+    private readonly uptime: UptimeService,
+    private readonly reports: ReportService,
   ) {}
+
+  listUptimeChecks = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.uptime.listChecks(String(req.params.id), org(req)));
+  };
+
+  createUptimeCheck = async (req: Request, res: Response): Promise<void> => {
+    const url = (req.body?.url as string)?.trim();
+    if (!url) throw HttpError.badRequest("url é obrigatória.");
+    res.status(201).json(await this.uptime.createCheck(String(req.params.id), { url, intervalSec: req.body?.intervalSec, enabled: req.body?.enabled }, org(req)));
+  };
+
+  removeUptimeCheck = async (req: Request, res: Response): Promise<void> => {
+    await this.uptime.removeCheck(String(req.params.checkId), org(req));
+    res.status(204).end();
+  };
+
+  runUptimeCheck = async (req: Request, res: Response): Promise<void> => {
+    await this.uptime.runNow(String(req.params.checkId), org(req));
+    res.json({ ok: true });
+  };
+
+  reportsView = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.reports.forApplication(String(req.params.id), org(req)));
+  };
 
   list = async (req: Request, res: Response): Promise<void> => {
     const projectId = req.query.projectId as string;
@@ -30,7 +62,9 @@ export class ApplicationController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createApplicationSchema.parse(req.body);
-    res.status(201).json(await this.apps.create(dto, org(req)));
+    const app = await this.apps.create(dto, org(req));
+    this.audit.fromRequest(req, "application.create", { targetType: "application", targetId: app.id, detail: app.name });
+    res.status(201).json(app);
   };
 
   get = async (req: Request, res: Response): Promise<void> => {
@@ -43,6 +77,7 @@ export class ApplicationController {
 
   deploy = async (req: Request, res: Response): Promise<void> => {
     const version = (req.body?.version as string) ?? `manual-${Date.now()}`;
+    this.audit.fromRequest(req, "application.deploy", { targetType: "application", targetId: String(req.params.id), detail: version });
     res.status(202).json(await this.deployments.trigger(String(req.params.id), version, org(req)));
   };
 
@@ -93,12 +128,18 @@ export class ApplicationController {
 
   remove = async (req: Request, res: Response): Promise<void> => {
     await this.apps.remove(String(req.params.id), org(req));
+    this.audit.fromRequest(req, "application.delete", { targetType: "application", targetId: String(req.params.id) });
     res.status(204).end();
   };
 
   updateTags = async (req: Request, res: Response): Promise<void> => {
     const { tags } = updateTagsSchema.parse(req.body);
     res.json(await this.apps.updateTags(String(req.params.id), tags, org(req)));
+  };
+
+  updateTls = async (req: Request, res: Response): Promise<void> => {
+    const dto = updateTlsSchema.parse(req.body);
+    res.json(await this.apps.updateTls(String(req.params.id), dto, org(req)));
   };
 
   listVolumes = async (req: Request, res: Response): Promise<void> => {
@@ -108,6 +149,19 @@ export class ApplicationController {
   addVolume = async (req: Request, res: Response): Promise<void> => {
     const dto = volumeSchema.parse(req.body);
     res.status(201).json(await this.apps.addVolume(String(req.params.id), dto, org(req)));
+  };
+
+  listVolumeBackups = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.volumeBackups.list(String(req.params.id), String(req.params.volId), org(req)));
+  };
+
+  createVolumeBackup = async (req: Request, res: Response): Promise<void> => {
+    const storageProviderId = req.body?.storageProviderId as string | undefined;
+    res.status(201).json(await this.volumeBackups.create(String(req.params.id), String(req.params.volId), org(req), storageProviderId));
+  };
+
+  restoreVolumeBackup = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.volumeBackups.restore(String(req.params.id), String(req.params.volId), String(req.params.backupId), org(req)));
   };
 
   removeVolume = async (req: Request, res: Response): Promise<void> => {

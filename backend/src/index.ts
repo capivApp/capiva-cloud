@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { config } from "./config";
 import { noAwaitedFunction } from "@functions/noAwaitedFunction";
 import { bootstrapRegistry } from "./bootstrap/registry";
+import { startUptimeScheduler } from "@infra/scheduler/uptimeScheduler";
 import HttpServer from "./http/server";
 
 async function main(): Promise<void> {
@@ -9,6 +10,7 @@ async function main(): Promise<void> {
     await bootstrapRegistry();
     const server = new HttpServer(config.port);
     await server.init();
+    startUptimeScheduler();
 
     process.on("SIGINT", async () => {
       await server.stop();

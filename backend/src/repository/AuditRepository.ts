@@ -11,4 +11,16 @@ export class AuditRepository extends BaseRepository {
   listForUser(userId: string): Promise<AuditLog[]> {
     return this.tx.auditLog.findMany({ where: { userId }, orderBy: { at: "desc" }, take: 100 });
   }
+
+  listByOrganization(organizationId: string, filters: { event?: string; userId?: string } = {}): Promise<AuditLog[]> {
+    return this.tx.auditLog.findMany({
+      where: {
+        organizationId,
+        ...(filters.event ? { event: { contains: filters.event } } : {}),
+        ...(filters.userId ? { userId: filters.userId } : {}),
+      },
+      orderBy: { at: "desc" },
+      take: 200,
+    });
+  }
 }

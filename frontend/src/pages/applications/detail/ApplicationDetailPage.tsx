@@ -11,6 +11,7 @@ import { useMetricsStream } from "@/hooks/useMetricsStream";
 import { StatusBadge } from "@/pages/applications/components/StatusBadge";
 import { ApplicationActions } from "@/pages/applications/components/ApplicationActions";
 import { StrategyDrawer } from "@/pages/applications/detail/StrategyDrawer";
+import { VolumesTab } from "@/pages/applications/detail/VolumesTab";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 
 interface LogLine { ts: string; line: string }
@@ -76,6 +77,7 @@ export function ApplicationDetailPage() {
       <Tabs defaultValue="deploys">
         <TabsList>
           <TabsTrigger value="deploys">Deploys</TabsTrigger>
+          <TabsTrigger value="volumes">Volumes</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
@@ -108,6 +110,10 @@ export function ApplicationDetailPage() {
               ))}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="volumes" className="pt-5">
+          {app && <VolumesTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="logs" className="pt-5">

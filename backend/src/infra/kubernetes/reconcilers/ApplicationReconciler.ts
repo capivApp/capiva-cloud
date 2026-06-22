@@ -8,6 +8,8 @@ import {
   pvcManifest,
   rolloutManifest,
   serviceManifest,
+  tlsSecretManifest,
+  type TlsModeManifest,
 } from "@infra/kubernetes/manifests";
 import type { IResourceReconciler, KubeContext, ObservedStatus } from "@interface/integrations";
 import type { Application } from "@prisma-generated/client";
@@ -28,6 +30,10 @@ export interface AppReconcileInput {
   allowedFrom?: string[];
   /** Domínio custom → Ingress (Traefik) + TLS. */
   domain?: string;
+  /** Modo TLS do Ingress: lets_encrypt | uploaded | none. */
+  tlsMode?: TlsModeManifest;
+  /** Certificado enviado (PEM) quando tlsMode = UPLOADED → vira Secret tls. */
+  tlsCert?: { cert: string; key: string };
   /** Volumes persistentes (PVC) montados nos pods. */
   volumes?: AppVolumeSpec[];
   /** Nome do imagePullSecret (registry privado). */
@@ -44,7 +50,7 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
   constructor(private readonly k8s: KubernetesAdapter) {}
 
   async reconcile(input: AppReconcileInput, ctx: KubeContext): Promise<ObservedStatus> {
-    const { app, image, replicas = 2, envVars = [], allowedFrom = [], domain, volumes = [], imagePullSecret } = input;
+    const { app, image, replicas = 2, envVars = [], allowedFrom = [], domain, tlsMode = "LETS_ENCRYPT", tlsCert, volumes = [], imagePullSecret } = input;
     const port = app.port ?? 3000;
     const base = {
       name: app.name,
@@ -79,8 +85,14 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
 
     // Service encaminha a porta 80 do cluster para a porta ALVO do container.
     await this.k8s.apply(ctx, serviceManifest(app.name, ctx.namespace, port));
-    // Domínio custom → Ingress (Traefik) + TLS automático (cert-manager).
-    if (domain) await this.k8s.apply(ctx, ingressManifest(app.name, ctx.namespace, domain));
+    // Domínio custom → Ingress (Traefik) com o modo TLS escolhido.
+    if (domain) {
+      // UPLOADED: garante o Secret tls a partir do certificado enviado antes do Ingress.
+      if (tlsMode === "UPLOADED" && tlsCert) {
+        await this.k8s.apply(ctx, tlsSecretManifest(app.name, ctx.namespace, tlsCert.cert, tlsCert.key));
+      }
+      await this.k8s.apply(ctx, ingressManifest(app.name, ctx.namespace, domain, tlsMode));
+    }
 
     return status;
   }

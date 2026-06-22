@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bell,
   Boxes,
   Cpu,
   Database,
@@ -8,16 +9,20 @@ import {
   HardDrive,
   KeyRound,
   LayoutDashboard,
+  LineChart,
   LogOut,
   Network,
   ScrollText,
+  Search,
   Server,
   Settings,
+  ShieldCheck,
   Store,
   Users,
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/brand/Logo";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 import { WorkspaceSwitcher } from "@/components/layout/WorkspaceSwitcher";
 import { Button } from "@/components/ui/button";
@@ -38,6 +43,7 @@ const SECTIONS: { title: string; items: { to: string; label: string; icon: typeo
       { to: "/deployments", label: "Deploys", icon: GitBranch },
       { to: "/monitoring", label: "Monitoring", icon: Activity },
       { to: "/requests", label: "Requests", icon: ScrollText },
+      { to: "/reports", label: "Reports", icon: LineChart },
       { to: "/marketplace", label: "Marketplace", icon: Store },
     ],
   },
@@ -46,8 +52,12 @@ const SECTIONS: { title: string; items: { to: string; label: string; icon: typeo
     items: [
       { to: "/fleet", label: "Clusters / Fleet", icon: Server },
       { to: "/members", label: "Usuários", icon: Users },
+      { to: "/notifications", label: "Notificações", icon: Bell },
       { to: "/registries", label: "Registries", icon: HardDrive },
+      { to: "/storage", label: "Storage", icon: Database },
+      { to: "/certificates", label: "Certificados", icon: ShieldCheck },
       { to: "/api-keys", label: "API Keys", icon: KeyRound },
+      { to: "/audit", label: "Audit Logs", icon: ScrollText },
       { to: "/settings", label: "Configurações", icon: Settings },
     ],
   },
@@ -111,8 +121,14 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-border px-6">
           <WorkspaceSwitcher />
-          <div className="text-xs text-muted-foreground">⌘K para buscar</div>
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          >
+            <Search className="size-3.5" /> Buscar <kbd className="rounded bg-muted px-1 font-mono">⌘K</kbd>
+          </button>
         </header>
+        <CommandPalette />
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
         </main>

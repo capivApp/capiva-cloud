@@ -32,6 +32,16 @@ function volumeBits(input: AppManifestInput) {
   };
 }
 
+/**
+ * StorageClass por modo de acesso. RWX (pasta compartilhada entre pods) usa
+ * Longhorn por padrão (share-manager). Ambos são configuráveis por env para
+ * clusters de dev sem Longhorn (ex.: RWO=local-path, RWX=nfs).
+ */
+function storageClassFor(accessMode: "RWO" | "RWX"): string {
+  if (accessMode === "RWX") return process.env.CAPIVA_STORAGE_CLASS_RWX || "longhorn";
+  return process.env.CAPIVA_STORAGE_CLASS || "longhorn";
+}
+
 /** PVC de um volume da aplicação. RWX usa Longhorn (share-manager). */
 export function pvcManifest(claimName: string, namespace: string, sizeGi: number, accessMode: "RWO" | "RWX"): K8sManifest {
   return {
@@ -40,8 +50,68 @@ export function pvcManifest(claimName: string, namespace: string, sizeGi: number
     metadata: { name: claimName, namespace, labels: { "app.kubernetes.io/part-of": "capiva" } },
     spec: {
       accessModes: [accessMode === "RWX" ? "ReadWriteMany" : "ReadWriteOnce"],
-      storageClassName: process.env.CAPIVA_STORAGE_CLASS || "longhorn",
+      storageClassName: storageClassFor(accessMode),
       resources: { requests: { storage: `${sizeGi}Gi` } },
+    },
+  };
+}
+
+export interface KanikoBuildInput {
+  name: string;
+  namespace: string;
+  /** contexto de build: `git://host/owner/repo.git#refs/heads/branch` ou `dir://...`. */
+  context: string;
+  dockerfile: string;
+  imageRef: string;
+  /** subpath dentro do repo (monorepo). */
+  contextSubPath?: string;
+  /** secret de credenciais do registro de destino (docker config json). */
+  pushSecret?: string;
+  buildArgs?: { key: string; value: string }[];
+}
+
+/**
+ * Job Kaniko — build de imagem in-cluster (sem Docker daemon) a partir de um
+ * repositório Git, publicando no registry de destino. Abstrai o pipeline de
+ * build: o usuário só escolhe a origem; a plataforma gera e executa este Job.
+ */
+export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
+  const args = [
+    `--context=${input.context}`,
+    `--dockerfile=${input.dockerfile}`,
+    `--destination=${input.imageRef}`,
+    ...(input.contextSubPath ? [`--context-sub-path=${input.contextSubPath}`] : []),
+    ...(input.pushSecret ? [] : ["--no-push"]),
+    ...(input.buildArgs ?? []).map((a) => `--build-arg=${a.key}=${a.value}`),
+  ];
+  const mountSecret = input.pushSecret
+    ? { volumeMounts: [{ name: "docker-config", mountPath: "/kaniko/.docker" }] }
+    : {};
+  const secretVolume = input.pushSecret
+    ? { volumes: [{ name: "docker-config", secret: { secretName: input.pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] } }] }
+    : {};
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: { name: input.name, namespace: input.namespace, labels: labels(input.name) },
+    spec: {
+      backoffLimit: 0,
+      ttlSecondsAfterFinished: 300,
+      template: {
+        metadata: { labels: labels(input.name) },
+        spec: {
+          restartPolicy: "Never",
+          containers: [
+            {
+              name: "kaniko",
+              image: process.env.CAPIVA_KANIKO_IMAGE || "gcr.io/kaniko-project/executor:latest",
+              args,
+              ...mountSecret,
+            },
+          ],
+          ...secretVolume,
+        },
+      },
     },
   };
 }
@@ -188,17 +258,14 @@ export function workerManifest(
       template: {
         metadata: { labels: labels(name) },
         spec: {
-          ...(volumeBits(input).imagePullSecrets ? { imagePullSecrets: volumeBits(input).imagePullSecrets } : {}),
           containers: [
             {
               name,
               image,
               resources: { requests: res, limits: res },
               env: envVars.map((e) => ({ name: e.key, value: e.value })),
-              volumeMounts: volumeBits(input).volumeMounts,
             },
           ],
-          volumes: volumeBits(input).volumes,
         },
       },
     },
@@ -227,28 +294,104 @@ export function serviceManifest(name: string, namespace: string, targetPort: num
  * DECISÃO: o edge da plataforma é o Traefik (IngressClass "traefik"), por ser
  * simples, self-hosted e com ACME nativo — alinhado à proposta "just works".
  */
-export function ingressManifest(name: string, namespace: string, host: string): K8sManifest {
+export type TlsModeManifest = "LETS_ENCRYPT" | "UPLOADED" | "NONE";
+
+/**
+ * Longhorn Backup de um volume (snapshot → S3 backupTarget). O nome do volume
+ * Longhorn é o `volumeHandle` do PV ligado ao PVC. Abstrai a CRD do Longhorn.
+ */
+export function longhornBackupManifest(name: string, longhornVolume: string): K8sManifest {
+  return {
+    apiVersion: "longhorn.io/v1beta2",
+    kind: "Backup",
+    metadata: { name, namespace: "longhorn-system", labels: { "app.kubernetes.io/part-of": "capiva" } },
+    spec: { snapshotName: name, labels: { "capiva.backup": name } },
+    // O controller do Longhorn associa o Backup ao volume via label/owner; aqui
+    // mantemos o vínculo explícito para reconciliação/observação.
+    status: { volumeName: longhornVolume },
+  };
+}
+
+/** Configura o destino de backup do Longhorn (S3) a partir de um StorageProvider. */
+export function longhornBackupTargetSecretManifest(
+  name: string,
+  s3: { accessKeyId: string; secretAccessKey: string; endpoint: string },
+): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    metadata: { name, namespace: "longhorn-system", labels: { "app.kubernetes.io/part-of": "capiva" } },
+    type: "Opaque",
+    data: {
+      AWS_ACCESS_KEY_ID: Buffer.from(s3.accessKeyId).toString("base64"),
+      AWS_SECRET_ACCESS_KEY: Buffer.from(s3.secretAccessKey).toString("base64"),
+      AWS_ENDPOINTS: Buffer.from(s3.endpoint).toString("base64"),
+    },
+  };
+}
+
+/** Secret `kubernetes.io/dockerconfigjson` (imagePullSecret) de um registry privado. */
+export function dockerConfigSecretManifest(
+  name: string,
+  namespace: string,
+  registry: { url: string; username: string; password: string },
+): K8sManifest {
+  const auth = Buffer.from(`${registry.username}:${registry.password}`).toString("base64");
+  const dockerconfig = { auths: { [registry.url]: { username: registry.username, password: registry.password, auth } } };
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    type: "kubernetes.io/dockerconfigjson",
+    metadata: { name, namespace, labels: labels(name) },
+    data: { ".dockerconfigjson": Buffer.from(JSON.stringify(dockerconfig)).toString("base64") },
+  };
+}
+
+/** Secret `kubernetes.io/tls` a partir de um certificado enviado (PEM cert+key). */
+export function tlsSecretManifest(name: string, namespace: string, certPem: string, keyPem: string): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    type: "kubernetes.io/tls",
+    metadata: { name: `${name}-tls`, namespace, labels: labels(name) },
+    data: {
+      "tls.crt": Buffer.from(certPem).toString("base64"),
+      "tls.key": Buffer.from(keyPem).toString("base64"),
+    },
+  };
+}
+
+/**
+ * Ingress (Traefik) com TLS flexível por deploy/domínio:
+ *  - `LETS_ENCRYPT`: annotation cert-manager + bloco tls (Secret gerado pelo ACME).
+ *  - `UPLOADED`: bloco tls apontando para o Secret `<name>-tls` (cert enviado).
+ *  - `NONE`: sem tls, entrypoint `web` (porta 80).
+ */
+export function ingressManifest(name: string, namespace: string, host: string, tlsMode: TlsModeManifest = "LETS_ENCRYPT"): K8sManifest {
+  const rules = [
+    { host, http: { paths: [{ path: "/", pathType: "Prefix", backend: { service: { name, port: { number: 80 } } } }] } },
+  ];
+
+  if (tlsMode === "NONE") {
+    return {
+      apiVersion: "networking.k8s.io/v1",
+      kind: "Ingress",
+      metadata: { name, namespace, labels: labels(name), annotations: { "traefik.ingress.kubernetes.io/router.entrypoints": "web" } },
+      spec: { ingressClassName: "traefik", rules },
+    };
+  }
+
+  const annotations: Record<string, string> = { "traefik.ingress.kubernetes.io/router.entrypoints": "websecure" };
+  if (tlsMode === "LETS_ENCRYPT") annotations["cert-manager.io/cluster-issuer"] = process.env.CERT_ISSUER || "letsencrypt-prod";
+
   return {
     apiVersion: "networking.k8s.io/v1",
     kind: "Ingress",
-    metadata: {
-      name,
-      namespace,
-      labels: labels(name),
-      annotations: {
-        "cert-manager.io/cluster-issuer": process.env.CERT_ISSUER || "letsencrypt-prod",
-        "traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
-      },
-    },
+    metadata: { name, namespace, labels: labels(name), annotations },
     spec: {
       ingressClassName: "traefik",
       tls: [{ hosts: [host], secretName: `${name}-tls` }],
-      rules: [
-        {
-          host,
-          http: { paths: [{ path: "/", pathType: "Prefix", backend: { service: { name, port: { number: 80 } } } }] },
-        },
-      ],
+      rules,
     },
   };
 }

@@ -6,6 +6,9 @@ import { VolumeRepository } from "@repository/VolumeRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { KubeContextResolver } from "@service/KubeContextResolver";
+import { TlsCertificateService } from "@service/TlsCertificateService";
+import { DockerRegistryService } from "@service/DockerRegistryService";
+import { dockerConfigSecretManifest, type TlsModeManifest } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
@@ -26,6 +29,12 @@ export interface CreateApplicationInput {
   buildArgs?: { key: string; value: string }[];
   tags?: string[];
   volumes?: { name: string; mountPath: string; sizeGi: number; accessMode: "RWO" | "RWX" }[];
+  /** Modo TLS do domínio: lets_encrypt | uploaded | none. */
+  tlsMode?: TlsModeManifest;
+  /** Quando UPLOADED, qual certificado da org usar. */
+  tlsCertificateId?: string;
+  /** Registry privado (gera imagePullSecret). */
+  registryId?: string;
 }
 
 /**
@@ -43,6 +52,8 @@ export class ApplicationService {
     private readonly reconcilers: ReconcilerFactory,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
+    private readonly tlsCerts: TlsCertificateService,
+    private readonly registries: DockerRegistryService,
   ) {}
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<Application[]> {
@@ -65,6 +76,9 @@ export class ApplicationService {
           profile: input.profile ?? "SMALL",
           rolloutStrategy: input.rolloutStrategy ?? "ROLLING",
           port: input.port ?? 3000,
+          tlsMode: input.tlsMode ?? "LETS_ENCRYPT",
+          tlsCertificateId: input.tlsCertificateId ?? null,
+          registryId: input.registryId ?? null,
         });
         for (const e of input.env ?? []) {
           if (e.key.trim()) await this.envVars.upsert({ applicationId: created.id, key: e.key, value: e.value, source: "MANUAL" });
@@ -110,8 +124,23 @@ export class ApplicationService {
       { tenant },
     );
 
+    // TLS por domínio: se UPLOADED, decifra o certificado da org para virar Secret.
+    const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT") as TlsModeManifest;
+    const tlsCert =
+      tlsMode === "UPLOADED" && app.tlsCertificateId
+        ? await this.tlsCerts.decrypted(tenant.organizationId, app.tlsCertificateId)
+        : undefined;
+
+    // Registry privado: gera o imagePullSecret no namespace antes do workload.
+    let imagePullSecret: string | undefined;
+    if (app.registryId) {
+      const creds = await this.registries.credentials(tenant.organizationId, app.registryId);
+      imagePullSecret = `${app.name}-pull`;
+      await this.k8s.apply(ctx, dockerConfigSecretManifest(imagePullSecret, ctx.namespace, creds));
+    }
+
     const status = await this.reconcilers.forApplication().reconcile(
-      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, volumes: volumeSpecs },
+      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, tlsMode, tlsCert, volumes: volumeSpecs, imagePullSecret },
       ctx,
     );
     await withTransaction(() => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"), { tenant });
@@ -153,6 +182,24 @@ export class ApplicationService {
   async updateTags(id: string, tags: string[], tenant: { organizationId: string }): Promise<Application> {
     await this.getById(id, tenant);
     return withTransaction(() => this.apps.update(id, { tags: tags as Prisma.InputJsonValue }), { tenant });
+  }
+
+  /** Atualiza o modo TLS do domínio e reconcilia o Ingress/Secret. */
+  async updateTls(
+    id: string,
+    input: { tlsMode: TlsModeManifest; tlsCertificateId?: string },
+    tenant: { organizationId: string },
+  ): Promise<Application> {
+    const app = await this.getById(id, tenant);
+    if (input.tlsMode === "UPLOADED" && !input.tlsCertificateId) {
+      throw HttpError.badRequest("Selecione um certificado para o modo 'uploaded'.");
+    }
+    const updated = await withTransaction(
+      () => this.apps.update(id, { tlsMode: input.tlsMode, tlsCertificateId: input.tlsCertificateId ?? null }),
+      { tenant },
+    );
+    await this.reconcile(updated, tenant).catch((e) => console.error("[tls] reconcile:", (e as Error).message));
+    return updated;
   }
 
   /** Para a aplicação (escala para 0 réplicas). */

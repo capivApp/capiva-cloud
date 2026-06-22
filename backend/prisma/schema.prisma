@@ -675,6 +675,8 @@ enum NotificationType {
   EMAIL
   RESEND
   LARK
+  PUSH // Expo push notifications (app mobile)
+  WEBHOOK // webhook genérico
 }
 
 model NotificationChannel {

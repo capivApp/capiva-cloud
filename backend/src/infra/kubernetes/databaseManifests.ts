@@ -1,5 +1,70 @@
 import type { K8sManifest } from "@interface/integrations";
 
+const dbLabels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
+
+/** Secret Opaque genérico (string values → base64). Usado p/ credenciais de backup. */
+export function genericSecretManifest(name: string, namespace: string, data: Record<string, string>): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    type: "Opaque",
+    metadata: { name, namespace, labels: dbLabels(name) },
+    data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, Buffer.from(v).toString("base64")])),
+  };
+}
+
+export type DbBackupScope = "single" | "all";
+export type DbBackupKind = "POSTGRESQL" | "MYSQL";
+
+/**
+ * Monta o comando do Job de backup (pg_dump/mysqldump → S3 via mc). `all` gera
+ * UM arquivo por banco do servidor (loop). Credenciais vêm de env (Secret).
+ */
+export function databaseBackupCommand(kind: DbBackupKind, scope: DbBackupScope, prefix: string): string {
+  const upload = (key: string) => `gzip | mc pipe "s3/$S3_BUCKET/${prefix}/${key}"`;
+  const stamp = "$(date +%Y%m%d-%H%M%S)";
+  const setup = `set -e; mc alias set s3 "$S3_ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null`;
+
+  if (kind === "POSTGRESQL") {
+    if (scope === "all") {
+      return `${setup}; for DB in $(psql "$ADMIN_URL" -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname NOT IN ('postgres','template0','template1')"); do echo "dump $DB"; pg_dump "$BASE_URL/$DB" | ${upload(`\${DB}-${stamp}.sql.gz`)}; done`;
+    }
+    return `${setup}; pg_dump "$SRC_URL" | ${upload(`$DB_NAME-${stamp}.sql.gz`)}`;
+  }
+  // MYSQL
+  if (scope === "all") {
+    return `${setup}; for DB in $(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW DATABASES" | grep -vE "^(information_schema|performance_schema|mysql|sys)$"); do echo "dump $DB"; mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB" | ${upload(`\${DB}-${stamp}.sql.gz`)}; done`;
+  }
+  return `${setup}; mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" | ${upload(`$DB_NAME-${stamp}.sql.gz`)}`;
+}
+
+/** Job de backup de banco: roda o dump e envia para o S3 (Secret com credenciais). */
+export function databaseBackupJobManifest(name: string, namespace: string, command: string, secretName: string): K8sManifest {
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: { name, namespace, labels: dbLabels(name) },
+    spec: {
+      backoffLimit: 1,
+      ttlSecondsAfterFinished: 600,
+      template: {
+        metadata: { labels: dbLabels(name) },
+        spec: {
+          restartPolicy: "Never",
+          containers: [
+            {
+              name: "backup",
+              image: process.env.CAPIVA_DB_BACKUP_IMAGE || "ghcr.io/capiva/db-backup:latest",
+              command: ["sh", "-c", command],
+              envFrom: [{ secretRef: { name: secretName } }],
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
 /**
  * Manifests dos serviços gerenciados do Marketplace, cada um usando o Operator
  * battle-tested adequado. Tudo escondido do usuário (que só escolhe tipo/tamanho/HA).

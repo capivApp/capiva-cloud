@@ -9,4 +9,6 @@ export const registry = (router: Router): void => {
   const ctrl = container.get(PlatformController);
   router.get("/releases", ctrl.releaseSummary);
   router.get("/fleet", ctrl.fleetView);
+  router.get("/monitoring", ctrl.monitoringView);
+  router.get("/requests", ctrl.requestsView);
 };

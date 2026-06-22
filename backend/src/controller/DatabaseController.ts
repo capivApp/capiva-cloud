@@ -1,13 +1,26 @@
 import type { Request, Response } from "express";
 import { Injectable } from "@di/index";
 import { ManagedDatabaseService } from "@service/ManagedDatabaseService";
+import { DatabaseBackupService } from "@service/DatabaseBackupService";
 import { createDatabaseSchema, updateDatabaseSchema } from "@schemas/resource.schema";
 import { tenantOf } from "@functions/tenant";
 import { HttpError } from "@functions/HttpError";
 
 @Injectable()
 export class DatabaseController {
-  constructor(private readonly databases: ManagedDatabaseService) {}
+  constructor(
+    private readonly databases: ManagedDatabaseService,
+    private readonly backups: DatabaseBackupService,
+  ) {}
+
+  listBackups = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.backups.list(String(req.params.id), tenantOf(req)));
+  };
+
+  createBackup = async (req: Request, res: Response): Promise<void> => {
+    const { scope, mode, storageProviderId } = req.body ?? {};
+    res.status(201).json(await this.backups.create(String(req.params.id), tenantOf(req), { scope, mode, storageProviderId }));
+  };
 
   list = async (req: Request, res: Response): Promise<void> => {
     const projectId = req.query.projectId as string;

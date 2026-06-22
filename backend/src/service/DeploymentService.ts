@@ -6,6 +6,7 @@ import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { BuildStrategyResolver } from "@infra/build/strategies";
+import { NotificationService } from "@service/NotificationService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
@@ -29,6 +30,7 @@ export class DeploymentService {
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
     private readonly appService: ApplicationService,
+    private readonly notifications: NotificationService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -80,8 +82,11 @@ export class DeploymentService {
       }, { tenant });
 
     await step("Build iniciado", "BUILDING", 10);
-    const imageRef = `registry.capiva.cloud/${app.name}:${version}`;
-    await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef, ctx });
+    const target = `registry.capiva.cloud/${app.name}:${version}`;
+    // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
+    // própria imagem informada; para origens por código é a imagem publicada.
+    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx });
+    const imageRef = built.imageRef;
 
     await step("Imagem publicada", "PUSHING", 40);
     await step("Deploy iniciado", "DEPLOYING", 60);
@@ -101,6 +106,14 @@ export class DeploymentService {
       });
       deploymentEvents.emit(deploymentId, { label, status: status.ready ? "HEALTHY" : "DEPLOYING", progress: status.ready ? 100 : 80, done: status.ready });
     }, { tenant });
+
+    if (status.ready) {
+      void this.notifications.dispatch(tenant.organizationId, {
+        event: "deploy.succeeded",
+        title: `Deploy concluído: ${app.name}`,
+        body: `Versão ${version} publicada com sucesso (${status.replicas ?? 0} réplicas).`,
+      });
+    }
   }
 
   private async fail(deploymentId: string, tenant: { organizationId: string }): Promise<void> {
@@ -109,6 +122,12 @@ export class DeploymentService {
       await this.deployments.update(deploymentId, { status: "FAILED", finishedAt: new Date() });
       deploymentEvents.emit(deploymentId, { label: "Deploy falhou", status: "FAILED", progress: 100, done: true });
     }, { tenant });
+
+    void this.notifications.dispatch(tenant.organizationId, {
+      event: "deploy.failed",
+      title: "Deploy falhou",
+      body: `Um deploy falhou e será avaliado para rollback automático.`,
+    });
 
     // Smart rollback: se a app tem rollback automático e existe um deploy saudável
     // anterior, restaura automaticamente a versão estável.

@@ -21,8 +21,8 @@ up() {
   need docker; need k3d; need kubectl
   if ! k3d cluster list | grep -q "^${CLUSTER}"; then
     echo "🚀 Criando cluster k3d '${CLUSTER}' (Traefik já incluso no k3s)..."
-    k3d cluster create "${CLUSTER}" --servers 1 --agents 1 \
-      --port "8081:80@loadbalancer" --port "8443:443@loadbalancer" --wait
+    k3d cluster create "${CLUSTER}" --servers 1 --agents 2 \
+      --port "8880:80@loadbalancer" --port "8843:443@loadbalancer" --wait
   fi
 
   echo "🔐 Criando ServiceAccount 'capiva' com permissões de admin..."
@@ -30,8 +30,16 @@ up() {
   kubectl create clusterrolebinding capiva-admin --clusterrole=cluster-admin \
     --serviceaccount=default:capiva --dry-run=client -o yaml | kubectl apply -f -
 
-  echo "🧩 Instalando addons recomendados (cert-manager)..."
+  echo "🧩 Instalando addons recomendados (cert-manager, metrics-server, Longhorn)..."
+  # TLS automático (Let's Encrypt) por domínio.
   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml >/dev/null 2>&1 || true
+  # Monitoring: uso de CPU/memória por nó e por pod (metrics.k8s.io).
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml >/dev/null 2>&1 || true
+  kubectl patch deployment metrics-server -n kube-system --type=json \
+    -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' >/dev/null 2>&1 || true
+  # Storage: volumes persistentes com RWX (pasta compartilhada entre pods).
+  kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml >/dev/null 2>&1 || true
+  echo "   (Longhorn pode levar 1-2 min para ficar Ready: kubectl -n longhorn-system get pods)"
 
   TOKEN=$(kubectl create token capiva -n default --duration=8760h)
   API=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')

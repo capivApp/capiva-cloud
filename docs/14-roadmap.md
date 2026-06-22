@@ -50,7 +50,7 @@ Deploy an app from GitHub with Postgres attached, TLS domain, automatic deploy o
 | Geo-redundancy      | Multi-region app deployment, DNS failover                   |
 | Kafka/ES/ClickHouse | Additional operators                                        |
 | FinOps              | Cost tracking per org/project/environment, quotas, billing  |
-| Compliance          | SSO/SAML/OIDC, audit export, policy engine (OPA/Gatekeeper) |
+| Compliance          | Audit export, policy engine (OPA/Gatekeeper)                |
 | Service Mesh        | Internal mTLS, advanced traffic policies (fully abstracted) |
 
 ---

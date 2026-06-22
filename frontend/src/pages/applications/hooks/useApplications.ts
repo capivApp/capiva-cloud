@@ -15,6 +15,13 @@ export interface Application {
   createdAt: string;
 }
 
+export interface VolumeSpec {
+  name: string;
+  mountPath: string;
+  sizeGi: number;
+  accessMode: "RWO" | "RWX";
+}
+
 export interface CreateApplicationDTO {
   projectId: string;
   environmentId: string;
@@ -26,6 +33,8 @@ export interface CreateApplicationDTO {
   port?: number;
   env?: { key: string; value: string }[];
   buildArgs?: { key: string; value: string }[];
+  tags?: string[];
+  volumes?: VolumeSpec[];
 }
 
 /**

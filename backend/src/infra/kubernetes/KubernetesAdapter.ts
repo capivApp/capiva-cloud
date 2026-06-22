@@ -2,18 +2,22 @@ import {
   CoreV1Api,
   KubeConfig,
   KubernetesObjectApi,
+  Metrics,
   PatchStrategy,
   VersionApi,
   type KubernetesObject,
 } from "@kubernetes/client-node";
 import crypto from "crypto";
 import { Injectable } from "@di/index";
+import { cpuToMillicores, memoryToMib } from "@functions/quantity";
 import type {
   IKubernetesAdapter,
   K8sManifest,
   KubeContext,
+  NodeMetricUsage,
   NodeUsage,
   ObservedStatus,
+  PodMetricUsage,
 } from "@interface/integrations";
 
 /**
@@ -191,6 +195,80 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         cpuCapacity: n.status?.capacity?.cpu,
         memoryCapacity: n.status?.capacity?.memory,
       }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Uso de CPU/memória por nó (capacidade vs usado) e pods agrupados por nó com
+   * seu uso. Requer metrics-server (metrics.k8s.io). Usado pela Monitoring view.
+   */
+  async topNodes(kubeconfig: string): Promise<NodeMetricUsage[]> {
+    if (!kubeconfig) return [];
+    try {
+      const kc = this.loadKc(kubeconfig);
+      const core = kc.makeApiClient(CoreV1Api);
+      const metrics = new Metrics(kc);
+      const [nodeList, nodeMetrics, pods] = await Promise.all([
+        core.listNode(),
+        metrics.getNodeMetrics(),
+        this.topPods(kubeconfig),
+      ]);
+
+      const usageByNode = new Map(nodeMetrics.items.map((m) => [m.metadata.name, m.usage]));
+      const podsByNode = new Map<string, PodMetricUsage[]>();
+      for (const pod of pods) {
+        if (!podsByNode.has(pod.node)) podsByNode.set(pod.node, []);
+        podsByNode.get(pod.node)!.push(pod);
+      }
+
+      return nodeList.items.map((n) => {
+        const name = n.metadata?.name ?? "node";
+        const isControlPlane =
+          "node-role.kubernetes.io/control-plane" in (n.metadata?.labels ?? {}) ||
+          "node-role.kubernetes.io/master" in (n.metadata?.labels ?? {});
+        const usage = usageByNode.get(name);
+        return {
+          name,
+          role: isControlPlane ? ("control-plane" as const) : ("worker" as const),
+          ready: (n.status?.conditions ?? []).some((c) => c.type === "Ready" && c.status === "True"),
+          cpuCapacityM: cpuToMillicores(n.status?.capacity?.cpu),
+          cpuUsedM: cpuToMillicores(usage?.cpu),
+          memCapacityMib: memoryToMib(n.status?.capacity?.memory),
+          memUsedMib: memoryToMib(usage?.memory),
+          pods: (podsByNode.get(name) ?? []).sort((a, b) => b.cpuMillicores - a.cpuMillicores),
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /** Uso de CPU/memória por pod (somando containers), com o nó onde roda. */
+  async topPods(kubeconfig: string, namespace?: string): Promise<PodMetricUsage[]> {
+    if (!kubeconfig) return [];
+    try {
+      const kc = this.loadKc(kubeconfig);
+      const core = kc.makeApiClient(CoreV1Api);
+      const metrics = new Metrics(kc);
+      const [podMetrics, podList] = await Promise.all([
+        metrics.getPodMetrics(namespace),
+        namespace ? core.listNamespacedPod({ namespace }) : core.listPodForAllNamespaces(),
+      ]);
+      const nodeByPod = new Map(podList.items.map((p) => [`${p.metadata?.namespace}/${p.metadata?.name}`, p.spec?.nodeName ?? ""]));
+
+      return podMetrics.items.map((m) => {
+        const cpuMillicores = m.containers.reduce((sum, c) => sum + cpuToMillicores(c.usage.cpu), 0);
+        const memoryMib = m.containers.reduce((sum, c) => sum + memoryToMib(c.usage.memory), 0);
+        return {
+          name: m.metadata.name,
+          namespace: m.metadata.namespace,
+          node: nodeByPod.get(`${m.metadata.namespace}/${m.metadata.name}`) ?? "",
+          cpuMillicores,
+          memoryMib,
+        };
+      });
     } catch {
       return [];
     }

@@ -50,6 +50,26 @@ export interface NodeUsage {
   memoryUsage?: string;
 }
 
+// --------- Monitoring (metrics.k8s.io) ---------
+export interface PodMetricUsage {
+  name: string;
+  namespace: string;
+  node: string;
+  cpuMillicores: number;
+  memoryMib: number;
+}
+
+export interface NodeMetricUsage {
+  name: string;
+  role: "control-plane" | "worker";
+  ready: boolean;
+  cpuCapacityM: number;
+  cpuUsedM: number;
+  memCapacityMib: number;
+  memUsedMib: number;
+  pods: PodMetricUsage[];
+}
+
 // --------- Reconciler (Strategy por tipo de recurso) ---------
 export interface IResourceReconciler<TEntity = unknown> {
   reconcile(entity: TEntity, ctx: KubeContext): Promise<ObservedStatus>;

@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
-import { useApplications } from "@/pages/applications/hooks/useApplications";
+import { useApplications, type VolumeSpec } from "@/pages/applications/hooks/useApplications";
+import { VolumeEditor } from "@/pages/applications/components/VolumeEditor";
+import { useTlsCertificates } from "@/hooks/useTlsCertificates";
+import { useDockerRegistries } from "@/hooks/useDockerRegistries";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
 
@@ -57,6 +60,8 @@ function KVEditor({ list, setList, kPlaceholder }: { list: KV[]; setList: (l: KV
 export function NewApplicationWizard() {
   const navigate = useNavigate();
   const { create, isCreating } = useApplications();
+  const { certificates } = useTlsCertificates();
+  const { registries } = useDockerRegistries();
   const { projectId, environmentId } = useWorkspaceStore();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -70,9 +75,13 @@ export function NewApplicationWizard() {
     port: 3000,
     domain: "",
     tags: "",
+    tlsMode: "LETS_ENCRYPT",
+    tlsCertificateId: "",
+    registryId: "",
   });
   const [buildArgs, setBuildArgs] = useState<KV[]>([]);
   const [env, setEnv] = useState<KV[]>([]);
+  const [volumes, setVolumes] = useState<VolumeSpec[]>([]);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
@@ -98,6 +107,10 @@ export function NewApplicationWizard() {
         env: env.filter((e) => e.key.trim()),
         buildArgs: buildArgs.filter((b) => b.key.trim()),
         tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        volumes: volumes.filter((v) => v.name.trim() && v.mountPath.trim()),
+        tlsMode: form.tlsMode,
+        tlsCertificateId: form.tlsMode === "UPLOADED" ? form.tlsCertificateId || undefined : undefined,
+        registryId: form.registryId || undefined,
       } as any);
       toast.success("Aplicação criada! Iniciando primeiro deploy…");
       navigate("/applications");
@@ -163,6 +176,16 @@ export function NewApplicationWizard() {
               {buildKind === "auto" && (
                 <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Build automático ({form.source}) — detecta a linguagem e constrói sozinho, sem Dockerfile. 🪄</div>
               )}
+              {registries.length > 0 && (
+                <div className="space-y-1.5 border-t border-border pt-3">
+                  <Label>Registry privado (opcional)</Label>
+                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.registryId} onChange={(e) => set({ registryId: e.target.value })}>
+                    <option value="">Público — sem autenticação</option>
+                    {registries.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.url})</option>)}
+                  </select>
+                  <p className="text-xs text-muted-foreground">Gera um imagePullSecret para puxar imagens privadas.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -214,7 +237,43 @@ export function NewApplicationWizard() {
                 <p className="text-xs text-muted-foreground">É a única coisa de rede que não dá para adivinhar — o tráfego é roteado para essa porta.</p>
               </div>
               <div className="space-y-1.5"><Label>Domínio (opcional)</Label><Input placeholder="api.empresa.com" value={form.domain} onChange={(e) => set({ domain: e.target.value })} /></div>
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Com domínio: Ingress (Traefik), DNS, TLS (Let's Encrypt) e load balancing automáticos. ✓</div>
+
+              {form.domain.trim() && (
+                <div className="space-y-2">
+                  <Label>TLS / HTTPS</Label>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { id: "LETS_ENCRYPT", label: "Let's Encrypt", desc: "Automático (cert-manager)" },
+                      { id: "UPLOADED", label: "Certificado próprio", desc: "Usa um certificado cadastrado" },
+                      { id: "NONE", label: "Sem TLS", desc: "Somente HTTP" },
+                    ].map((m) => (
+                      <button key={m.id} type="button" onClick={() => set({ tlsMode: m.id })} className={cn("rounded-lg border px-3 py-2.5 text-left text-sm transition-colors", form.tlsMode === m.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40")}>
+                        <span className="block font-medium">{m.label}</span><span className="block text-xs text-muted-foreground">{m.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {form.tlsMode === "UPLOADED" && (
+                    <div className="space-y-1.5">
+                      <Label>Certificado</Label>
+                      {certificates.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Nenhum certificado cadastrado. Cadastre em Organização → Certificados.</p>
+                      ) : (
+                        <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.tlsCertificateId} onChange={(e) => set({ tlsCertificateId: e.target.value })}>
+                          <option value="">Selecione…</option>
+                          {certificates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Com domínio: Ingress (Traefik), DNS, load balancing e o TLS escolhido — tudo automático. ✓</div>
+
+              <div className="space-y-2 border-t border-border pt-4">
+                <Label>Volumes (pastas persistentes)</Label>
+                <p className="text-xs text-muted-foreground">Pastas que sobrevivem a deploys/reinícios. Marque "compartilhado" para que todas as réplicas vejam os mesmos arquivos (Longhorn RWX).</p>
+                <VolumeEditor list={volumes} setList={setVolumes} />
+              </div>
             </div>
           )}
 
