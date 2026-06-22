@@ -20,6 +20,17 @@ export class BackupRepository extends BaseRepository {
     return this.tx.backup.findUnique({ where: { id } });
   }
 
+  /** Backup mais recente de um banco (para dedupe do scheduler). */
+  latestForDatabase(databaseId: string): Promise<Backup | null> {
+    return this.tx.backup.findFirst({ where: { databaseId }, orderBy: { startedAt: "desc" } });
+  }
+
+  /** Remove registros de backup de um banco anteriores à data (retenção). */
+  async deleteOlderThan(databaseId: string, before: Date): Promise<number> {
+    const { count } = await this.tx.backup.deleteMany({ where: { databaseId, startedAt: { lt: before } } });
+    return count;
+  }
+
   update(id: string, data: Prisma.BackupUncheckedUpdateInput): Promise<Backup> {
     return this.tx.backup.update({ where: { id }, data });
   }

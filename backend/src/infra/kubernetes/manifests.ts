@@ -15,6 +15,8 @@ export interface AppManifestInput {
   port: number;
   profile: string;
   customResources?: Record<string, unknown> | null;
+  /** Caminho do health check (readiness). Default "/". */
+  healthPath?: string;
   envVars?: { key: string; value: string }[];
   /** volumes montados: claimName = <app>-<volName>. RWX → mesma pasta em todos os pods. */
   volumes?: { name: string; mountPath: string }[];
@@ -117,14 +119,18 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
 }
 
 /** Deployment (estratégia Rolling). Para Blue/Green e Canary usa-se Rollout (Argo). */
-export function deploymentManifest(input: AppManifestInput, replicas = 2): K8sManifest {
+/**
+ * Deployment da app. `replicas = null` omite o campo (deixa o HPA ser o dono
+ * das réplicas, evitando conflito de server-side apply com o autoscaler).
+ */
+export function deploymentManifest(input: AppManifestInput, replicas: number | null = 2): K8sManifest {
   const res = resolveResources(input.profile, input.customResources);
   return {
     apiVersion: "apps/v1",
     kind: "Deployment",
     metadata: { name: input.name, namespace: input.namespace, labels: labels(input.name) },
     spec: {
-      replicas,
+      ...(replicas === null ? {} : { replicas }),
       selector: { matchLabels: labels(input.name) },
       template: {
         metadata: { labels: labels(input.name) },
@@ -138,7 +144,7 @@ export function deploymentManifest(input: AppManifestInput, replicas = 2): K8sMa
               resources: { requests: res, limits: res },
               env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
               volumeMounts: volumeBits(input).volumeMounts,
-              readinessProbe: { httpGet: { path: "/", port: input.port }, initialDelaySeconds: 5, periodSeconds: 10 },
+              readinessProbe: { httpGet: { path: input.healthPath || "/", port: input.port }, initialDelaySeconds: 5, periodSeconds: 10 },
             },
           ],
           volumes: volumeBits(input).volumes,
@@ -367,9 +373,37 @@ export function tlsSecretManifest(name: string, namespace: string, certPem: stri
  *  - `UPLOADED`: bloco tls apontando para o Secret `<name>-tls` (cert enviado).
  *  - `NONE`: sem tls, entrypoint `web` (porta 80).
  */
-export function ingressManifest(name: string, namespace: string, host: string, tlsMode: TlsModeManifest = "LETS_ENCRYPT"): K8sManifest {
+/**
+ * Nome DNS-1123 estável para o Ingress de um domínio adicional de uma app:
+ * `<app>-<host-slug>`, truncado a 253 chars. Determinístico (idempotente e
+ * permite remover o Ingress exato ao apagar o domínio).
+ */
+export function ingressNameFor(appName: string, host: string): string {
+  const slug = host.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${appName}-${slug}`.slice(0, 253);
+}
+
+/**
+ * Ingress (Traefik) com TLS flexível por deploy/domínio:
+ *  - `LETS_ENCRYPT`: annotation cert-manager + bloco tls (Secret gerado pelo ACME).
+ *  - `UPLOADED`: bloco tls apontando para o Secret tls (cert enviado).
+ *  - `NONE`: sem tls, entrypoint `web` (porta 80).
+ *
+ * `serviceName` (default = `name`) é o Service alvo; em domínios adicionais o
+ * Ingress tem nome próprio mas aponta para o Service da app. `tlsSecretName`
+ * (default `${name}-tls`) permite um Secret por domínio.
+ */
+export function ingressManifest(
+  name: string,
+  namespace: string,
+  host: string,
+  tlsMode: TlsModeManifest = "LETS_ENCRYPT",
+  opts: { serviceName?: string; tlsSecretName?: string } = {},
+): K8sManifest {
+  const serviceName = opts.serviceName ?? name;
+  const tlsSecretName = opts.tlsSecretName ?? `${name}-tls`;
   const rules = [
-    { host, http: { paths: [{ path: "/", pathType: "Prefix", backend: { service: { name, port: { number: 80 } } } }] } },
+    { host, http: { paths: [{ path: "/", pathType: "Prefix", backend: { service: { name: serviceName, port: { number: 80 } } } }] } },
   ];
 
   if (tlsMode === "NONE") {
@@ -390,7 +424,7 @@ export function ingressManifest(name: string, namespace: string, host: string, t
     metadata: { name, namespace, labels: labels(name), annotations },
     spec: {
       ingressClassName: "traefik",
-      tls: [{ hosts: [host], secretName: `${name}-tls` }],
+      tls: [{ hosts: [host], secretName: tlsSecretName }],
       rules,
     },
   };
@@ -404,7 +438,13 @@ export function hpaManifest(
   metric: "CPU" | "MEMORY" | "REQUESTS",
   target: number,
 ): K8sManifest {
-  const metricName = metric === "MEMORY" ? "memory" : "cpu";
+  // REQUESTS usa métrica de Pods (req/s) — requer prometheus-adapter no cluster.
+  // CPU/MEMORY usam Resource utilization (metrics-server).
+  const metrics =
+    metric === "REQUESTS"
+      ? [{ type: "Pods", pods: { metric: { name: "http_requests_per_second" }, target: { type: "AverageValue", averageValue: String(target) } } }]
+      : [{ type: "Resource", resource: { name: metric === "MEMORY" ? "memory" : "cpu", target: { type: "Utilization", averageUtilization: target } } }];
+
   return {
     apiVersion: "autoscaling/v2",
     kind: "HorizontalPodAutoscaler",
@@ -413,9 +453,7 @@ export function hpaManifest(
       scaleTargetRef: { apiVersion: "apps/v1", kind: "Deployment", name },
       minReplicas: min,
       maxReplicas: max,
-      metrics: [
-        { type: "Resource", resource: { name: metricName, target: { type: "Utilization", averageUtilization: target } } },
-      ],
+      metrics,
     },
   };
 }

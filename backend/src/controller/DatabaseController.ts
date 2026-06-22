@@ -22,6 +22,10 @@ export class DatabaseController {
     res.status(201).json(await this.backups.create(String(req.params.id), tenantOf(req), { scope, mode, storageProviderId }));
   };
 
+  restoreBackup = async (req: Request, res: Response): Promise<void> => {
+    res.status(202).json(await this.backups.restore(String(req.params.id), String(req.params.backupId), tenantOf(req)));
+  };
+
   list = async (req: Request, res: Response): Promise<void> => {
     const projectId = req.query.projectId as string;
     if (!projectId) throw HttpError.badRequest("projectId é obrigatório.");

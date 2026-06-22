@@ -1,4 +1,4 @@
-import { Copy, DatabaseBackup as BackupIcon } from "lucide-react";
+import { Copy, DatabaseBackup as BackupIcon, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ const bkVariant = (s: string) => (s === "completed" ? "success" : s === "failed"
 
 /** Painel de backups manuais (dump → S3) de um banco PostgreSQL/MySQL. */
 function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: string }) {
-  const { backups, isLoading, run, isRunning } = useDatabaseBackups(databaseId);
+  const { backups, isLoading, run, isRunning, restore, isRestoring } = useDatabaseBackups(databaseId);
   const { providers } = useStorageProviders();
   const [scope, setScope] = useState<"single" | "all">("single");
   const [mode, setMode] = useState<"full" | "incremental">("full");
@@ -23,10 +23,27 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
 
   if (!supported) return null;
 
+  // Confirmação inline (sem alert nativo): primeiro clique arma, segundo confirma.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
   const trigger = () =>
     run({ scope, mode, storageProviderId: storageProviderId || undefined })
       .then(() => toast.success("Backup disparado"))
       .catch((e) => toast.error((e as Error).message));
+
+  const runRestore = (backupId: string) => {
+    if (confirmId !== backupId) {
+      setConfirmId(backupId);
+      return;
+    }
+    setConfirmId(null);
+    restore(backupId)
+      .then(() => toast.success("Restauração iniciada"))
+      .catch((e) => toast.error((e as Error).message));
+  };
+
+  // Restore só faz sentido para objetos exatos (escopo single → destino .sql.gz).
+  const restorable = (b: { status: string; destination: string | null }) => b.status === "completed" && Boolean(b.destination?.endsWith(".sql.gz"));
 
   return (
     <div className="space-y-3 rounded-lg border border-border p-3">
@@ -60,7 +77,14 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
         {backups.map((b) => (
           <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
             <span className="text-muted-foreground">{new Date(b.startedAt).toLocaleString()}</span>
-            <Badge variant={bkVariant(b.status)}>{b.status}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={bkVariant(b.status)}>{b.status}</Badge>
+              {restorable(b) && (
+                <Button variant={confirmId === b.id ? "destructive" : "ghost"} size="sm" onClick={() => runRestore(b.id)} disabled={isRestoring}>
+                  <RotateCcw className="size-3" /> {confirmId === b.id ? "Confirmar?" : "Restaurar"}
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -139,7 +163,7 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
                 <div className="space-y-1.5"><Label>Retenção (dias)</Label><Input type="number" value={retentionDays} onChange={(e) => setRetentionDays(+e.target.value)} /></div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Configure os destinos S3 em Organização → Storage.</p>
+            <p className="text-xs text-muted-foreground">O agendamento é executado pela plataforma (cron). Configure os destinos S3 em Organização → Storage.</p>
           </div>
 
           {id && <DatabaseBackupsPanel databaseId={id} kind={detail.kind} />}

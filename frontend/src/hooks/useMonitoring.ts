@@ -24,7 +24,16 @@ export interface ClusterMonitoring {
   clusterId: string;
   clusterName: string;
   nodes: NodeMetric[];
-  totals: { cpuUsedM: number; cpuCapacityM: number; memUsedMib: number; memCapacityMib: number; pods: number };
+  totals: {
+    cpuUsedM: number;
+    cpuCapacityM: number;
+    memUsedMib: number;
+    memCapacityMib: number;
+    pods: number;
+    diskUsedPct: number | null;
+    netRxBps: number | null;
+    netTxBps: number | null;
+  };
 }
 
 /**

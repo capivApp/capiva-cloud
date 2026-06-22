@@ -12,6 +12,11 @@ import { StatusBadge } from "@/pages/applications/components/StatusBadge";
 import { ApplicationActions } from "@/pages/applications/components/ApplicationActions";
 import { StrategyDrawer } from "@/pages/applications/detail/StrategyDrawer";
 import { VolumesTab } from "@/pages/applications/detail/VolumesTab";
+import { EnvVarsTab } from "@/pages/applications/detail/EnvVarsTab";
+import { TerminalTab } from "@/pages/applications/detail/TerminalTab";
+import { DomainsTab } from "@/pages/applications/detail/DomainsTab";
+import { ScalingTab } from "@/pages/applications/detail/ScalingTab";
+import { SettingsTab } from "@/pages/applications/detail/SettingsTab";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 
 interface LogLine { ts: string; line: string }
@@ -26,6 +31,10 @@ export function ApplicationDetailPage() {
   const progress = useEventSource<{ label: string; progress: number; status: string; done?: boolean }>(
     latestDeploymentId ? `/streams/deployments/${latestDeploymentId}` : null,
     "progress",
+  );
+  const buildLogs = useEventSource<{ logs: string; done?: boolean }>(
+    latestDeploymentId ? `/streams/deployments/${latestDeploymentId}/build-logs` : null,
+    "build",
   );
 
   // Sem polling: quando o SSE de progresso conclui, re-busca a lista de deploys.
@@ -77,8 +86,13 @@ export function ApplicationDetailPage() {
       <Tabs defaultValue="deploys">
         <TabsList>
           <TabsTrigger value="deploys">Deploys</TabsTrigger>
+          <TabsTrigger value="env">Variáveis</TabsTrigger>
+          <TabsTrigger value="domains">Domínios</TabsTrigger>
+          <TabsTrigger value="scaling">Autoscaling</TabsTrigger>
           <TabsTrigger value="volumes">Volumes</TabsTrigger>
+          <TabsTrigger value="terminal">Terminal</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deploys" className="pt-5">
@@ -91,6 +105,12 @@ export function ApplicationDetailPage() {
                     <div className="h-full gradient-bg transition-all" style={{ width: `${progress.progress}%` }} />
                   </div>
                   <span className="w-10 text-right text-xs text-muted-foreground">{progress.progress}%</span>
+                </div>
+              )}
+              {buildLogs?.logs && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Logs de build (Kaniko){buildLogs.done ? " · concluído" : " · ao vivo"}</p>
+                  <pre className="max-h-64 overflow-auto rounded-lg bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground">{buildLogs.logs}</pre>
                 </div>
               )}
               {deployments.length === 0 && <p className="text-sm text-muted-foreground">Nenhum deploy ainda.</p>}
@@ -112,8 +132,28 @@ export function ApplicationDetailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="env" className="pt-5">
+          {app && <EnvVarsTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="domains" className="pt-5">
+          {app && <DomainsTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="scaling" className="pt-5">
+          {app && <ScalingTab applicationId={app.id} />}
+        </TabsContent>
+
         <TabsContent value="volumes" className="pt-5">
           {app && <VolumesTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="terminal" className="pt-5">
+          {app && <TerminalTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="settings" className="pt-5">
+          {app && <SettingsTab app={app} />}
         </TabsContent>
 
         <TabsContent value="logs" className="pt-5">

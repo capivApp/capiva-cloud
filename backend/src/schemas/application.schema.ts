@@ -48,6 +48,48 @@ export const createApplicationSchema = z.object({
   registryId: z.string().optional(),
 });
 
+/** Variável de ambiente no editor pós-criação (chave estilo shell). */
+export const envVarItemSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Chave inválida (use letras, números e _, sem iniciar com número)"),
+  value: z.string().default(""),
+  secret: z.boolean().default(false),
+});
+
+export const replaceEnvVarsSchema = z.object({ vars: z.array(envVarItemSchema) });
+
+export const addDomainSchema = z.object({
+  host: z.string().min(1),
+  tlsMode: z.enum(["lets_encrypt", "uploaded", "none"]).default("lets_encrypt"),
+  tlsCertificateId: z.string().optional(),
+});
+
+export const setScalingSchema = z.object({
+  minReplicas: z.number().int().min(1),
+  maxReplicas: z.number().int().min(1),
+  metric: z.enum(["CPU", "MEMORY", "REQUESTS"]).default("CPU"),
+  target: z.number().int().positive(),
+});
+
+export const scaleReplicasSchema = z.object({ replicas: z.number().int().min(0).max(100) });
+
+export const updateApplicationSchema = z
+  .object({
+    name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen").optional(),
+    profile: profileKind.optional(),
+    customResources: z.record(z.string(), z.unknown()).optional(),
+    port: z.number().int().positive().optional(),
+    /** Branch/repo do build → mesclado em sourceConfig.branch. */
+    branch: z.string().optional(),
+    /** Imagem (origem Docker) → sourceConfig.image. */
+    image: z.string().optional(),
+    /** Caminho do health check (readiness) → sourceConfig.healthPath. */
+    healthPath: z.string().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Nada para atualizar." });
+
 export const updateTagsSchema = z.object({ tags: z.array(z.string()) });
 
 export const updateTlsSchema = z.object({

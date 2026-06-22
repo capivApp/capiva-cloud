@@ -11,5 +11,7 @@ export const registry = (router: Router): void => {
   const obs = container.get(ObservabilityController);
   router.get("/applications/:id/logs", sseAuthMiddleware, obs.streamLogs);
   router.get("/applications/:id/metrics", sseAuthMiddleware, obs.streamMetrics);
+  router.get("/applications/:id/scaling", sseAuthMiddleware, obs.streamScaling);
   router.get("/deployments/:deploymentId", sseAuthMiddleware, obs.streamDeployment);
+  router.get("/deployments/:deploymentId/build-logs", sseAuthMiddleware, obs.streamBuildLogs);
 };

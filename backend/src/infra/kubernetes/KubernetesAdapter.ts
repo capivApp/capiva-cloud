@@ -1,16 +1,20 @@
 import {
   CoreV1Api,
+  Exec,
   KubeConfig,
   KubernetesObjectApi,
   Metrics,
   PatchStrategy,
   VersionApi,
   type KubernetesObject,
+  type V1Status,
 } from "@kubernetes/client-node";
 import crypto from "crypto";
+import stream from "stream";
 import { Injectable } from "@di/index";
 import { cpuToMillicores, memoryToMib } from "@functions/quantity";
 import type {
+  HpaLiveStatus,
   IKubernetesAdapter,
   K8sManifest,
   KubeContext,
@@ -243,6 +247,144 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Logs do primeiro pod que casa com o labelSelector (ex.: Job de build Kaniko).
+   * Retorna o texto atual (não-follow); o SSE faz o polling. "" se não houver pod.
+   */
+  async podLogsByLabel(ctx: KubeContext, labelSelector: string, tailLines = 1000): Promise<string> {
+    if (!ctx.kubeconfig) return "";
+    try {
+      const kc = this.loadKc(ctx.kubeconfig);
+      const core = kc.makeApiClient(CoreV1Api);
+      const pods = await core.listNamespacedPod({ namespace: ctx.namespace, labelSelector });
+      const podName = pods.items[0]?.metadata?.name;
+      if (!podName) return "";
+      return await core.readNamespacedPodLog({ name: podName, namespace: ctx.namespace, tailLines });
+    } catch {
+      return "";
+    }
+  }
+
+  /** Ajusta as réplicas do Deployment (escala manual) via server-side apply. */
+  async scaleDeployment(ctx: KubeContext, name: string, replicas: number): Promise<void> {
+    await this.apply(ctx, { apiVersion: "apps/v1", kind: "Deployment", metadata: { name, namespace: ctx.namespace }, spec: { replicas } });
+  }
+
+  /**
+   * Estado vivo do HPA (observabilidade do autoscaling): réplicas atuais/desejadas,
+   * min/max, métrica e valor atual vs. alvo que dispara o scale, e condições.
+   */
+  async getHpaStatus(ctx: KubeContext, name: string): Promise<HpaLiveStatus> {
+    const resolved = this.resolve(ctx.kubeconfig);
+    if (!resolved) return { exists: false };
+    try {
+      const hpa = (await resolved.api.read({
+        apiVersion: "autoscaling/v2",
+        kind: "HorizontalPodAutoscaler",
+        metadata: { name, namespace: ctx.namespace },
+      })) as { spec?: Record<string, any>; status?: Record<string, any> };
+      const spec = hpa.spec ?? {};
+      const status = hpa.status ?? {};
+
+      const specMetric = (spec.metrics ?? [])[0] ?? {};
+      const curMetric = (status.currentMetrics ?? [])[0] ?? {};
+      const metricName =
+        specMetric.type === "Pods" ? specMetric.pods?.metric?.name : specMetric.resource?.name ?? "cpu";
+      const targetValue =
+        specMetric.type === "Pods"
+          ? specMetric.pods?.target?.averageValue
+          : specMetric.resource?.target?.averageUtilization != null
+            ? `${specMetric.resource.target.averageUtilization}%`
+            : undefined;
+      const currentValue =
+        curMetric.type === "Pods"
+          ? curMetric.pods?.current?.averageValue
+          : curMetric.resource?.current?.averageUtilization != null
+            ? `${curMetric.resource.current.averageUtilization}%`
+            : undefined;
+
+      return {
+        exists: true,
+        currentReplicas: status.currentReplicas,
+        desiredReplicas: status.desiredReplicas,
+        minReplicas: spec.minReplicas,
+        maxReplicas: spec.maxReplicas,
+        lastScaleTime: status.lastScaleTime,
+        metric: metricName,
+        currentMetricValue: currentValue,
+        targetMetricValue: targetValue,
+        conditions: (status.conditions ?? []).map((c: any) => ({ type: c.type, status: c.status, reason: c.reason, message: c.message })),
+      };
+    } catch {
+      return { exists: false };
+    }
+  }
+
+  /**
+   * Primeiro pod (preferindo Running) de uma aplicação, pelo selector padrão
+   * `app.kubernetes.io/name=<nome>`. Usado pelo terminal web (exec).
+   */
+  async firstRunningPod(kubeconfig: string, namespace: string, appName: string): Promise<{ pod: string; container: string } | null> {
+    if (!kubeconfig) return null;
+    const kc = this.loadKc(kubeconfig);
+    const core = kc.makeApiClient(CoreV1Api);
+    const pods = await core.listNamespacedPod({ namespace, labelSelector: `app.kubernetes.io/name=${appName}` });
+    const chosen = pods.items.find((p) => p.status?.phase === "Running") ?? pods.items[0];
+    const podName = chosen?.metadata?.name;
+    if (!podName) return null;
+    return { pod: podName, container: chosen?.spec?.containers?.[0]?.name ?? appName };
+  }
+
+  /**
+   * Abre um shell interativo (TTY) num container via exec do client-node (WS para
+   * o API server). Retorna handles para escrever stdin, redimensionar e fechar —
+   * a camada de transporte (gateway) liga isso ao WebSocket do browser.
+   */
+  async execShell(opts: {
+    kubeconfig: string;
+    namespace: string;
+    pod: string;
+    container: string;
+    command?: string[];
+    onData: (chunk: Buffer) => void;
+    onClose: (status?: V1Status) => void;
+  }): Promise<{ write: (data: string) => void; resize: (cols: number, rows: number) => void; close: () => void }> {
+    const kc = this.loadKc(opts.kubeconfig);
+    const exec = new Exec(kc);
+    const stdin = new stream.PassThrough();
+    const sink = new stream.Writable({
+      write(chunk, _enc, cb) {
+        opts.onData(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        cb();
+      },
+    });
+
+    const command = opts.command ?? ["/bin/sh", "-c", "exec /bin/bash 2>/dev/null || exec /bin/sh"];
+    const ws = await exec.exec(opts.namespace, opts.pod, opts.container, command, sink, sink, stdin, true, (status) => opts.onClose(status));
+    ws.on("close", () => opts.onClose());
+    ws.on("error", () => opts.onClose());
+
+    return {
+      write: (data) => stdin.write(data),
+      // Canal 4 do protocolo de exec do k8s = resize ({Width,Height}).
+      resize: (cols, rows) => {
+        try {
+          ws.send(Buffer.concat([Buffer.from([4]), Buffer.from(JSON.stringify({ Width: cols, Height: rows }))]));
+        } catch {
+          /* ws ainda não pronto/fechado */
+        }
+      },
+      close: () => {
+        try {
+          stdin.end();
+          ws.close();
+        } catch {
+          /* já fechado */
+        }
+      },
+    };
   }
 
   /** Uso de CPU/memória por pod (somando containers), com o nó onde roda. */

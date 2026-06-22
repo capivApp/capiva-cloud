@@ -7,6 +7,7 @@ import { CreateProjectDrawer } from "@/components/CreateProjectDrawer";
 import { useDatabases } from "@/hooks/useDatabases";
 import { useProjects } from "@/hooks/useProjects";
 import { ServiceCard } from "@/pages/dashboard/components/ServiceCard";
+import { OverviewSection } from "@/pages/dashboard/components/OverviewSection";
 import { useApplications } from "@/pages/applications/hooks/useApplications";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 
@@ -46,6 +47,8 @@ export function DashboardPage() {
           <Button asChild variant="gradient"><Link to="/applications/new"><Plus className="size-4" /> Nova Aplicação</Link></Button>
         </div>
       </div>
+
+      <OverviewSection />
 
       {applications.length === 0 && databases.length === 0 ? (
         <Card>

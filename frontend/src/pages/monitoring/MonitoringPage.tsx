@@ -9,6 +9,7 @@ import { useMonitoring, type NodeMetric } from "@/hooks/useMonitoring";
 const pct = (used: number, cap: number) => (cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0);
 const fmtCpu = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} vCPU` : `${m}m`);
 const fmtMem = (mib: number) => (mib >= 1024 ? `${(mib / 1024).toFixed(1)} GiB` : `${mib} MiB`);
+const fmtBps = (bps: number) => (bps >= 1e6 ? `${(bps / 1e6).toFixed(1)} MB/s` : bps >= 1e3 ? `${(bps / 1e3).toFixed(0)} KB/s` : `${Math.round(bps)} B/s`);
 
 function UsageBar({ label, icon: Icon, used, cap, unit }: { label: string; icon: typeof Cpu; used: number; cap: number; unit: (n: number) => string }) {
   const p = pct(used, cap);
@@ -89,6 +90,8 @@ export function MonitoringPage() {
             ["Pods", `${data.totals.pods}`],
             ["CPU", `${fmtCpu(data.totals.cpuUsedM)} / ${fmtCpu(data.totals.cpuCapacityM)}`],
             ["Memória", `${fmtMem(data.totals.memUsedMib)} / ${fmtMem(data.totals.memCapacityMib)}`],
+            ["Disco", data.totals.diskUsedPct != null ? `${Math.round(data.totals.diskUsedPct)}%` : "—"],
+            ["Rede", data.totals.netRxBps != null ? `↓${fmtBps(data.totals.netRxBps)} ↑${fmtBps(data.totals.netTxBps ?? 0)}` : "—"],
           ].map(([label, value]) => (
             <Card key={label}><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-0.5 text-lg font-bold">{value}</p></CardContent></Card>
           ))}

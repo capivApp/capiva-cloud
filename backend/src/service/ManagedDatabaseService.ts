@@ -155,17 +155,22 @@ export class ManagedDatabaseService {
   }
 }
 
+/** Lê as configurações de backup de um `config` (JSON) aplicando defaults. */
+export function readBackupConfig(config: Partial<DatabaseConfig> | null): DatabaseConfig["backup"] {
+  return {
+    enabled: config?.backup?.enabled ?? true,
+    schedule: config?.backup?.schedule ?? "0 3 * * *",
+    retentionDays: config?.backup?.retentionDays ?? 7,
+  };
+}
+
 /** Completa configs antigas/parciais com defaults (sempre tem username/database/backup). */
 function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): DatabaseConfig {
   return {
     username: config?.username ?? "capiva",
     passwordCipher: config?.passwordCipher ?? encrypt("changeme"),
     database: config?.database ?? name.replace(/[^a-zA-Z0-9_]/g, "_"),
-    backup: {
-      enabled: config?.backup?.enabled ?? true,
-      schedule: config?.backup?.schedule ?? "0 3 * * *",
-      retentionDays: config?.backup?.retentionDays ?? 7,
-    },
+    backup: readBackupConfig(config),
   };
 }
 

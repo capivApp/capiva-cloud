@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { Injectable } from "@di/index";
 import { ObservabilityService } from "@service/ObservabilityService";
 import { DeploymentService } from "@service/DeploymentService";
+import { ScalingService } from "@service/ScalingService";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { tenantOf } from "@functions/tenant";
 
@@ -19,6 +20,7 @@ export class ObservabilityController {
   constructor(
     private readonly observability: ObservabilityService,
     private readonly deployments: DeploymentService,
+    private readonly scaling: ScalingService,
   ) {}
 
   /** SSE: progresso/timeline de um deploy em tempo real. */
@@ -37,6 +39,27 @@ export class ObservabilityController {
     req.on("close", unsubscribe);
   };
 
+  /** SSE: logs crus do build (Job Kaniko) a cada 2s até concluir. */
+  streamBuildLogs = async (req: Request, res: Response): Promise<void> => {
+    const deploymentId = String(req.params.deploymentId);
+    const tenant = tenantOf(req);
+    openSse(res);
+    let stop = false;
+    req.on("close", () => (stop = true));
+    while (!stop) {
+      const logs = await this.deployments.buildLogs(deploymentId, tenant).catch(() => "");
+      res.write(`event: build\ndata: ${JSON.stringify({ logs })}\n\n`);
+      const current = await this.deployments.getById(deploymentId, tenant).catch(() => null);
+      // Encerra o stream quando o deploy saiu da fase de build.
+      if (current && !["QUEUED", "BUILDING", "PUSHING"].includes(current.status)) {
+        res.write(`event: build\ndata: ${JSON.stringify({ logs, done: true })}\n\n`);
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    res.end();
+  };
+
   /** SSE: logs ao vivo (poll do Loki a cada 2s). */
   streamLogs = async (req: Request, res: Response): Promise<void> => {
     const applicationId = String(req.params.id);
@@ -49,6 +72,20 @@ export class ObservabilityController {
       const lines = await this.observability.logs(applicationId, tenant);
       res.write(`event: logs\ndata: ${JSON.stringify(lines)}\n\n`);
       await new Promise((r) => setTimeout(r, 2000));
+    }
+  };
+
+  /** SSE: estado vivo do autoscaling (réplicas/métrica/alvo) a cada 4s. */
+  streamScaling = async (req: Request, res: Response): Promise<void> => {
+    const applicationId = String(req.params.id);
+    const tenant = tenantOf(req);
+    openSse(res);
+    let stop = false;
+    req.on("close", () => (stop = true));
+    while (!stop) {
+      const status = await this.scaling.status(applicationId, tenant).catch(() => null);
+      res.write(`event: scaling\ndata: ${JSON.stringify(status)}\n\n`);
+      await new Promise((r) => setTimeout(r, 4000));
     }
   };
 

@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { Injectable } from "@di/index";
 import { ApplicationService } from "@service/ApplicationService";
+import { EnvVarService } from "@service/EnvVarService";
+import { DomainService } from "@service/DomainService";
+import { ScalingService } from "@service/ScalingService";
 import { DeploymentService } from "@service/DeploymentService";
 import { DependencyService } from "@service/DependencyService";
 import { RolloutService } from "@service/RolloutService";
@@ -8,7 +11,7 @@ import { VolumeBackupService } from "@service/VolumeBackupService";
 import { AuditService } from "@service/AuditService";
 import { UptimeService } from "@service/UptimeService";
 import { ReportService } from "@service/ReportService";
-import { createApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
+import { addDomainSchema, createApplicationSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
 import { HttpError } from "@functions/HttpError";
 
 function org(req: Request): { organizationId: string } {
@@ -21,6 +24,9 @@ function org(req: Request): { organizationId: string } {
 export class ApplicationController {
   constructor(
     private readonly apps: ApplicationService,
+    private readonly envVars: EnvVarService,
+    private readonly domainsSvc: DomainService,
+    private readonly scaling: ScalingService,
     private readonly deployments: DeploymentService,
     private readonly dependencies: DependencyService,
     private readonly rollouts: RolloutService,
@@ -130,6 +136,75 @@ export class ApplicationController {
     await this.apps.remove(String(req.params.id), org(req));
     this.audit.fromRequest(req, "application.delete", { targetType: "application", targetId: String(req.params.id) });
     res.status(204).end();
+  };
+
+  getScaling = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.scaling.getPolicy(String(req.params.id), org(req)));
+  };
+
+  getScalingStatus = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.scaling.status(String(req.params.id), org(req)));
+  };
+
+  setScaling = async (req: Request, res: Response): Promise<void> => {
+    const dto = setScalingSchema.parse(req.body);
+    const policy = await this.scaling.setPolicy(String(req.params.id), dto, org(req));
+    this.audit.fromRequest(req, "application.scaling.set", { targetType: "application", targetId: String(req.params.id), detail: `${dto.minReplicas}-${dto.maxReplicas} @ ${dto.metric}/${dto.target}` });
+    res.json(policy);
+  };
+
+  disableScaling = async (req: Request, res: Response): Promise<void> => {
+    await this.scaling.disable(String(req.params.id), org(req));
+    this.audit.fromRequest(req, "application.scaling.disable", { targetType: "application", targetId: String(req.params.id) });
+    res.status(204).end();
+  };
+
+  scaleReplicas = async (req: Request, res: Response): Promise<void> => {
+    const { replicas } = scaleReplicasSchema.parse(req.body);
+    const result = await this.scaling.scaleManually(String(req.params.id), replicas, org(req));
+    this.audit.fromRequest(req, "application.scaling.manual", { targetType: "application", targetId: String(req.params.id), detail: `${replicas} réplicas` });
+    res.json(result);
+  };
+
+  listDomains = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.domainsSvc.list(String(req.params.id), org(req)));
+  };
+
+  addDomain = async (req: Request, res: Response): Promise<void> => {
+    const dto = addDomainSchema.parse(req.body);
+    const domain = await this.domainsSvc.add(String(req.params.id), dto, org(req));
+    this.audit.fromRequest(req, "application.domain.add", { targetType: "application", targetId: String(req.params.id), detail: dto.host });
+    res.status(201).json(domain);
+  };
+
+  removeDomain = async (req: Request, res: Response): Promise<void> => {
+    await this.domainsSvc.remove(String(req.params.id), String(req.params.domainId), org(req));
+    this.audit.fromRequest(req, "application.domain.remove", { targetType: "application", targetId: String(req.params.id), detail: String(req.params.domainId) });
+    res.status(204).end();
+  };
+
+  listEnv = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.envVars.list(String(req.params.id), org(req)));
+  };
+
+  replaceEnv = async (req: Request, res: Response): Promise<void> => {
+    const { vars } = replaceEnvVarsSchema.parse(req.body);
+    const result = await this.envVars.replace(String(req.params.id), vars, org(req));
+    this.audit.fromRequest(req, "application.env.update", { targetType: "application", targetId: String(req.params.id), detail: `${vars.length} variáveis` });
+    res.json(result);
+  };
+
+  removeEnv = async (req: Request, res: Response): Promise<void> => {
+    await this.envVars.removeKey(String(req.params.id), String(req.params.key), org(req));
+    this.audit.fromRequest(req, "application.env.delete", { targetType: "application", targetId: String(req.params.id), detail: String(req.params.key) });
+    res.status(204).end();
+  };
+
+  patch = async (req: Request, res: Response): Promise<void> => {
+    const dto = updateApplicationSchema.parse(req.body);
+    const updated = await this.apps.patch(String(req.params.id), dto, org(req));
+    this.audit.fromRequest(req, "application.update", { targetType: "application", targetId: String(req.params.id), detail: Object.keys(dto).join(",") });
+    res.json(updated);
   };
 
   updateTags = async (req: Request, res: Response): Promise<void> => {

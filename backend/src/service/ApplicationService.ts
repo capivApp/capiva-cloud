@@ -3,6 +3,8 @@ import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { ServiceDependencyRepository } from "@repository/ServiceDependencyRepository";
 import { VolumeRepository } from "@repository/VolumeRepository";
+import { DomainRepository } from "@repository/DomainRepository";
+import { ScalingPolicyRepository } from "@repository/ScalingPolicyRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { KubeContextResolver } from "@service/KubeContextResolver";
@@ -49,6 +51,8 @@ export class ApplicationService {
     private readonly envVars: EnvVarRepository,
     private readonly deps: ServiceDependencyRepository,
     private readonly volumes: VolumeRepository,
+    private readonly domainRepo: DomainRepository,
+    private readonly scalingRepo: ScalingPolicyRepository,
     private readonly reconcilers: ReconcilerFactory,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
@@ -110,8 +114,15 @@ export class ApplicationService {
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const domain = cfg?.domain as string | undefined;
 
-    const [envVars, deps, volumes] = await withTransaction(
-      async () => [await this.envVars.listByApplication(app.id), await this.deps.listForApplication(app.id), await this.volumes.listByApplication(app.id)] as const,
+    const [envVars, deps, volumes, domainRows, scalingPolicy] = await withTransaction(
+      async () =>
+        [
+          await this.envVars.listByApplication(app.id),
+          await this.deps.listForApplication(app.id),
+          await this.volumes.listByApplication(app.id),
+          await this.domainRepo.listByApplication(app.id),
+          await this.scalingRepo.findByApplication(app.id),
+        ] as const,
       { tenant },
     );
     const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
@@ -139,8 +150,25 @@ export class ApplicationService {
       await this.k8s.apply(ctx, dockerConfigSecretManifest(imagePullSecret, ctx.namespace, creds));
     }
 
+    // Domínios adicionais (CRUD): mapeia o modo TLS e decifra certs UPLOADED por domínio.
+    const tlsModeMap = { lets_encrypt: "LETS_ENCRYPT", uploaded: "UPLOADED", none: "NONE" } as const;
+    const domains = await Promise.all(
+      domainRows.map(async (d) => {
+        const mode = (tlsModeMap[d.tlsMode as keyof typeof tlsModeMap] ?? "LETS_ENCRYPT") as TlsModeManifest;
+        const cert =
+          mode === "UPLOADED" && d.tlsCertificateId
+            ? await this.tlsCerts.decrypted(tenant.organizationId, d.tlsCertificateId).catch(() => undefined)
+            : undefined;
+        return { host: d.host, tlsMode: mode, tlsCert: cert };
+      }),
+    );
+
+    const scaling = scalingPolicy
+      ? { minReplicas: scalingPolicy.minReplicas, maxReplicas: scalingPolicy.maxReplicas, metric: scalingPolicy.metric, target: scalingPolicy.target }
+      : undefined;
+
     const status = await this.reconcilers.forApplication().reconcile(
-      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, tlsMode, tlsCert, volumes: volumeSpecs, imagePullSecret },
+      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, tlsMode, tlsCert, domains, scaling, volumes: volumeSpecs, imagePullSecret },
       ctx,
     );
     await withTransaction(() => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"), { tenant });
@@ -177,6 +205,49 @@ export class ApplicationService {
     const app = await withTransaction(() => this.apps.findById(id), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
     return app;
+  }
+
+  /**
+   * Configurações gerais da app: nome, perfil/recursos, porta, branch/imagem e
+   * health check. Renomear destrói os recursos de nome antigo antes de reconciliar
+   * (breve indisponibilidade — os recursos k8s são nomeados pela app).
+   */
+  async patch(
+    id: string,
+    dto: {
+      name?: string;
+      profile?: Application["profile"];
+      customResources?: Record<string, unknown>;
+      port?: number;
+      branch?: string;
+      image?: string;
+      healthPath?: string;
+    },
+    tenant: { organizationId: string },
+  ): Promise<Application> {
+    const app = await this.getById(id, tenant);
+    const renaming = Boolean(dto.name && dto.name !== app.name);
+
+    const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}) };
+    if (dto.branch !== undefined) cfg.branch = dto.branch;
+    if (dto.image !== undefined) cfg.image = dto.image;
+    if (dto.healthPath !== undefined) cfg.healthPath = dto.healthPath;
+
+    const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
+    if (dto.name) data.name = dto.name;
+    if (dto.profile) data.profile = dto.profile;
+    if (dto.customResources !== undefined) data.customResources = dto.customResources as Prisma.InputJsonValue;
+    if (dto.port !== undefined) data.port = dto.port;
+
+    // Renomear: remove os recursos de nome antigo antes de recriar com o novo nome.
+    if (renaming) {
+      const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
+      await this.reconcilers.forApplication().destroy({ app, image: "" }, ctx).catch((e) => console.error("[app] destroy (rename):", (e as Error).message));
+    }
+
+    const updated = await withTransaction(() => this.apps.update(id, data), { tenant });
+    await this.reconcile(updated, tenant).catch((e) => console.error("[app] patch reconcile:", (e as Error).message));
+    return updated;
   }
 
   async updateTags(id: string, tags: string[], tenant: { organizationId: string }): Promise<Application> {

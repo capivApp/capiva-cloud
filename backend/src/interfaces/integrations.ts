@@ -70,6 +70,22 @@ export interface NodeMetricUsage {
   pods: PodMetricUsage[];
 }
 
+/** Estado vivo do HorizontalPodAutoscaler (observabilidade do autoscaling). */
+export interface HpaLiveStatus {
+  exists: boolean;
+  currentReplicas?: number;
+  desiredReplicas?: number;
+  minReplicas?: number;
+  maxReplicas?: number;
+  lastScaleTime?: string;
+  metric?: string;
+  /** Valor atual da métrica (ex.: "42%" ou "12" req/s). */
+  currentMetricValue?: string;
+  /** Alvo configurado (ex.: "70%" ou "100"). */
+  targetMetricValue?: string;
+  conditions?: { type: string; status: string; reason?: string; message?: string }[];
+}
+
 // --------- Reconciler (Strategy por tipo de recurso) ---------
 export interface IResourceReconciler<TEntity = unknown> {
   reconcile(entity: TEntity, ctx: KubeContext): Promise<ObservedStatus>;
@@ -103,6 +119,9 @@ export interface BuildRequest {
   config: Record<string, unknown>;
   imageRef: string;
   ctx: KubeContext;
+  /** Nome da app e id do deploy → labels do Job (lookup dos logs de build). */
+  app?: string;
+  deploymentId?: string;
 }
 
 export interface IBuildStrategy {

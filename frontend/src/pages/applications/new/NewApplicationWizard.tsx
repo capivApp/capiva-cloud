@@ -1,6 +1,6 @@
 import { Box, Check, ChevronLeft, ChevronRight, Container, FileCode, Github, Gitlab, Globe, Plus, X } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { useApplications, type VolumeSpec } from "@/pages/applications/hooks/use
 import { VolumeEditor } from "@/pages/applications/components/VolumeEditor";
 import { useTlsCertificates } from "@/hooks/useTlsCertificates";
 import { useDockerRegistries } from "@/hooks/useDockerRegistries";
+import { findTemplate } from "@/pages/applications/new/appTemplates";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
 
@@ -63,25 +64,27 @@ export function NewApplicationWizard() {
   const { certificates } = useTlsCertificates();
   const { registries } = useDockerRegistries();
   const { projectId, environmentId } = useWorkspaceStore();
+  const [searchParams] = useSearchParams();
+  const template = findTemplate(searchParams.get("template"));
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: "",
-    source: "GITHUB",
-    image: "",
+    name: template?.id ?? "",
+    source: template ? "DOCKER_IMAGE" : "GITHUB",
+    image: template?.image ?? "",
     composeFile: "docker-compose.yml",
     dockerfile: "Dockerfile",
     profile: "SMALL",
     rolloutStrategy: "ROLLING",
-    port: 3000,
+    port: template?.port ?? 3000,
     domain: "",
-    tags: "",
+    tags: template ? "template" : "",
     tlsMode: "LETS_ENCRYPT",
     tlsCertificateId: "",
     registryId: "",
   });
   const [buildArgs, setBuildArgs] = useState<KV[]>([]);
-  const [env, setEnv] = useState<KV[]>([]);
-  const [volumes, setVolumes] = useState<VolumeSpec[]>([]);
+  const [env, setEnv] = useState<KV[]>(template?.env ?? []);
+  const [volumes, setVolumes] = useState<VolumeSpec[]>(template?.volumes ?? []);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));

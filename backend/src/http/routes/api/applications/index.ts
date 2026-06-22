@@ -29,6 +29,18 @@ export const registry = (router: Router): void => {
   router.post("/:id/stop", dev, ctrl.stop);
   router.post("/:id/start", dev, ctrl.start);
   router.post("/:id/restart", dev, ctrl.restart);
+  router.get("/:id/scaling", ctrl.getScaling);
+  router.get("/:id/scaling/status", ctrl.getScalingStatus);
+  router.put("/:id/scaling", dev, ctrl.setScaling);
+  router.delete("/:id/scaling", dev, ctrl.disableScaling);
+  router.post("/:id/scaling/replicas", dev, ctrl.scaleReplicas);
+  router.get("/:id/domains", ctrl.listDomains);
+  router.post("/:id/domains", dev, ctrl.addDomain);
+  router.delete("/:id/domains/:domainId", dev, ctrl.removeDomain);
+  router.get("/:id/env", ctrl.listEnv);
+  router.put("/:id/env", dev, ctrl.replaceEnv);
+  router.delete("/:id/env/:key", dev, ctrl.removeEnv);
+  router.patch("/:id", dev, ctrl.patch);
   router.patch("/:id/tags", dev, ctrl.updateTags);
   router.patch("/:id/tls", dev, ctrl.updateTls);
   router.get("/:id/volumes", ctrl.listVolumes);

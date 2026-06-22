@@ -41,6 +41,16 @@ export class DeploymentService {
     return withTransaction(() => this.deployments.findById(id), { tenant });
   }
 
+  /** Logs crus do Job de build (Kaniko) de um deploy, pelo label do deployment. */
+  async buildLogs(deploymentId: string, tenant: { organizationId: string }): Promise<string> {
+    const deployment = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
+    if (!deployment) throw HttpError.notFound("Deploy não encontrado.");
+    const app = await withTransaction(() => this.apps.findById(deployment.applicationId), { tenant });
+    if (!app) throw HttpError.notFound("Aplicação não encontrada.");
+    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
+    return this.k8s.podLogsByLabel(ctx, `capiva.cloud/deployment=${deploymentId}`);
+  }
+
   /** Dispara um novo deploy (manual ou por webhook Git). Retorna imediatamente. */
   async trigger(
     applicationId: string,
@@ -85,7 +95,9 @@ export class DeploymentService {
     const target = `registry.capiva.cloud/${app.name}:${version}`;
     // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
     // própria imagem informada; para origens por código é a imagem publicada.
-    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx });
+    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId });
+    // Origens por código geram um Job de build (Kaniko) — aplica para rodar e expor logs.
+    if (built.manifest) await this.k8s.apply(ctx, built.manifest).catch((e) => console.error("[build] apply:", (e as Error).message));
     const imageRef = built.imageRef;
 
     await step("Imagem publicada", "PUSHING", 40);

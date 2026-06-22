@@ -1,8 +1,10 @@
-import { Database, HardDrive, Layers, MessageSquare, Search } from "lucide-react";
+import { AppWindow, Database, HardDrive, Layers, MessageSquare, Search } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreateDatabaseDrawer } from "@/pages/databases/components/CreateDatabaseDrawer";
+import { APP_TEMPLATES } from "@/pages/applications/new/appTemplates";
 
 const CATALOG = [
   { category: "Banco de Dados", icon: Database, items: ["POSTGRESQL", "MYSQL", "CLICKHOUSE"] },
@@ -37,6 +39,24 @@ export function MarketplacePage() {
           </div>
         </div>
       ))}
+
+      <div className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground"><AppWindow className="size-4" /> Aplicações 1-clique</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {APP_TEMPLATES.map((t) => (
+            <Card key={t.id} className="transition-colors hover:border-primary/40">
+              <CardContent className="space-y-2 pt-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{t.name}</span>
+                  <Button asChild size="sm" variant="outline"><Link to={`/applications/new?template=${t.id}`}>+ Add</Link></Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t.description}</p>
+                <p className="font-mono text-[10px] text-muted-foreground">{t.image}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
 
       <CreateDatabaseDrawer open={Boolean(preset)} onClose={() => setPreset(null)} presetKind={preset ?? undefined} />
     </div>

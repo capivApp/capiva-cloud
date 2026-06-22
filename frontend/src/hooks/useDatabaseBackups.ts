@@ -34,10 +34,17 @@ export function useDatabaseBackups(databaseId: string | null) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 
+  const restoreMut = useMutation({
+    mutationFn: (backupId: string) => api.post<DatabaseBackup>(`/databases/${databaseId}/backups/${backupId}/restore`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+
   return {
     backups: list.data ?? [],
     isLoading: list.isLoading,
     run: runMut.mutateAsync,
     isRunning: runMut.isPending,
+    restore: restoreMut.mutateAsync,
+    isRestoring: restoreMut.isPending,
   };
 }

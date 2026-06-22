@@ -26,6 +26,8 @@ process.env.DATABASE_PROVIDER ??= "postgresql";
 export const config = {
   env: process.env.NODE_ENV,
   port: Number(process.env.PORT),
+  /** Porta dedicada do WebSocket nativo do terminal web (default: PORT + 1). */
+  terminalPort: Number(process.env.TERMINAL_WS_PORT ?? Number(process.env.PORT) + 1),
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT}`,
   databaseProvider: process.env.DATABASE_PROVIDER as "postgresql" | "mysql" | "sqlite",
   auth: {

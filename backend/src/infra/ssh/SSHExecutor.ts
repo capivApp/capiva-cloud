@@ -16,6 +16,13 @@ export interface SSHResult {
   stderr: string;
 }
 
+/** Sessão de shell interativo SSH (terminal de nó). */
+export interface SSHShell {
+  write: (data: string) => void;
+  resize: (cols: number, rows: number) => void;
+  close: () => void;
+}
+
 /**
  * Executor de comandos via SSH (node-ssh / ssh2). Usado pelo provisionamento de
  * cluster para instalar k3s nos nós. Suporta streaming de saída (para SSE) e
@@ -44,5 +51,45 @@ export class SSHExecutor {
     } finally {
       ssh.dispose();
     }
+  }
+
+  /**
+   * Abre um shell interativo (PTY) no nó via SSH. Retorna handles para escrever
+   * stdin, redimensionar e fechar — usado pelo terminal de nó (WebSocket).
+   */
+  async openShell(target: SSHTarget, io: { onData: (chunk: string) => void; onClose: () => void }): Promise<SSHShell> {
+    const ssh = new NodeSSH();
+    await ssh.connect({
+      host: target.host,
+      port: target.port ?? 22,
+      username: target.username,
+      privateKey: target.privateKey,
+      password: target.password,
+      readyTimeout: 20000,
+    });
+
+    const channel = await ssh.requestShell({ term: "xterm-256color" });
+    channel.on("data", (chunk: Buffer) => io.onData(chunk.toString("utf8")));
+    channel.stderr?.on("data", (chunk: Buffer) => io.onData(chunk.toString("utf8")));
+    channel.on("close", () => { io.onClose(); ssh.dispose(); });
+
+    return {
+      write: (data) => channel.write(data),
+      resize: (cols, rows) => {
+        try {
+          channel.setWindow(rows, cols, 0, 0);
+        } catch {
+          /* canal indisponível */
+        }
+      },
+      close: () => {
+        try {
+          channel.end();
+          ssh.dispose();
+        } catch {
+          /* já fechado */
+        }
+      },
+    };
   }
 }

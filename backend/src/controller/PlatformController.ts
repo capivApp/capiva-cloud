@@ -4,6 +4,7 @@ import { ReleaseTrackingService } from "@service/ReleaseTrackingService";
 import { FleetService } from "@service/FleetService";
 import { MonitoringService } from "@service/MonitoringService";
 import { RequestsService } from "@service/RequestsService";
+import { OverviewService } from "@service/OverviewService";
 import { tenantOf } from "@functions/tenant";
 import { HttpError } from "@functions/HttpError";
 
@@ -14,7 +15,12 @@ export class PlatformController {
     private readonly fleet: FleetService,
     private readonly monitoring: MonitoringService,
     private readonly requests: RequestsService,
+    private readonly overview: OverviewService,
   ) {}
+
+  overviewView = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.overview.forOrganization(tenantOf(req).organizationId));
+  };
 
   requestsView = async (req: Request, res: Response): Promise<void> => {
     res.json(

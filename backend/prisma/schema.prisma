@@ -406,8 +406,10 @@ model Domain {
   id            String      @id @default(cuid())
   applicationId String
   host          String      @unique
-  // certificado: lets_encrypt | uploaded
+  // certificado: lets_encrypt | uploaded | none
   tlsMode       String      @default("lets_encrypt")
+  // quando uploaded, qual certificado da org usar (opcional)
+  tlsCertificateId String?
   tlsStatus     String      @default("pending")
   createdAt     DateTime    @default(now())
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)

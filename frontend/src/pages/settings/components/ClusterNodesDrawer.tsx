@@ -1,9 +1,10 @@
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, TerminalSquare, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { WebTerminal } from "@/components/WebTerminal";
 import { useClusterProvisioning, type ClusterNode } from "@/hooks/useClusterProvisioning";
 
 /** Gestão de nós de um cluster: listar, cordon/uncordon, remover, comando de join. */
@@ -11,6 +12,7 @@ export function ClusterNodesDrawer({ open, onClose, clusterId }: { open: boolean
   const { listNodes, cordon, removeNode, joinCommand } = useClusterProvisioning();
   const [nodes, setNodes] = useState<ClusterNode[]>([]);
   const [join, setJoin] = useState<string | null>(null);
+  const [terminalNode, setTerminalNode] = useState<ClusterNode | null>(null);
 
   async function refresh() {
     if (!clusterId) return;
@@ -55,12 +57,20 @@ export function ClusterNodesDrawer({ open, onClose, clusterId }: { open: boolean
                 <span className="text-xs text-muted-foreground">{n.status}</span>
               </div>
               <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" title="Terminal SSH" onClick={() => setTerminalNode(terminalNode?.id === n.id ? null : n)}><TerminalSquare className="size-4" /></Button>
                 <Button variant="ghost" size="sm" onClick={async () => { await cordon({ clusterId: clusterId!, node: n.internalIp ?? n.host, schedulable: false }).then(() => toast.success("Nó isolado (cordon)")).catch((e) => toast.error((e as Error).message)); }}>Cordon</Button>
                 <Button variant="ghost" size="icon" onClick={async () => { await removeNode({ clusterId: clusterId!, nodeId: n.id }).then(() => { toast.success("Nó removido"); refresh(); }).catch((e) => toast.error((e as Error).message)); }}><Trash2 className="size-4" /></Button>
               </div>
             </div>
           ))}
         </div>
+
+        {terminalNode && (
+          <div className="space-y-1.5 border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">Terminal SSH · {terminalNode.host}</p>
+            <WebTerminal wsPath={`/terminal/nodes/${terminalNode.id}`} className="h-80 overflow-hidden rounded-lg bg-[#0a0a0a] p-2" />
+          </div>
+        )}
       </div>
     </Drawer>
   );

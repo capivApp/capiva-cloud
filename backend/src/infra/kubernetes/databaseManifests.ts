@@ -22,7 +22,10 @@ export type DbBackupKind = "POSTGRESQL" | "MYSQL";
  */
 export function databaseBackupCommand(kind: DbBackupKind, scope: DbBackupScope, prefix: string): string {
   const upload = (key: string) => `gzip | mc pipe "s3/$S3_BUCKET/${prefix}/${key}"`;
-  const stamp = "$(date +%Y%m%d-%H%M%S)";
+  // Carimbo determinístico vindo do backend (BACKUP_STAMP) para que o objeto no
+  // S3 seja conhecido/registrado e possa ser restaurado; cai no relógio do Job
+  // se não for informado (compatibilidade com chamadas antigas).
+  const stamp = "${BACKUP_STAMP:-$(date +%Y%m%d-%H%M%S)}";
   const setup = `set -e; mc alias set s3 "$S3_ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null`;
 
   if (kind === "POSTGRESQL") {
@@ -36,6 +39,29 @@ export function databaseBackupCommand(kind: DbBackupKind, scope: DbBackupScope, 
     return `${setup}; for DB in $(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW DATABASES" | grep -vE "^(information_schema|performance_schema|mysql|sys)$"); do echo "dump $DB"; mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB" | ${upload(`\${DB}-${stamp}.sql.gz`)}; done`;
   }
   return `${setup}; mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" | ${upload(`$DB_NAME-${stamp}.sql.gz`)}`;
+}
+
+/**
+ * Comando de restore: baixa o dump (.sql.gz) do S3 (objeto em `$OBJECT_KEY`),
+ * descomprime e reaplica no banco de destino (psql/mysql). Operação destrutiva
+ * — sobrescreve o estado atual do banco.
+ */
+export function databaseRestoreCommand(kind: DbBackupKind): string {
+  const setup = `set -e; mc alias set s3 "$S3_ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null`;
+  const fetch = `mc cat "s3/$S3_BUCKET/$OBJECT_KEY" | gunzip`;
+  if (kind === "POSTGRESQL") {
+    return `${setup}; ${fetch} | psql "$SRC_URL"`;
+  }
+  return `${setup}; ${fetch} | mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME"`;
+}
+
+/**
+ * Comando de retenção: remove do S3 os backups do prefixo mais antigos que
+ * `retentionDays` dias (best-effort; não falha o Job se não houver o quê apagar).
+ */
+export function databaseRetentionCommand(prefix: string, retentionDays: number): string {
+  const setup = `mc alias set s3 "$S3_ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null`;
+  return `${setup}; mc rm --recursive --force --older-than ${retentionDays}d "s3/$S3_BUCKET/${prefix}/" || true`;
 }
 
 /** Job de backup de banco: roda o dump e envia para o S3 (Secret com credenciais). */

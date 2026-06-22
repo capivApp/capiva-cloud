@@ -12,6 +12,11 @@ export class ManagedDatabaseRepository extends BaseRepository {
     return this.tx.managedDatabase.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
   }
 
+  /** Todos os bancos com o organizationId do projeto (usado pelo scheduler de backups). */
+  listAllWithOrg(): Promise<(ManagedDatabase & { project: { organizationId: string } })[]> {
+    return this.tx.managedDatabase.findMany({ include: { project: { select: { organizationId: true } } } });
+  }
+
   findById(id: string): Promise<ManagedDatabase | null> {
     return this.tx.managedDatabase.findUnique({ where: { id } });
   }

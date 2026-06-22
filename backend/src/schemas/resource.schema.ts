@@ -1,4 +1,18 @@
 import { z } from "zod";
+import { assertValidCron } from "@infra/scheduler/cron";
+
+/** Valida expressão cron de 5 campos (usada nos backups agendados de banco). */
+const cronExpression = z.string().refine(
+  (v) => {
+    try {
+      assertValidCron(v);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: "Expressão cron inválida (use 5 campos, ex.: '0 3 * * *')" },
+);
 
 export const createEnvironmentSchema = z.object({
   name: z.string().min(1),
@@ -32,13 +46,13 @@ export const createDatabaseSchema = z.object({
   password: z.string().optional(),
   database: z.string().optional(),
   backupEnabled: z.boolean().default(true),
-  backupSchedule: z.string().optional(),
+  backupSchedule: cronExpression.optional(),
   retentionDays: z.number().int().min(1).optional(),
 });
 
 export const updateDatabaseSchema = z.object({
   backupEnabled: z.boolean().optional(),
-  backupSchedule: z.string().optional(),
+  backupSchedule: cronExpression.optional(),
   retentionDays: z.number().int().min(1).optional(),
   password: z.string().optional(),
 });
