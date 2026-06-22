@@ -5,6 +5,8 @@ import cors from "cors";
 import express from "express";
 import path from "path";
 
+const ORIGIN_WHITELIST = ["http://localhost:5173", "http://localhost:5175"];
+
 interface Routable {
   initializeRoutes(): Promise<void>;
 }
@@ -40,7 +42,7 @@ class HttpServer {
 
   @RegistryRouter({
     folder: path.join(__dirname, "routes/web"),
-    middlewares: [cors({credentials: true, origin: ["http://localhost:5173"]})],
+    middlewares: [cors({credentials: true, origin: ORIGIN_WHITELIST})],
   })
   async configureWebRoutes(): Promise<void> {}
 
@@ -48,7 +50,7 @@ class HttpServer {
     folder: path.join(__dirname, "routes/api"),
     prefix: "/api",
     middlewares: [
-      cors({origin: ["http://localhost:5173"], credentials: true}),
+      cors({origin: ORIGIN_WHITELIST, credentials: true}),
       express.json({limit: "10mb"}),
       express.urlencoded({extended: true}),
       cookieParser(),
