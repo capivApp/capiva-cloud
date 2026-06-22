@@ -3,6 +3,7 @@
  * antes de qualquer outro módulo. Não colocar regra de negócio aqui.
  */
 import "reflect-metadata";
+import { installBunKubeFetchShim } from "@infra/kubernetes/nodeFetchShim";
 
 process.env.NODE_ENV ??= "development";
 
@@ -16,6 +17,12 @@ process.env.NODE_ENV ??= "development";
 if (process.env.CAPIVA_K8S_INSECURE_TLS !== "false") {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
+
+/**
+ * O Bun também ignora o CLIENT certificate (mTLS) do https.Agent — sem o shim,
+ * a autenticação no API server falha com 401. Ver nodeFetchShim.ts.
+ */
+installBunKubeFetchShim();
 process.env.PORT ??= "3000";
 process.env.ACCESS_TOKEN_TTL ??= "15m";
 process.env.REFRESH_TOKEN_TTL_MS ??= String(7 * 24 * 60 * 60 * 1000);

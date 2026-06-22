@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Injectable } from "@di/index";
 import { GitConnectionRepository } from "@repository/GitConnectionRepository";
 import { withTransaction } from "@database/withTransaction";
-import { encrypt } from "@functions/crypto";
+import { encrypt, decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
 import type { GitConnection, GitProviderKind } from "@prisma-generated/client";
 
@@ -45,6 +45,12 @@ export class GitConnectionService {
     });
     if (!conn || conn.organizationId !== organizationId) throw HttpError.notFound("Conexão Git não encontrada.");
     return conn;
+  }
+
+  /** Credenciais decifradas para clonar repositórios privados no build. */
+  async credentials(organizationId: string, id: string): Promise<{ token: string; provider: GitProviderKind }> {
+    const conn = await this.getById(organizationId, id);
+    return { token: decrypt(conn.accessTokenCipher), provider: conn.provider };
   }
 
   async update(

@@ -29,6 +29,8 @@ export const createApplicationSchema = z.object({
   environmentId: z.string(),
   name: z.string().min(1),
   source: sourceKind,
+  /** Conexão Git usada para clonar/build (origens GitHub/GitLab/Gitea). */
+  gitConnectionId: z.string().optional(),
   sourceConfig: z.record(z.string(), z.unknown()).default({}),
   profile: profileKind.default("SMALL"),
   rolloutStrategy: rolloutStrategy.default("ROLLING"),

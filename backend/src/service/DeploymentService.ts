@@ -7,6 +7,8 @@ import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { BuildStrategyResolver } from "@infra/build/strategies";
 import { NotificationService } from "@service/NotificationService";
+import { GitConnectionService } from "@service/GitConnectionService";
+import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
@@ -31,6 +33,8 @@ export class DeploymentService {
     private readonly k8s: KubernetesAdapter,
     private readonly appService: ApplicationService,
     private readonly notifications: NotificationService,
+    private readonly gitConnections: GitConnectionService,
+    private readonly registries: DockerRegistryService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -81,6 +85,20 @@ export class DeploymentService {
     return deployment;
   }
 
+  /** Credenciais Git p/ Kaniko. `oauth2:<token>` via HTTPS basic auth vale em GitHub/GitLab/Gitea. */
+  private async resolveGitAuth(
+    gitConnectionId: string,
+    tenant: { organizationId: string },
+  ): Promise<{ username: string; password: string } | undefined> {
+    try {
+      const { token } = await this.gitConnections.credentials(tenant.organizationId, gitConnectionId);
+      return { username: "oauth2", password: token };
+    } catch (error) {
+      console.error("[deploy] credenciais Git indisponíveis:", (error as Error).message);
+      return undefined;
+    }
+  }
+
   private async run(deploymentId: string, app: Application, version: string, tenant: { organizationId: string }): Promise<void> {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
@@ -92,10 +110,16 @@ export class DeploymentService {
       }, { tenant });
 
     await step("Build iniciado", "BUILDING", 10);
-    const target = `registry.capiva.cloud/${app.name}:${version}`;
+    // Destino do push: registry padrão da org (host real) ou fallback hospedado.
+    const pushTarget = await this.registries.defaultPushTarget(tenant.organizationId);
+    const registryHost = pushTarget?.host ?? "registry.capiva.cloud";
+    const target = `${registryHost}/${app.name}:${version}`;
+    // Conexão Git → credenciais para clonar repositório privado no build (Kaniko).
+    const gitAuth = app.gitConnectionId ? await this.resolveGitAuth(app.gitConnectionId, tenant) : undefined;
     // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
     // própria imagem informada; para origens por código é a imagem publicada.
-    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId });
+    const push = pushTarget ? { insecure: pushTarget.insecure, credentials: pushTarget.credentials } : undefined;
+    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push });
     // Origens por código geram um Job de build (Kaniko) — aplica para rodar e expor logs.
     if (built.manifest) await this.k8s.apply(ctx, built.manifest).catch((e) => console.error("[build] apply:", (e as Error).message));
     const imageRef = built.imageRef;

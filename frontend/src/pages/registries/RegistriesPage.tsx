@@ -1,4 +1,4 @@
-import { HardDrive, Plus, Trash2 } from "lucide-react";
+import { HardDrive, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDockerRegistries } from "@/hooks/useDockerRegistries";
 
-const blank = { name: "", url: "", username: "", password: "" };
+const blank = { name: "", url: "", username: "", password: "", isDefault: false };
 
-/** Registries Docker privados (org). Gera imagePullSecret no deploy de apps privadas. */
+/** Registries Docker (org): imagePullSecret de apps privadas + destino padrão do push de builds. */
 export function RegistriesPage() {
-  const { registries, isLoading, create, isCreating, remove } = useDockerRegistries();
+  const { registries, isLoading, create, isCreating, setDefault, remove } = useDockerRegistries();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
 
   const submit = async () => {
-    if (!form.name.trim() || !form.url.trim() || !form.username.trim() || !form.password) return toast.error("Preencha todos os campos.");
+    if (!form.name.trim() || !form.url.trim()) return toast.error("Preencha nome e URL.");
     try {
       await create(form);
       setForm(blank);
@@ -48,21 +48,31 @@ export function RegistriesPage() {
                 <HardDrive className="size-4 text-muted-foreground" />
                 <span className="font-medium">{r.name}</span>
                 <span className="font-mono text-xs text-muted-foreground">{r.url}</span>
-                <span className="text-xs text-muted-foreground">({r.username})</span>
+                {r.username && <span className="text-xs text-muted-foreground">({r.username})</span>}
+                {r.insecure && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">HTTP</span>}
+                {r.isDefault && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">Padrão</span>}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => remove(r.id).then(() => toast.success("Removido")).catch((e) => toast.error((e as Error).message))}><Trash2 className="size-4" /></Button>
+              <div className="flex items-center gap-1">
+                {!r.isDefault && (
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => setDefault(r.id).then(() => toast.success("Registry padrão definido")).catch((e) => toast.error((e as Error).message))}>
+                    <Star className="size-3.5" /> Tornar padrão
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={() => remove(r.id).then(() => toast.success("Removido")).catch((e) => toast.error((e as Error).message))}><Trash2 className="size-4" /></Button>
+              </div>
             </div>
           ))}
         </CardContent>
       </Card>
 
-      <Drawer open={open} onClose={() => setOpen(false)} title="Novo registry" description="Credenciais de um registry Docker privado."
+      <Drawer open={open} onClose={() => setOpen(false)} title="Novo registry" description="Registry Docker para puxar imagens e/ou destino do push dos builds."
         footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>Salvar</Button></div>}>
         <div className="space-y-4">
           <div className="space-y-1.5"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="GHCR produção" /></div>
-          <div className="space-y-1.5"><Label>URL</Label><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="ghcr.io" /></div>
-          <div className="space-y-1.5"><Label>Usuário</Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="empresa" /></div>
-          <div className="space-y-1.5"><Label>Senha / token</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" /></div>
+          <div className="space-y-1.5"><Label>URL</Label><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="ghcr.io ou http://10.1.2.36:5000" /></div>
+          <div className="space-y-1.5"><Label>Usuário <span className="text-xs text-muted-foreground">(opcional)</span></Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="deixe vazio para registry aberto" /></div>
+          <div className="space-y-1.5"><Label>Senha / token <span className="text-xs text-muted-foreground">(opcional)</span></Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" /></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-primary" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} /> Tornar registry padrão (destino do push dos builds)</label>
         </div>
       </Drawer>
     </div>

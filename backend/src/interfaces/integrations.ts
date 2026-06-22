@@ -99,6 +99,8 @@ export interface GitRepo {
   fullName: string;
   defaultBranch: string;
   private: boolean;
+  /** URL HTTP(S) de clone — vira sourceConfig.repoUrl no build. */
+  cloneUrl: string;
 }
 
 export interface StackDetection {
@@ -122,6 +124,13 @@ export interface BuildRequest {
   /** Nome da app e id do deploy → labels do Job (lookup dos logs de build). */
   app?: string;
   deploymentId?: string;
+  /** Credenciais para clonar repositório privado (Git → Kaniko). */
+  gitAuth?: { username: string; password: string };
+  /** Registry de destino do push. `insecure` = HTTP/sem TLS; sem `credentials` = registry aberto. */
+  push?: {
+    insecure: boolean;
+    credentials?: { url: string; username: string; password: string };
+  };
 }
 
 export interface IBuildStrategy {

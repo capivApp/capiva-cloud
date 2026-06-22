@@ -591,8 +591,12 @@ model DockerRegistry {
   organizationId String
   name           String
   url            String
-  username       String
-  passwordCipher String
+  username       String       @default("")
+  passwordCipher String       @default("")
+  /** Registry de destino padrão para o push das imagens construídas (Kaniko). */
+  isDefault      Boolean      @default(false)
+  /** Registry sem TLS / HTTP (push com --insecure --skip-tls-verify). */
+  insecure       Boolean      @default(false)
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

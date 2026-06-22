@@ -41,7 +41,7 @@ export class GitHubProvider extends BaseGitProvider {
   }
   async listRepos(): Promise<GitRepo[]> {
     const repos = await this.api<any[]>("/user/repos?per_page=100&sort=updated", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private }));
+    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
   }
   async listBranches(repo: string): Promise<string[]> {
     const branches = await this.api<any[]>(`/repos/${repo}/branches?per_page=100`, this.headers());
@@ -59,7 +59,7 @@ export class GitLabProvider extends BaseGitProvider {
   }
   async listRepos(): Promise<GitRepo[]> {
     const repos = await this.api<any[]>("/api/v4/projects?membership=true&per_page=100", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.path_with_namespace, defaultBranch: r.default_branch, private: r.visibility !== "public" }));
+    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.path_with_namespace, defaultBranch: r.default_branch, private: r.visibility !== "public", cloneUrl: r.http_url_to_repo }));
   }
   async listBranches(repo: string): Promise<string[]> {
     const branches = await this.api<any[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/branches`, this.headers());
@@ -81,7 +81,7 @@ export class GiteaProvider extends BaseGitProvider {
   }
   async listRepos(): Promise<GitRepo[]> {
     const repos = await this.api<any[]>("/api/v1/user/repos?limit=100", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private }));
+    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
   }
   async listBranches(repo: string): Promise<string[]> {
     const branches = await this.api<any[]>(`/api/v1/repos/${repo}/branches`, this.headers());

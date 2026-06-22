@@ -1,4 +1,5 @@
 import {
+  AuthorizationV1Api,
   CoreV1Api,
   Exec,
   KubeConfig,
@@ -41,9 +42,10 @@ export class KubernetesAdapter implements IKubernetesAdapter {
   private readonly ensuredNs = new Set<string>();
 
   /**
-   * Carrega o KubeConfig. O TLS (CA / client-cert / skip-verify) é aplicado pelo
-   * shim de `node-fetch` (ver nodeFetchShim.ts), que converte o https.Agent do
-   * client-node na opção `tls` do Bun.
+   * Carrega o KubeConfig. Sob Bun, o TLS (CA / client-cert / skip-verify) do
+   * https.Agent do client-node é convertido na opção `tls` do `fetch` nativo
+   * pelo shim instalado no preload (ver nodeFetchShim.ts) — sem ele, o
+   * certificado de cliente não é enviado e o API server responde 401.
    */
   private loadKc(kubeconfig: string): KubeConfig {
     const kc = new KubeConfig();
@@ -147,13 +149,25 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       console.log(`[k8s:dry-run] delete ${kind}/${name} @ ${ctx.namespace}`);
       return;
     }
-    await resolved.api.delete({ apiVersion, kind, metadata: { name, namespace: ctx.namespace } });
+    try {
+      await resolved.api.delete({ apiVersion, kind, metadata: { name, namespace: ctx.namespace } });
+    } catch (error) {
+      // Delete idempotente: remover algo que não existe é no-op, não erro.
+      if ((error as { code?: number }).code === 404) return;
+      throw error;
+    }
   }
 
   async testConnection(kubeconfig: string): Promise<{ ok: boolean; version?: string; message?: string }> {
     try {
       const kc = this.loadKc(kubeconfig);
       const version = await kc.makeApiClient(VersionApi).getCode();
+      // /version costuma responder anônimo — um token inválido passaria. O
+      // SelfSubjectAccessReview exige um usuário autenticado, então credencial
+      // inválida/expirada retorna 401 aqui em vez de falhar só no deploy.
+      await kc.makeApiClient(AuthorizationV1Api).createSelfSubjectAccessReview({
+        body: { spec: { resourceAttributes: { verb: "create", resource: "deployments", group: "apps" } } },
+      });
       return { ok: true, version: version.gitVersion };
     } catch (error) {
       return { ok: false, message: (error as Error).message };

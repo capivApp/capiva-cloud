@@ -27,6 +27,7 @@ export interface CreateApplicationDTO {
   environmentId: string;
   name: string;
   source: string;
+  gitConnectionId?: string;
   sourceConfig?: Record<string, unknown>;
   profile?: string;
   rolloutStrategy?: string;

@@ -69,7 +69,17 @@ export interface KanikoBuildInput {
   contextSubPath?: string;
   /** secret de credenciais do registro de destino (docker config json). */
   pushSecret?: string;
+  /** secret com GIT_USERNAME/GIT_PASSWORD para clonar repositório privado. */
+  gitCredentialsSecret?: string;
   buildArgs?: { key: string; value: string }[];
+  /** Deploy dono deste build → label `capiva.cloud/deployment` p/ buscar os logs. */
+  deploymentId?: string;
+  /** Publica a imagem no registry de destino. `false` → apenas build (--no-push). */
+  push?: boolean;
+  /** Registry HTTP/sem TLS → --insecure --skip-tls-verify (push e pull). */
+  insecure?: boolean;
+  /** Protocolo de clone do contexto Git (default do Kaniko é https). */
+  gitPullMethod?: "http" | "https";
 }
 
 /**
@@ -83,24 +93,35 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
     `--dockerfile=${input.dockerfile}`,
     `--destination=${input.imageRef}`,
     ...(input.contextSubPath ? [`--context-sub-path=${input.contextSubPath}`] : []),
-    ...(input.pushSecret ? [] : ["--no-push"]),
+    ...(input.push ? [] : ["--no-push"]),
+    // Registry HTTP/sem TLS: libera push e pull inseguros.
+    ...(input.insecure ? ["--insecure", "--skip-tls-verify", "--insecure-pull", "--skip-tls-verify-pull"] : []),
     ...(input.buildArgs ?? []).map((a) => `--build-arg=${a.key}=${a.value}`),
   ];
   const mountSecret = input.pushSecret
     ? { volumeMounts: [{ name: "docker-config", mountPath: "/kaniko/.docker" }] }
     : {};
+  // Credenciais Git (repo privado): Kaniko lê GIT_USERNAME/GIT_PASSWORD do ambiente.
+  // GIT_PULL_METHOD escolhe http/https para clonar o contexto Git.
+  const env = input.gitPullMethod ? [{ name: "GIT_PULL_METHOD", value: input.gitPullMethod }] : [];
+  const gitEnv = {
+    ...(env.length ? { env } : {}),
+    ...(input.gitCredentialsSecret ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] } : {}),
+  };
   const secretVolume = input.pushSecret
     ? { volumes: [{ name: "docker-config", secret: { secretName: input.pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] } }] }
     : {};
+  // Label do deploy → permite buscar os logs do build (podLogsByLabel).
+  const buildLabels = { ...labels(input.name), ...(input.deploymentId ? { "capiva.cloud/deployment": input.deploymentId } : {}) };
   return {
     apiVersion: "batch/v1",
     kind: "Job",
-    metadata: { name: input.name, namespace: input.namespace, labels: labels(input.name) },
+    metadata: { name: input.name, namespace: input.namespace, labels: buildLabels },
     spec: {
       backoffLimit: 0,
       ttlSecondsAfterFinished: 300,
       template: {
-        metadata: { labels: labels(input.name) },
+        metadata: { labels: buildLabels },
         spec: {
           restartPolicy: "Never",
           containers: [
@@ -109,6 +130,7 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
               image: process.env.CAPIVA_KANIKO_IMAGE || "gcr.io/kaniko-project/executor:latest",
               args,
               ...mountSecret,
+              ...gitEnv,
             },
           ],
           ...secretVolume,
@@ -350,6 +372,20 @@ export function dockerConfigSecretManifest(
     type: "kubernetes.io/dockerconfigjson",
     metadata: { name, namespace, labels: labels(name) },
     data: { ".dockerconfigjson": Buffer.from(JSON.stringify(dockerconfig)).toString("base64") },
+  };
+}
+
+/** Secret com GIT_USERNAME/GIT_PASSWORD consumido pelo Job Kaniko (repo privado). */
+export function gitCredentialsSecretManifest(name: string, namespace: string, username: string, password: string): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    type: "Opaque",
+    metadata: { name, namespace, labels: labels(name) },
+    data: {
+      GIT_USERNAME: Buffer.from(username).toString("base64"),
+      GIT_PASSWORD: Buffer.from(password).toString("base64"),
+    },
   };
 }
 

@@ -12,9 +12,12 @@ import { useApplications, type VolumeSpec } from "@/pages/applications/hooks/use
 import { VolumeEditor } from "@/pages/applications/components/VolumeEditor";
 import { useTlsCertificates } from "@/hooks/useTlsCertificates";
 import { useDockerRegistries } from "@/hooks/useDockerRegistries";
+import { useGitConnections } from "@/hooks/useGitConnections";
+import { useGitRepos, useGitBranches } from "@/hooks/useGitRepos";
 import { findTemplate } from "@/pages/applications/new/appTemplates";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
+const GIT_SOURCES = ["GITHUB", "GITLAB", "GITEA"];
 
 const SOURCES = [
   { id: "GITHUB", label: "GitHub", icon: Github, build: "dockerfile" },
@@ -58,6 +61,57 @@ function KVEditor({ list, setList, kPlaceholder }: { list: KV[]; setList: (l: KV
   );
 }
 
+type GitPick = { gitConnectionId: string; repo: string; cloneUrl: string; branch: string };
+
+/** Seleção de conexão Git → repositório → branch para origens GitHub/GitLab/Gitea. */
+function GitSourcePicker({ value, onChange }: { value: GitPick; onChange: (p: Partial<GitPick>) => void }) {
+  const { connections, isLoading: loadingConns } = useGitConnections();
+  const { data: repos = [], isLoading: loadingRepos } = useGitRepos(value.gitConnectionId || null);
+  const { data: branches = [], isLoading: loadingBranches } = useGitBranches(value.gitConnectionId || null, value.repo || null);
+
+  if (!loadingConns && connections.length === 0) {
+    return (
+      <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+        Nenhuma conexão Git cadastrada. Conecte um provedor em <strong>Configurações → Git</strong> antes de criar uma app por repositório.
+      </div>
+    );
+  }
+
+  const selectClass = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50";
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Conexão Git</Label>
+        <select className={selectClass} value={value.gitConnectionId} onChange={(e) => onChange({ gitConnectionId: e.target.value, repo: "", cloneUrl: "", branch: "" })}>
+          <option value="">{loadingConns ? "Carregando…" : "Selecione a conexão"}</option>
+          {connections.map((c) => <option key={c.id} value={c.id}>{c.provider}{c.accountLogin ? ` · ${c.accountLogin}` : ""}</option>)}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Repositório</Label>
+        <select className={selectClass} value={value.repo} disabled={!value.gitConnectionId || loadingRepos}
+          onChange={(e) => {
+            const r = repos.find((x) => x.fullName === e.target.value);
+            onChange({ repo: e.target.value, cloneUrl: r?.cloneUrl ?? "", branch: r?.defaultBranch ?? "main" });
+          }}>
+          <option value="">{!value.gitConnectionId ? "Escolha a conexão primeiro" : loadingRepos ? "Carregando repositórios…" : "Selecione o repositório"}</option>
+          {repos.map((r) => <option key={r.id} value={r.fullName}>{r.fullName}{r.private ? " (privado)" : ""}</option>)}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Branch</Label>
+        <select className={selectClass} value={value.branch} disabled={!value.repo || loadingBranches} onChange={(e) => onChange({ branch: e.target.value })}>
+          <option value="">{!value.repo ? "Escolha o repositório primeiro" : loadingBranches ? "Carregando branches…" : "Selecione a branch"}</option>
+          {branches.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export function NewApplicationWizard() {
   const navigate = useNavigate();
   const { create, isCreating } = useApplications();
@@ -85,24 +139,38 @@ export function NewApplicationWizard() {
   const [buildArgs, setBuildArgs] = useState<KV[]>([]);
   const [env, setEnv] = useState<KV[]>(template?.env ?? []);
   const [volumes, setVolumes] = useState<VolumeSpec[]>(template?.volumes ?? []);
+  const [git, setGit] = useState<GitPick>({ gitConnectionId: "", repo: "", cloneUrl: "", branch: "" });
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const setGitPick = (patch: Partial<GitPick>) => setGit((g) => ({ ...g, ...patch }));
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const buildKind = SOURCES.find((s) => s.id === form.source)?.build ?? "auto";
+  const isGit = GIT_SOURCES.includes(form.source);
+  const next = () => {
+    if (step === 1 && isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch.");
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
 
   async function finish() {
     if (!projectId || !environmentId) return toast.error("Selecione um projeto e um ambiente no topo antes de criar.");
+    if (isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch no passo Build.");
     const sourceConfig: Record<string, unknown> = { domain: form.domain };
     if (buildKind === "image") sourceConfig.image = form.image;
     if (buildKind === "compose") sourceConfig.compose = form.composeFile;
     if (buildKind === "dockerfile") sourceConfig.dockerfile = form.dockerfile;
+    if (isGit) {
+      sourceConfig.repoUrl = git.cloneUrl;
+      sourceConfig.repo = git.repo;
+      sourceConfig.fullName = git.repo;
+      sourceConfig.branch = git.branch;
+    }
     try {
       await create({
         projectId,
         environmentId,
         name: form.name || "minha-app",
         source: form.source,
+        gitConnectionId: isGit ? git.gitConnectionId : undefined,
         profile: form.profile,
         rolloutStrategy: form.rolloutStrategy,
         port: form.port,
@@ -159,9 +227,15 @@ export function NewApplicationWizard() {
 
           {step === 1 && (
             <div className="space-y-3">
+              {isGit && (
+                <div className="space-y-3 border-b border-border pb-4">
+                  <Label>Repositório de origem</Label>
+                  <GitSourcePicker value={git} onChange={setGitPick} />
+                </div>
+              )}
               {buildKind === "dockerfile" && (
                 <>
-                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">✨ Detectamos sua stack. Para repositórios Git você pode escolher o Dockerfile (ou usar outro builder).</div>
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">✨ Escolha o Dockerfile do repositório (ou troque o builder).</div>
                   <Label>Qual Dockerfile usar?</Label>
                   {["Dockerfile", "Dockerfile.prod", "Dockerfile.api", "Dockerfile.worker"].map((d) => (
                     <label key={d} className="flex items-center gap-2 text-sm">

@@ -16,6 +16,19 @@ export class DockerRegistryRepository extends BaseRepository {
     return this.tx.dockerRegistry.findUnique({ where: { id } });
   }
 
+  findDefault(organizationId: string): Promise<DockerRegistry | null> {
+    return this.tx.dockerRegistry.findFirst({ where: { organizationId, isDefault: true } });
+  }
+
+  /** Garante um único default por org. */
+  clearDefault(organizationId: string): Promise<Prisma.BatchPayload> {
+    return this.tx.dockerRegistry.updateMany({ where: { organizationId, isDefault: true }, data: { isDefault: false } });
+  }
+
+  update(id: string, data: Prisma.DockerRegistryUncheckedUpdateInput): Promise<DockerRegistry> {
+    return this.tx.dockerRegistry.update({ where: { id }, data });
+  }
+
   delete(id: string): Promise<DockerRegistry> {
     return this.tx.dockerRegistry.delete({ where: { id } });
   }

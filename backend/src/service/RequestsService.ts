@@ -1,6 +1,7 @@
 import { Injectable } from "@di/index";
 import { LokiAdapter } from "@infra/observability/LokiAdapter";
 import { ApplicationRepository } from "@repository/ApplicationRepository";
+import { DomainRepository } from "@repository/DomainRepository";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
@@ -25,6 +26,7 @@ export class RequestsService {
     private readonly loki: LokiAdapter,
     private readonly apps: ApplicationRepository,
     private readonly environments: EnvironmentRepository,
+    private readonly domains: DomainRepository,
   ) {}
 
   /** Lista requisições por host (domínio) ou por aplicação. */
@@ -41,9 +43,13 @@ export class RequestsService {
   }
 
   private async hostOf(applicationId: string, tenant: { organizationId: string }): Promise<string | undefined> {
-    const app = await withTransaction(() => this.apps.findById(applicationId), { tenant });
+    const { app, domains } = await withTransaction(
+      async () => ({ app: await this.apps.findById(applicationId), domains: await this.domains.listByApplication(applicationId) }),
+      { tenant },
+    );
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
-    return (app.sourceConfig as Record<string, unknown>)?.domain as string | undefined;
+    // Host primário vem da entidade Domain; fallback ao legado sourceConfig.domain.
+    return domains[0]?.host ?? ((app.sourceConfig as Record<string, unknown>)?.domain as string | undefined);
   }
 
   /** Parseia uma linha de access log JSON do Traefik numa entrada estruturada. */

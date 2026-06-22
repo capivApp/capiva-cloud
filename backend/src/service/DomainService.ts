@@ -6,6 +6,7 @@ import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { ingressNameFor } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
+import { HOST_RE } from "@functions/hostname";
 import type { Domain } from "@prisma-generated/client";
 
 export interface AddDomainInput {
@@ -13,9 +14,6 @@ export interface AddDomainInput {
   tlsMode?: "lets_encrypt" | "uploaded" | "none";
   tlsCertificateId?: string;
 }
-
-// Hostname DNS (labels alfanuméricos com hífen, ao menos um ponto).
-const HOST_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 
 /**
  * Domínios customizados de uma aplicação (CRUD). Cada domínio vira um Ingress

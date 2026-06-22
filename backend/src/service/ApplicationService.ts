@@ -14,6 +14,7 @@ import { dockerConfigSecretManifest, type TlsModeManifest } from "@infra/kuberne
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
+import { isValidHostname, tlsModeToStored } from "@functions/hostname";
 import type { Application, Prisma } from "@prisma-generated/client";
 
 export interface CreateApplicationInput {
@@ -21,6 +22,8 @@ export interface CreateApplicationInput {
   environmentId: string;
   name: string;
   source: Application["source"];
+  /** Conexão Git (origens GitHub/GitLab/Gitea). */
+  gitConnectionId?: string;
   sourceConfig: Record<string, unknown>;
   profile?: Application["profile"];
   rolloutStrategy?: Application["rolloutStrategy"];
@@ -65,8 +68,13 @@ export class ApplicationService {
   }
 
   async create(input: CreateApplicationInput, tenant: { organizationId: string }): Promise<Application> {
+    // Domínio do wizard vira entidade Domain (o que a UI lista) — não fica no
+    // sourceConfig (evita Ingress "primário legado" duplicado na reconcile).
+    const { domain: rawDomain, ...sourceWithoutDomain } = input.sourceConfig;
+    const host = typeof rawDomain === "string" ? rawDomain.trim().toLowerCase() : "";
     // Build args ficam no sourceConfig (usados pelo builder); envs de runtime viram EnvVar.
-    const sourceConfig = { ...input.sourceConfig, buildArgs: input.buildArgs ?? [] };
+    const sourceConfig = { ...sourceWithoutDomain, buildArgs: input.buildArgs ?? [] };
+    const tlsMode = input.tlsMode ?? "LETS_ENCRYPT";
 
     const app = await withTransaction(
       async () => {
@@ -75,12 +83,13 @@ export class ApplicationService {
           environmentId: input.environmentId,
           name: input.name,
           source: input.source,
+          gitConnectionId: input.gitConnectionId ?? null,
           sourceConfig: sourceConfig as Prisma.InputJsonValue,
           tags: (input.tags ?? []) as Prisma.InputJsonValue,
           profile: input.profile ?? "SMALL",
           rolloutStrategy: input.rolloutStrategy ?? "ROLLING",
           port: input.port ?? 3000,
-          tlsMode: input.tlsMode ?? "LETS_ENCRYPT",
+          tlsMode,
           tlsCertificateId: input.tlsCertificateId ?? null,
           registryId: input.registryId ?? null,
         });
@@ -91,6 +100,14 @@ export class ApplicationService {
           if (v.name.trim() && v.mountPath.trim()) {
             await this.volumes.create({ applicationId: created.id, name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode });
           }
+        }
+        if (host && isValidHostname(host) && !(await this.domainRepo.findByHost(host))) {
+          await this.domainRepo.create({
+            applicationId: created.id,
+            host,
+            tlsMode: tlsModeToStored(tlsMode),
+            tlsCertificateId: input.tlsCertificateId ?? null,
+          });
         }
         return created;
       },
@@ -143,11 +160,15 @@ export class ApplicationService {
         : undefined;
 
     // Registry privado: gera o imagePullSecret no namespace antes do workload.
+    // Origem por código → imagem publicada no registry PADRÃO (mesmas credenciais
+    // de push); origem DOCKER_IMAGE → registry explícito da app (app.registryId).
     let imagePullSecret: string | undefined;
-    if (app.registryId) {
-      const creds = await this.registries.credentials(tenant.organizationId, app.registryId);
+    const pullCreds = app.registryId
+      ? await this.registries.credentials(tenant.organizationId, app.registryId)
+      : await this.registries.defaultCredentials(tenant.organizationId);
+    if (pullCreds) {
       imagePullSecret = `${app.name}-pull`;
-      await this.k8s.apply(ctx, dockerConfigSecretManifest(imagePullSecret, ctx.namespace, creds));
+      await this.k8s.apply(ctx, dockerConfigSecretManifest(imagePullSecret, ctx.namespace, pullCreds));
     }
 
     // Domínios adicionais (CRUD): mapeia o modo TLS e decifra certs UPLOADED por domínio.

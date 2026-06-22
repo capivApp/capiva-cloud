@@ -7,14 +7,18 @@ export interface DockerRegistry {
   name: string;
   url: string;
   username: string;
+  isDefault: boolean;
+  insecure: boolean;
   createdAt: string;
 }
 
 export interface CreateDockerRegistryInput {
   name: string;
   url: string;
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
+  isDefault?: boolean;
+  insecure?: boolean;
 }
 
 /** Hook de Registries Docker privados (org): listar/criar/remover. */
@@ -31,6 +35,7 @@ export function useDockerRegistries() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
   const createMut = useMutation({ mutationFn: (input: CreateDockerRegistryInput) => api.post<DockerRegistry>("/docker-registries", input), onSuccess: invalidate });
+  const setDefaultMut = useMutation({ mutationFn: (id: string) => api.patch<DockerRegistry>(`/docker-registries/${id}/default`, {}), onSuccess: invalidate });
   const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/docker-registries/${id}`), onSuccess: invalidate });
 
   return {
@@ -38,6 +43,7 @@ export function useDockerRegistries() {
     isLoading: list.isLoading,
     create: createMut.mutateAsync,
     isCreating: createMut.isPending,
+    setDefault: setDefaultMut.mutateAsync,
     remove: removeMut.mutateAsync,
   };
 }

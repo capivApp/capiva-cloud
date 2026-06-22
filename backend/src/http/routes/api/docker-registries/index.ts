@@ -11,5 +11,6 @@ export const registry = (router: Router): void => {
   const ctrl = container.get(DockerRegistryController);
   router.get("/", ctrl.list);
   router.post("/", requireRole("ADMIN"), ctrl.create);
+  router.patch("/:id/default", requireRole("ADMIN"), ctrl.setDefault);
   router.delete("/:id", requireRole("ADMIN"), ctrl.remove);
 };

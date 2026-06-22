@@ -19,6 +19,11 @@ export class DockerRegistryController {
     res.status(201).json(rest);
   };
 
+  setDefault = async (req: Request, res: Response): Promise<void> => {
+    const { passwordCipher, ...rest } = await this.registries.setDefault(tenantOf(req).organizationId, String(req.params.id));
+    res.json(rest);
+  };
+
   remove = async (req: Request, res: Response): Promise<void> => {
     await this.registries.remove(tenantOf(req).organizationId, String(req.params.id));
     res.status(204).end();
