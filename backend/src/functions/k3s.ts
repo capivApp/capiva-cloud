@@ -3,6 +3,28 @@
  * Kubernetes — ou cola um comando, ou fornece SSH e a plataforma roda isto.
  */
 
+/**
+ * Pré-requisitos de cada nó para armazenamento persistente em ALTA DISPONIBILIDADE
+ * com Longhorn:
+ *  - `open-iscsi` (iscsid): volumes de bloco RWO replicados entre nós.
+ *  - cliente NFS (`nfs-common`/`nfs-utils`): volumes RWX (share-manager) —
+ *    pasta compartilhada entre todos os pods/réplicas.
+ *  - módulo de kernel `iscsi_tcp`.
+ * Portável entre apt/dnf/yum/zypper. Sem isto o Longhorn entra em CrashLoop.
+ */
+export function nodePrerequisitesScript(): string {
+  return [
+    "# Capiva Cloud — pré-requisitos de storage (Longhorn: open-iscsi + NFS)",
+    "if command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y open-iscsi nfs-common;",
+    "elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y iscsi-initiator-utils nfs-utils;",
+    "elif command -v yum >/dev/null 2>&1; then sudo yum install -y iscsi-initiator-utils nfs-utils;",
+    "elif command -v zypper >/dev/null 2>&1; then sudo zypper -n install open-iscsi nfs-client; fi",
+    "sudo systemctl enable --now iscsid 2>/dev/null || true",
+    "sudo modprobe iscsi_tcp 2>/dev/null || true",
+    "echo iscsi_tcp | sudo tee /etc/modules-load.d/longhorn.conf >/dev/null 2>&1 || true",
+  ].join("\n");
+}
+
 /** Comando do CONTROL PLANE (server). Reporta de volta para auto-registro. */
 export function k3sServerScript(opts: { callbackUrl?: string; registrationToken?: string }): string {
   const callback = opts.callbackUrl && opts.registrationToken
@@ -18,6 +40,7 @@ export function k3sServerScript(opts: { callbackUrl?: string; registrationToken?
     : "";
 
   return [
+    nodePrerequisitesScript(),
     "# Capiva Cloud — instalar control plane (k3s, Traefik incluso)",
     "curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644 --tls-san $(hostname -I | awk '{print $1}')",
     callback,
@@ -27,6 +50,7 @@ export function k3sServerScript(opts: { callbackUrl?: string; registrationToken?
 /** Comando do WORKER (agent) para juntar ao server. */
 export function k3sAgentScript(serverUrl: string, nodeToken: string): string {
   return [
+    nodePrerequisitesScript(),
     "# Capiva Cloud — juntar este nó como worker",
     `curl -sfL https://get.k3s.io | K3S_URL=${serverUrl} K3S_TOKEN=${nodeToken} sh -`,
   ].join("\n");
@@ -35,6 +59,7 @@ export function k3sAgentScript(serverUrl: string, nodeToken: string): string {
 /** Comando para adicionar um control plane HA (embedded etcd). */
 export function k3sControlPlaneJoinScript(serverUrl: string, nodeToken: string): string {
   return [
+    nodePrerequisitesScript(),
     "# Capiva Cloud — juntar como control plane (HA)",
     `curl -sfL https://get.k3s.io | K3S_URL=${serverUrl} K3S_TOKEN=${nodeToken} sh -s - server --server ${serverUrl}`,
   ].join("\n");

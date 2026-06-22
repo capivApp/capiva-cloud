@@ -173,10 +173,23 @@ export class ClusterProvisionerService {
       await withTransaction(() => this.nodes.updateStatus(node.id, "ready"), { tenant });
     }
 
-    // 4) Addons (cert-manager) via kubectl no control plane.
-    await log("Instalando addons (cert-manager)...");
+    // 4) Addons (cert-manager, metrics-server, Longhorn, Traefik accessLog).
+    await log("Instalando addons (cert-manager, metrics-server, Longhorn)...");
     for (const cmd of K3S_ADDONS) {
       await this.ssh.run(this.targetOf(cp), `sudo k3s ${cmd.replace(/^kubectl /, "kubectl ")}`).catch(() => undefined);
+    }
+
+    // 4b) Storage HA: ajusta o nº de réplicas do Longhorn ao tamanho do cluster
+    // (min(3, nós)) e liga data-locality. Best-effort: aguarda o CRD de settings.
+    const replicas = Math.min(3, inputs.length);
+    await log(`Configurando storage HA (Longhorn: ${replicas} réplica(s) por volume)...`);
+    await this.ssh
+      .run(this.targetOf(cp), "sudo k3s kubectl -n longhorn-system wait --for=condition=established crd/settings.longhorn.io --timeout=180s")
+      .catch(() => undefined);
+    for (const [name, value] of [["default-replica-count", String(replicas)], ["default-data-locality", "best-effort"]]) {
+      await this.ssh
+        .run(this.targetOf(cp), `sudo k3s kubectl -n longhorn-system patch settings.longhorn.io/${name} --type=merge -p '{"value":"${value}"}'`)
+        .catch(() => undefined);
     }
 
     // 5) Registra o cluster na plataforma.

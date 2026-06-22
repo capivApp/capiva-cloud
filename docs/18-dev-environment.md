@@ -78,6 +78,29 @@ bun src/index.ts            # API on :3000  (Scalar docs at /docs)
 - To demo RWX locally, use a cluster whose nodes have the prerequisites (e.g.
   `kubeadm` VMs, or `k3s` installed on the host with `open-iscsi`).
 
+### Production provisioning closes the gap (HA persistent + shared storage)
+
+The platform's **own cluster provisioning** (SSH/k3s — `functions/k3s.ts` +
+`ClusterProvisionerService`) installs the Longhorn prerequisites on **every
+node** before k3s, so Longhorn runs for real:
+
+- `nodePrerequisitesScript()` (prepended to the server, worker and HA
+  control-plane install scripts) installs `open-iscsi` + the NFS client
+  (`nfs-common`/`nfs-utils`, portable across apt/dnf/yum/zypper), enables
+  `iscsid`, and loads `iscsi_tcp` (persisted via `/etc/modules-load.d`).
+- After the addons, the provisioner tunes Longhorn for the cluster size:
+  `default-replica-count = min(3, nodeCount)` and `default-data-locality =
+  best-effort`.
+
+Result on a provisioned cluster:
+- **RWO** volumes are block devices replicated across nodes (HA — a replica per
+  node up to 3); if a node dies, Longhorn rebuilds/attaches elsewhere.
+- **RWX** volumes are a shared filesystem (Longhorn share-manager over NFS) seen
+  by every pod/replica.
+
+So **only k3d** (the local dev sandbox, minimal node image) can't run Longhorn;
+every cluster the platform provisions can, with HA + shared storage out of the box.
+
 ## End-to-end smoke test
 
 `scripts/e2e-smoke.sh` drives the platform **through the HTTP API only**
