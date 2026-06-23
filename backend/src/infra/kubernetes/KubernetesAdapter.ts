@@ -67,7 +67,13 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     return { kc, api };
   }
 
-  async apply(ctx: KubeContext, manifest: K8sManifest): Promise<void> {
+  /**
+   * Server-Side Apply. `fieldManager` isola a "intenção" de cada chamador: o
+   * reconciler usa "capiva" (dono do objeto inteiro); aplicações parciais (ex.:
+   * só `spec.replicas` no scale) DEVEM usar outro manager, senão o SSA poda os
+   * campos que "capiva" tinha (selector/template) → Deployment inválido (422).
+   */
+  async apply(ctx: KubeContext, manifest: K8sManifest, fieldManager = "capiva"): Promise<void> {
     const resolved = this.resolve(ctx.kubeconfig);
     const obj: K8sManifest = {
       ...manifest,
@@ -92,10 +98,36 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       obj as KubernetesObject,
       undefined,
       undefined,
-      "capiva",
+      fieldManager,
       true,
       PatchStrategy.ServerSideApply,
     );
+  }
+
+  /**
+   * Aplica um objeto k8s COMO ESTÁ (sem injetar namespace/labels). Para bundles
+   * de operators que misturam recursos cluster-scoped (CRD/ClusterRole) e
+   * namespaced (já com namespace próprio). Server-side apply idempotente.
+   */
+  async applyRaw(ctx: KubeContext, obj: KubernetesObject): Promise<void> {
+    const resolved = this.resolve(ctx.kubeconfig);
+    if (!resolved) {
+      console.log(`[k8s:dry-run] applyRaw ${(obj as { kind?: string }).kind}/${obj.metadata?.name}`);
+      return;
+    }
+    await resolved.api.patch(obj, undefined, undefined, "capiva", true, PatchStrategy.ServerSideApply);
+  }
+
+  /** Existe um CustomResourceDefinition com este nome? (checagem de operator instalado). */
+  async crdExists(ctx: KubeContext, crdName: string): Promise<boolean> {
+    const resolved = this.resolve(ctx.kubeconfig);
+    if (!resolved) return false;
+    try {
+      await resolved.api.read({ apiVersion: "apiextensions.k8s.io/v1", kind: "CustomResourceDefinition", metadata: { name: crdName } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Cria o namespace se não existir (idempotente, cacheado por kubeconfig). */
@@ -281,9 +313,17 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     }
   }
 
-  /** Ajusta as réplicas do Deployment (escala manual) via server-side apply. */
+  /**
+   * Ajusta as réplicas do Deployment (escala manual) via server-side apply
+   * PARCIAL — usa o fieldManager dedicado "capiva-scale" para coexistir com o
+   * "capiva" (dono de selector/template) sem podar esses campos.
+   */
   async scaleDeployment(ctx: KubeContext, name: string, replicas: number): Promise<void> {
-    await this.apply(ctx, { apiVersion: "apps/v1", kind: "Deployment", metadata: { name, namespace: ctx.namespace }, spec: { replicas } });
+    await this.apply(
+      ctx,
+      { apiVersion: "apps/v1", kind: "Deployment", metadata: { name, namespace: ctx.namespace }, spec: { replicas } },
+      "capiva-scale",
+    );
   }
 
   /**
@@ -333,6 +373,69 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       };
     } catch {
       return { exists: false };
+    }
+  }
+
+  /**
+   * Saúde dos pods de uma aplicação: total, prontos e os motivos de quem não
+   * subiu (ImagePullBackOff, CrashLoopBackOff, Pending/unschedulable...). Dá
+   * visibilidade do "porquê" quando o Deployment não fica ready.
+   */
+  async podHealth(ctx: KubeContext, appName: string): Promise<{ total: number; ready: number; issues: string[] }> {
+    const resolved = this.resolve(ctx.kubeconfig);
+    if (!resolved) return { total: 0, ready: 0, issues: [] };
+    const core = resolved.kc.makeApiClient(CoreV1Api);
+    const pods = await core.listNamespacedPod({ namespace: ctx.namespace, labelSelector: `app.kubernetes.io/name=${appName}` });
+    let ready = 0;
+    const issues: string[] = [];
+    for (const p of pods.items) {
+      const name = p.metadata?.name ?? "pod";
+      if ((p.status?.conditions ?? []).some((c) => c.type === "Ready" && c.status === "True")) {
+        ready++;
+        continue;
+      }
+      const states = p.status?.containerStatuses ?? [];
+      for (const cs of states) {
+        const w = cs.state?.waiting;
+        if (w?.reason) issues.push(`${name}: ${w.reason}${w.message ? ` — ${w.message}` : ""}`);
+        const t = cs.state?.terminated;
+        if (t?.reason && t.reason !== "Completed") issues.push(`${name}: ${t.reason}${t.message ? ` — ${t.message}` : ""}`);
+      }
+      // Sem containerStatuses → pod pendente (ex.: unschedulable): usa a condição negativa.
+      if (states.length === 0) {
+        const cond = (p.status?.conditions ?? []).find((c) => c.status === "False" && c.reason);
+        issues.push(`${name}: ${cond?.reason ?? p.status?.phase ?? "Pending"}${cond?.message ? ` — ${cond.message}` : ""}`);
+      }
+    }
+    return { total: pods.items.length, ready, issues: [...new Set(issues)] };
+  }
+
+  /** IP de um nó do cluster (preferindo ExternalIP) — base da URL de acesso externo. */
+  async nodeIP(kubeconfig: string): Promise<string | null> {
+    if (!kubeconfig) return null;
+    try {
+      const core = this.loadKc(kubeconfig).makeApiClient(CoreV1Api);
+      const nodes = await core.listNode();
+      const addresses = nodes.items.flatMap((n) => n.status?.addresses ?? []);
+      return (
+        addresses.find((a) => a.type === "ExternalIP")?.address ??
+        addresses.find((a) => a.type === "InternalIP")?.address ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** nodePort atribuído a um Service NodePort (null se não existir/não for NodePort). */
+  async serviceNodePort(ctx: KubeContext, name: string): Promise<number | null> {
+    if (!ctx.kubeconfig) return null;
+    try {
+      const core = this.loadKc(ctx.kubeconfig).makeApiClient(CoreV1Api);
+      const svc = await core.readNamespacedService({ name, namespace: ctx.namespace });
+      return svc.spec?.ports?.[0]?.nodePort ?? null;
+    } catch {
+      return null;
     }
   }
 

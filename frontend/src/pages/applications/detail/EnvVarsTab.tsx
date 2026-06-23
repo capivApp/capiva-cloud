@@ -1,10 +1,11 @@
-import { Eye, EyeOff, KeyRound, Link2, Plus, Save, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Hammer, KeyRound, Link2, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useBuildArgs, type BuildArg } from "@/pages/applications/hooks/useBuildArgs";
 import { useEnvVars, type EnvVar } from "@/pages/applications/hooks/useEnvVars";
 
 interface Row {
@@ -165,6 +166,8 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
         </CardContent>
       </Card>
 
+      <BuildArgsCard applicationId={applicationId} />
+
       {injected.length > 0 && (
         <Card>
           <CardContent className="space-y-2 pt-5">
@@ -183,5 +186,62 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
         </Card>
       )}
     </div>
+  );
+}
+
+/**
+ * Build args (ARG do Dockerfile): aplicados no PRÓXIMO build via `--build-arg`,
+ * não viram env do runtime. Requer `ARG <CHAVE>` declarado no Dockerfile.
+ */
+function BuildArgsCard({ applicationId }: { applicationId: string }) {
+  const { buildArgs, isLoading, save, isSaving } = useBuildArgs(applicationId);
+  const [rows, setRows] = useState<BuildArg[]>([]);
+
+  const serverKey = useMemo(() => JSON.stringify(buildArgs), [buildArgs]);
+  useEffect(() => setRows(buildArgs.map((b) => ({ ...b }))), [serverKey]);
+
+  const update = (i: number, patch: Partial<BuildArg>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  const addRow = () => setRows((r) => [...r, { key: "", value: "" }]);
+  const removeRow = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
+
+  const onSave = async () => {
+    const ready = rows.filter((r) => r.key.trim()).map((r) => ({ key: r.key.trim(), value: r.value }));
+    if (new Set(ready.map((r) => r.key)).size !== ready.length) return toast.error("Há chaves duplicadas.");
+    try {
+      await save(ready);
+      toast.success("Build args salvos. Valem no próximo build.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 pt-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Hammer className="size-4 text-muted-foreground" />
+            <p className="text-sm font-medium">Variáveis de build (build args)</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={addRow}><Plus className="size-3.5" /> Adicionar</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Viram <code>--build-arg</code> no build. Exigem <code>ARG &lt;CHAVE&gt;</code> no Dockerfile para terem efeito. Aplicados no próximo deploy.</p>
+
+        {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        {!isLoading && rows.length === 0 && <p className="text-sm text-muted-foreground">Nenhum build arg.</p>}
+
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input value={row.key} onChange={(e) => update(i, { key: e.target.value })} placeholder="DATABASE_URL" className="w-2/5 font-mono text-xs" />
+            <Input value={row.value} onChange={(e) => update(i, { value: e.target.value })} placeholder="valor" className="flex-1 font-mono text-xs" />
+            <Button variant="ghost" size="icon" onClick={() => removeRow(i)}><Trash2 className="size-4" /></Button>
+          </div>
+        ))}
+
+        <div className="flex justify-end pt-1">
+          <Button variant="gradient" size="sm" onClick={onSave} disabled={isSaving}><Save className="size-4" /> Salvar build args</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

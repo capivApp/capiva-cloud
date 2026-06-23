@@ -83,7 +83,11 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
 
     let status: ObservedStatus;
     if (app.rolloutStrategy === "ROLLING") {
-      await this.k8s.apply(ctx, deploymentManifest(base, hpaEnabled ? null : replicas));
+      // Réplicas: HPA ativo → null (HPA é o dono). Senão, se o Deployment já
+      // existe, null PRESERVA a escala atual (manual/anterior) — só define o
+      // default no primeiro apply. Evita o reconcile resetar o scale manual.
+      const exists = Boolean((await this.k8s.observe(ctx, "apps/v1", "Deployment", app.name)).raw);
+      await this.k8s.apply(ctx, deploymentManifest(base, hpaEnabled || exists ? null : replicas));
       if (hpaEnabled && scaling) {
         await this.k8s.apply(ctx, hpaManifest(app.name, ctx.namespace, scaling.minReplicas, scaling.maxReplicas, scaling.metric, scaling.target));
       }

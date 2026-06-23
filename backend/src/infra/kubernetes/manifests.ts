@@ -24,6 +24,17 @@ export interface AppManifestInput {
   imagePullSecret?: string;
 }
 
+/**
+ * Readiness probe. Sem `healthPath` definido, usa um check TCP (porta aberta =
+ * pronto) — tolerante a apps que não respondem 200 em "/". Com `healthPath`,
+ * faz HTTP GET nesse caminho. Evita o deploy travar em "Implantando" por um
+ * health check HTTP que o usuário nunca configurou.
+ */
+function readinessProbe(input: AppManifestInput) {
+  const probe = input.healthPath ? { httpGet: { path: input.healthPath, port: input.port } } : { tcpSocket: { port: input.port } };
+  return { ...probe, initialDelaySeconds: 5, periodSeconds: 10 };
+}
+
 /** Monta volumeMounts (container) e volumes (pod) a partir dos volumes da app. */
 function volumeBits(input: AppManifestInput) {
   const vols = input.volumes ?? [];
@@ -166,7 +177,7 @@ export function deploymentManifest(input: AppManifestInput, replicas: number | n
               resources: { requests: res, limits: res },
               env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
               volumeMounts: volumeBits(input).volumeMounts,
-              readinessProbe: { httpGet: { path: input.healthPath || "/", port: input.port }, initialDelaySeconds: 5, periodSeconds: 10 },
+              readinessProbe: readinessProbe(input),
             },
           ],
           volumes: volumeBits(input).volumes,
@@ -451,7 +462,10 @@ export function ingressManifest(
     };
   }
 
-  const annotations: Record<string, string> = { "traefik.ingress.kubernetes.io/router.entrypoints": "websecure" };
+  // Roteia HTTP (web) e HTTPS (websecure): plain HTTP funciona de imediato e o
+  // HTTPS passa a valer quando o certificado for emitido (evita 404 no Traefik
+  // ao acessar via http:// enquanto o cert do Let's Encrypt ainda não saiu).
+  const annotations: Record<string, string> = { "traefik.ingress.kubernetes.io/router.entrypoints": "web,websecure" };
   if (tlsMode === "LETS_ENCRYPT") annotations["cert-manager.io/cluster-issuer"] = process.env.CERT_ISSUER || "letsencrypt-prod";
 
   return {
@@ -500,7 +514,14 @@ export function hpaManifest(
  * dependências — o usuário nunca escreve policy.
  */
 export function networkPolicyManifest(name: string, namespace: string, allowedFrom: string[]): K8sManifest {
-  const from = allowedFrom.map((src) => ({ podSelector: { matchLabels: { "app.kubernetes.io/name": src } } }));
+  // Namespace do ingress controller (Traefik). SEMPRE liberado, senão o roteamento
+  // por domínio dá 502 (Traefik alcança a rota mas a NetworkPolicy bloqueia o pod).
+  const ingressNamespace = process.env.CAPIVA_INGRESS_NAMESPACE || "kube-system";
+  const from = [
+    { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ingressNamespace } } },
+    // Origens do grafo de dependências (apps que dependem desta).
+    ...allowedFrom.map((src) => ({ podSelector: { matchLabels: { "app.kubernetes.io/name": src } } })),
+  ];
   return {
     apiVersion: "networking.k8s.io/v1",
     kind: "NetworkPolicy",
@@ -508,8 +529,8 @@ export function networkPolicyManifest(name: string, namespace: string, allowedFr
     spec: {
       podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
       policyTypes: ["Ingress"],
-      // Sem origens declaradas → nenhuma regra de ingress = default-deny.
-      ingress: from.length ? [{ from }] : [],
+      // Default-deny + ingress controller + dependências (regras OR-ed).
+      ingress: [{ from }],
     },
   };
 }

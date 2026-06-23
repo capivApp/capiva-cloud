@@ -40,6 +40,8 @@ export const registry = (router: Router): void => {
   router.get("/:id/env", ctrl.listEnv);
   router.put("/:id/env", dev, ctrl.replaceEnv);
   router.delete("/:id/env/:key", dev, ctrl.removeEnv);
+  router.get("/:id/build-args", ctrl.listBuildArgs);
+  router.put("/:id/build-args", dev, ctrl.replaceBuildArgs);
   router.patch("/:id", dev, ctrl.patch);
   router.patch("/:id/tags", dev, ctrl.updateTags);
   router.patch("/:id/tls", dev, ctrl.updateTls);

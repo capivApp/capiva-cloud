@@ -11,7 +11,7 @@ import { VolumeBackupService } from "@service/VolumeBackupService";
 import { AuditService } from "@service/AuditService";
 import { UptimeService } from "@service/UptimeService";
 import { ReportService } from "@service/ReportService";
-import { addDomainSchema, createApplicationSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
+import { addDomainSchema, createApplicationSchema, replaceBuildArgsSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
 import { HttpError } from "@functions/HttpError";
 
 function org(req: Request): { organizationId: string } {
@@ -70,6 +70,11 @@ export class ApplicationController {
     const dto = createApplicationSchema.parse(req.body);
     const app = await this.apps.create(dto, org(req));
     this.audit.fromRequest(req, "application.create", { targetType: "application", targetId: app.id, detail: app.name });
+    // Primeiro deploy automático: build (origens por código) + publicação da
+    // imagem real. Sem isto a app fica em "Implantando" com a imagem placeholder
+    // até um deploy manual. Disparo assíncrono — não bloqueia a resposta.
+    await this.deployments.trigger(app.id, `initial-${Date.now()}`, org(req)).catch((e) => console.error("[app] primeiro deploy falhou:", (e as Error).message));
+    this.audit.fromRequest(req, "application.deploy", { targetType: "application", targetId: app.id, detail: "initial" });
     res.status(201).json(app);
   };
 
@@ -198,6 +203,17 @@ export class ApplicationController {
     await this.envVars.removeKey(String(req.params.id), String(req.params.key), org(req));
     this.audit.fromRequest(req, "application.env.delete", { targetType: "application", targetId: String(req.params.id), detail: String(req.params.key) });
     res.status(204).end();
+  };
+
+  listBuildArgs = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.apps.listBuildArgs(String(req.params.id), org(req)));
+  };
+
+  replaceBuildArgs = async (req: Request, res: Response): Promise<void> => {
+    const { buildArgs } = replaceBuildArgsSchema.parse(req.body);
+    const result = await this.apps.replaceBuildArgs(String(req.params.id), buildArgs, org(req));
+    this.audit.fromRequest(req, "application.build-args.update", { targetType: "application", targetId: String(req.params.id), detail: `${buildArgs.length} build args` });
+    res.json(result);
   };
 
   patch = async (req: Request, res: Response): Promise<void> => {

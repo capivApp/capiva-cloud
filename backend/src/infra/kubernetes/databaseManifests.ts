@@ -106,13 +106,39 @@ export function databaseBackupJobManifest(name: string, namespace: string, comma
  *  - ClickHouse → Altinity (clickhouse.altinity.com/ClickHouseInstallation)
  */
 const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
-const storageFor = (size: string) => (size === "LARGE" ? "100Gi" : size === "MEDIUM" ? "50Gi" : "10Gi");
+/** Storage por tamanho, configurável por env (clusters com discos menores). */
+const storageFor = (size: string): string => {
+  const map: Record<string, string> = {
+    EXTRA_SMALL: process.env.CAPIVA_DB_STORAGE_EXTRA_SMALL || "2Gi",
+    SMALL: process.env.CAPIVA_DB_STORAGE_SMALL || "10Gi",
+    MEDIUM: process.env.CAPIVA_DB_STORAGE_MEDIUM || "50Gi",
+    LARGE: process.env.CAPIVA_DB_STORAGE_LARGE || "100Gi",
+  };
+  return map[size] ?? map.SMALL;
+};
 
 export interface DbManifestInput {
   name: string;
   namespace: string;
   size: string;
   ha: boolean;
+  /** Usuário/owner e database iniciais (Postgres bootstrap). */
+  username?: string;
+  database?: string;
+}
+
+/** Secret basic-auth (username/password) — consumido pelo CNPG (bootstrap/superuser). */
+export function basicAuthSecretManifest(name: string, namespace: string, username: string, password: string): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Secret",
+    type: "kubernetes.io/basic-auth",
+    metadata: { name, namespace, labels: labels(name) },
+    data: {
+      username: Buffer.from(username).toString("base64"),
+      password: Buffer.from(password).toString("base64"),
+    },
+  };
 }
 
 export interface ConnectionMeta {
@@ -135,6 +161,36 @@ export const CONNECTION_META: Record<string, ConnectionMeta> = {
   CLICKHOUSE: { envKey: "CLICKHOUSE_URL", scheme: "clickhouse", host: (n) => `clickhouse-${n}`, port: 9000 },
 };
 
+/**
+ * Tipos que expomos externamente (NodePort) e como selecionar o pod primário.
+ * Postgres (CNPG): pod primário tem `cnpg.io/cluster=<name>` + `cnpg.io/instanceRole=primary`.
+ */
+export const EXTERNAL_DB: Record<string, { selector: (name: string) => Record<string, string>; port: number }> = {
+  POSTGRESQL: { selector: (n) => ({ "cnpg.io/cluster": n, "cnpg.io/instanceRole": "primary" }), port: 5432 },
+  MYSQL: { selector: (n) => ({ "mysql.oracle.com/cluster": n, "mysql.oracle.com/instance-type": "group-member" }), port: 3306 },
+  REDIS: { selector: (n) => ({ "app.kubernetes.io/component": "redis", "redisfailovers.databases.spotahome.com/name": n }), port: 6379 },
+  RABBITMQ: { selector: (n) => ({ "app.kubernetes.io/name": n }), port: 5672 },
+  ELASTICSEARCH: { selector: (n) => ({ "elasticsearch.k8s.elastic.co/cluster-name": n }), port: 9200 },
+  CLICKHOUSE: { selector: (n) => ({ "clickhouse.altinity.com/chi": n }), port: 9000 },
+};
+
+/**
+ * Service NodePort para acesso EXTERNO ao banco (via IP do nó + nodePort). Em
+ * complemento ao Service interno (`-rw`) que o operator cria. Nome: `<name>-ext`.
+ */
+export function databaseExternalServiceManifest(name: string, namespace: string, selector: Record<string, string>, targetPort: number): K8sManifest {
+  return {
+    apiVersion: "v1",
+    kind: "Service",
+    metadata: { name: `${name}-ext`, namespace, labels: labels(name) },
+    spec: {
+      type: "NodePort",
+      selector,
+      ports: [{ name: "db", port: targetPort, targetPort }],
+    },
+  };
+}
+
 export function databaseManifest(kind: string, input: DbManifestInput): K8sManifest {
   const { name, namespace, size, ha } = input;
   const meta = { name, namespace, labels: labels(name) };
@@ -146,7 +202,17 @@ export function databaseManifest(kind: string, input: DbManifestInput): K8sManif
         apiVersion: "postgresql.cnpg.io/v1",
         kind: "Cluster",
         metadata: meta,
-        spec: { instances: ha ? 3 : 1, storage: { size: storage }, ...(ha ? { primaryUpdateStrategy: "unsupervised" } : {}) },
+        spec: {
+          instances: ha ? 3 : 1,
+          storage: { size: storage },
+          ...(ha ? { primaryUpdateStrategy: "unsupervised" } : {}),
+          // Aplica as credenciais do usuário (owner/db via Secret) — sem isto o
+          // CNPG cria um user `app` aleatório e o login do usuário falha.
+          bootstrap: { initdb: { database: input.database || "app", owner: input.username || "app", secret: { name: `${name}-app` } } },
+          // Habilita o superusuário `postgres` (root) com senha do Secret dedicado.
+          enableSuperuserAccess: true,
+          superuserSecret: { name: `${name}-superuser` },
+        },
       };
     case "MYSQL":
       return {

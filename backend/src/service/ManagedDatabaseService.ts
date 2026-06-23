@@ -5,11 +5,15 @@ import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
 import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
+import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
+import { OperatorInstallerService } from "@service/OperatorInstallerService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt, encrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
-import { CONNECTION_META } from "@infra/kubernetes/databaseManifests";
+import { CONNECTION_META, EXTERNAL_DB, databaseManifest } from "@infra/kubernetes/databaseManifests";
+import { interpretDbStatus } from "@infra/kubernetes/reconcilers/DatabaseReconciler";
+import type { KubeContext } from "@interface/integrations";
 import type { ManagedDatabase, ManagedServiceKind, ManagedSize, Prisma } from "@prisma-generated/client";
 
 export interface CreateDatabaseInput {
@@ -31,6 +35,8 @@ export interface DatabaseConfig {
   username: string;
   passwordCipher: string;
   database: string;
+  /** Senha aleatória do superusuário (root, `postgres`) — gerada na criação. */
+  superuserPasswordCipher: string;
   backup: { enabled: boolean; schedule: string; retentionDays: number };
 }
 
@@ -38,6 +44,13 @@ export interface DatabaseDetail extends Omit<ManagedDatabase, "config"> {
   username: string;
   database: string;
   connectionUrl: string;
+  /** URL de acesso EXTERNO (IP do nó + NodePort). null se indisponível/não suportado. */
+  connectionUrlExternal: string | null;
+  /** Topologia/saúde vivos do operator. null quando o cluster não responde. */
+  instances: number | null;
+  readyInstances: number | null;
+  phase: string | null;
+  healthy: boolean;
   backup: { enabled: boolean; schedule: string; retentionDays: number };
 }
 
@@ -56,6 +69,8 @@ export class ManagedDatabaseService {
     private readonly environments: EnvironmentRepository,
     private readonly reconcilers: ReconcilerFactory,
     private readonly kube: KubeContextResolver,
+    private readonly k8s: KubernetesAdapter,
+    private readonly operators: OperatorInstallerService,
   ) {}
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<ManagedDatabase[]> {
@@ -67,6 +82,7 @@ export class ManagedDatabaseService {
       username: input.username || "capiva",
       passwordCipher: encrypt(input.password || crypto.randomBytes(18).toString("base64url")),
       database: input.database || input.name.replace(/[^a-zA-Z0-9_]/g, "_"),
+      superuserPasswordCipher: encrypt(crypto.randomBytes(24).toString("base64url")),
       backup: {
         enabled: input.backupEnabled ?? true,
         schedule: input.backupSchedule || "0 3 * * *",
@@ -92,10 +108,13 @@ export class ManagedDatabaseService {
     // cluster, a entidade é criada mesmo assim e o status reflete o problema.
     try {
       const ctx = await this.kube.forEnvironment(input.environmentId, tenant);
+      // Garante o operator do tipo instalado (idempotente) ANTES de reconciliar —
+      // usa as credenciais salvas do cluster, sem depender de SSH/provisionamento.
+      await this.operators.ensure(ctx, db.kind);
       const status = await this.reconcilers.forDatabase().reconcile(db, ctx);
       await withTransaction(() => this.databases.updateStatus(db.id, status.ready ? "running" : "provisioning"), { tenant });
     } catch (error) {
-      console.error("[db] reconcile falhou (operator ausente?):", (error as Error).message);
+      console.error("[db] provisionamento falhou (operator/reconcile):", (error as Error).message);
       await withTransaction(() => this.databases.updateStatus(db.id, "operator-missing"), { tenant });
     }
     return db;
@@ -108,14 +127,52 @@ export class ManagedDatabaseService {
     // Normaliza configs antigas/parciais (sem backup/username) com defaults.
     const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
     const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const namespace = env?.namespace ?? "default";
+    const live = await this.liveStatus(db, namespace, tenant).catch(() => null);
     const { config, ...rest } = db;
     return {
       ...rest,
       username: cfg.username,
       database: cfg.database,
-      connectionUrl: buildUrl(db, cfg, env?.namespace ?? "default"),
+      connectionUrl: buildUrl(db, cfg, namespace),
+      connectionUrlExternal: live?.externalUrl ?? null,
+      instances: live?.instances ?? null,
+      readyInstances: live?.readyInstances ?? null,
+      phase: live?.phase ?? null,
+      healthy: Boolean(live?.healthy),
       backup: cfg.backup,
     };
+  }
+
+  /**
+   * Estado vivo do banco (topologia + URL externa). Lê o status do operator e o
+   * NodePort do Service de acesso externo. Best-effort: se o cluster/operator
+   * não responder, devolve null (a UI mostra "—" em vez de quebrar).
+   */
+  private async liveStatus(
+    db: ManagedDatabase,
+    namespace: string,
+    tenant: { organizationId: string },
+  ): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; externalUrl: string | null }> {
+    const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
+    const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
+    const manifest = databaseManifest(db.kind, { name: db.name, namespace, size: db.size, ha: db.highAvailability });
+    const status = interpretDbStatus(await this.k8s.observe(ctx, manifest.apiVersion, manifest.kind, db.name));
+    return {
+      instances: status.instances ?? null,
+      readyInstances: status.readyInstances ?? null,
+      phase: status.phase ?? null,
+      healthy: Boolean(status.ready),
+      externalUrl: await this.externalUrl(db, cfg, ctx),
+    };
+  }
+
+  /** URL de acesso externo via NodePort + IP do nó (tipos suportados). */
+  private async externalUrl(db: ManagedDatabase, cfg: DatabaseConfig, ctx: KubeContext): Promise<string | null> {
+    if (!EXTERNAL_DB[db.kind]) return null;
+    const [nodePort, ip] = await Promise.all([this.k8s.serviceNodePort(ctx, `${db.name}-ext`), this.k8s.nodeIP(ctx.kubeconfig)]);
+    if (!nodePort || !ip) return null;
+    return buildUrlAt(db, cfg, ip, nodePort);
   }
 
   async update(
@@ -137,6 +194,23 @@ export class ManagedDatabaseService {
         },
       };
       return this.databases.updateConfig(id, next as unknown as Prisma.InputJsonValue);
+    }, { tenant });
+  }
+
+  /** Remove um banco: destrói os recursos no cluster e apaga o registro. */
+  async remove(id: string, tenant: { organizationId: string }): Promise<void> {
+    await withTransaction(async () => {
+      const db = await this.databases.findById(id);
+      if (!db) throw HttpError.notFound("Banco não encontrado.");
+      // Destruição no cluster é best-effort: se o cluster/operator não responder,
+      // ainda removemos o registro (evita banco "fantasma" preso na UI).
+      try {
+        const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
+        await this.reconcilers.forDatabase().destroy(db, ctx);
+      } catch (error) {
+        console.error("[db] destroy no cluster falhou (removendo registro mesmo assim):", (error as Error).message);
+      }
+      await this.databases.delete(id);
     }, { tenant });
   }
 
@@ -170,18 +244,24 @@ function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): 
     username: config?.username ?? "capiva",
     passwordCipher: config?.passwordCipher ?? encrypt("changeme"),
     database: config?.database ?? name.replace(/[^a-zA-Z0-9_]/g, "_"),
+    superuserPasswordCipher: config?.superuserPasswordCipher ?? encrypt(crypto.randomBytes(24).toString("base64url")),
     backup: readBackupConfig(config),
   };
 }
 
-/** Monta a URL de conexão automaticamente a partir do tipo/credenciais/namespace. */
+/** Monta a URL de conexão INTERNA (DNS do cluster) a partir do tipo/credenciais/namespace. */
 function buildUrl(db: ManagedDatabase, cfg: DatabaseConfig, namespace: string): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-  const host = `${meta.host(db.name)}.${namespace}.svc.cluster.local`;
+  return buildUrlAt(db, cfg, `${meta.host(db.name)}.${namespace}.svc.cluster.local`, meta.port);
+}
+
+/** Monta a URL de conexão para um host/porta arbitrários (interno ou externo via NodePort). */
+function buildUrlAt(db: ManagedDatabase, cfg: DatabaseConfig, host: string, port: number): string {
+  const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
   const password = safeDecrypt(cfg.passwordCipher);
-  if (!meta.scheme) return `${host}:${meta.port}`; // ex.: Kafka brokers
+  if (!meta.scheme) return `${host}:${port}`; // ex.: Kafka brokers
   const auth = `${encodeURIComponent(cfg.username)}:${encodeURIComponent(password)}@`;
-  return `${meta.scheme}://${auth}${host}:${meta.port}/${cfg.database}`;
+  return `${meta.scheme}://${auth}${host}:${port}/${cfg.database}`;
 }
 
 function safeDecrypt(value: string): string {

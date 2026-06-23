@@ -320,6 +320,21 @@ export class ApplicationService {
     });
   }
 
+  /** Build args (ARG do Dockerfile) armazenados no sourceConfig. */
+  async listBuildArgs(id: string, tenant: { organizationId: string }): Promise<{ key: string; value: string }[]> {
+    const app = await this.getById(id, tenant);
+    return ((app.sourceConfig as Record<string, unknown>)?.buildArgs as { key: string; value: string }[]) ?? [];
+  }
+
+  /** Substitui os build args (passados como --build-arg no próximo build). */
+  async replaceBuildArgs(id: string, buildArgs: { key: string; value: string }[], tenant: { organizationId: string }): Promise<Application> {
+    return withTransaction(async () => {
+      const app = await this.getById(id, tenant);
+      const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), buildArgs };
+      return this.apps.update(id, { sourceConfig: cfg as Prisma.InputJsonValue });
+    }, { tenant });
+  }
+
   /** Remove a aplicação e seus recursos no cluster. */
   async remove(id: string, tenant: { organizationId: string }): Promise<void> {
     const app = await this.getById(id, tenant);

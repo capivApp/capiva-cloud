@@ -14,6 +14,7 @@ export const registry = (router: Router): void => {
   router.post("/", dev, ctrl.create);
   router.get("/:id", ctrl.get);
   router.patch("/:id", dev, ctrl.update);
+  router.delete("/:id", dev, ctrl.remove);
   router.post("/:id/attach", dev, ctrl.attach);
   router.get("/:id/backups", ctrl.listBackups);
   router.post("/:id/backups", dev, ctrl.createBackup);

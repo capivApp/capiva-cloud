@@ -468,6 +468,7 @@ enum ManagedServiceKind {
 }
 
 enum ManagedSize {
+  EXTRA_SMALL
   SMALL
   MEDIUM
   LARGE

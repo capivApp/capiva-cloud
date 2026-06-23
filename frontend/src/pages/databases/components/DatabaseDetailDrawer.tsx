@@ -1,4 +1,4 @@
-import { Copy, DatabaseBackup as BackupIcon, RotateCcw } from "lucide-react";
+import { Copy, DatabaseBackup as BackupIcon, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +94,7 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
 
 /** Drawer de configuração de um banco: URL de conexão + backups + senha. */
 export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onClose: () => void; id: string | null }) {
-  const { getDetail, update, refetch } = useDatabases();
+  const { getDetail, update, remove, isRemoving, refetch } = useDatabases();
   const [detail, setDetail] = useState<DatabaseDetail | null>(null);
   const [backupEnabled, setBackupEnabled] = useState(true);
   const [schedule, setSchedule] = useState("0 3 * * *");
@@ -123,10 +123,21 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
     }
   }
 
-  function copy() {
-    if (detail) {
-      navigator.clipboard.writeText(detail.connectionUrl);
-      toast.success("URL de conexão copiada");
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text);
+    toast.success("URL de conexão copiada");
+  }
+
+  async function removeDatabase() {
+    if (!id || !detail) return;
+    if (!window.confirm(`Remover o banco "${detail.name}"? Os dados e volumes serão apagados — esta ação é irreversível.`)) return;
+    try {
+      await remove(id);
+      toast.success("Banco removido");
+      refetch();
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message);
     }
   }
 
@@ -136,19 +147,50 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
       onClose={onClose}
       title={detail ? detail.name : "Banco"}
       description={detail ? `${detail.kind} · ${detail.size}${detail.highAvailability ? " · HA" : ""}` : undefined}
-      footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Fechar</Button><Button variant="gradient" onClick={save}>Salvar</Button></div>}
+      footer={<div className="flex items-center justify-between gap-2"><Button variant="ghost" className="text-destructive hover:text-destructive" onClick={removeDatabase} disabled={isRemoving}><Trash2 className="size-4" /> Remover</Button><div className="flex gap-2"><Button variant="ghost" onClick={onClose}>Fechar</Button><Button variant="gradient" onClick={save}>Salvar</Button></div></div>}
     >
       {!detail ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <div className="space-y-5">
-          <div className="space-y-1.5">
-            <Label>URL de conexão (montada automaticamente)</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={detail.connectionUrl} className="font-mono text-xs" />
-              <Button variant="outline" size="icon" onClick={copy}><Copy className="size-4" /></Button>
+          {/* Topologia/saúde ao vivo do operator. */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border px-3 py-2">
+              <p className="text-xs text-muted-foreground">Saúde</p>
+              <Badge variant={detail.healthy ? "success" : detail.phase ? "warning" : "danger"} className="mt-1">
+                {detail.healthy ? "Saudável" : detail.phase ? "Degradado" : "Indisponível"}
+              </Badge>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-2">
+              <p className="text-xs text-muted-foreground">Réplicas prontas</p>
+              <p className="mt-0.5 text-lg font-bold">
+                {detail.readyInstances ?? "—"}<span className="text-sm text-muted-foreground"> / {detail.instances ?? (detail.highAvailability ? 3 : 1)}</span>
+              </p>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-2">
+              <p className="text-xs text-muted-foreground">Fase</p>
+              <p className="mt-0.5 truncate text-sm font-medium" title={detail.phase ?? ""}>{detail.phase ?? "—"}</p>
             </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label>URL de conexão interna (entre pods do cluster)</Label>
+            <div className="flex gap-2">
+              <Input readOnly value={detail.connectionUrl} className="font-mono text-xs" />
+              <Button variant="outline" size="icon" onClick={() => copyText(detail.connectionUrl)}><Copy className="size-4" /></Button>
+            </div>
+          </div>
+
+          {detail.connectionUrlExternal && (
+            <div className="space-y-1.5">
+              <Label>URL de conexão externa (IP do nó + NodePort)</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={detail.connectionUrlExternal} className="font-mono text-xs" />
+                <Button variant="outline" size="icon" onClick={() => copyText(detail.connectionUrlExternal!)}><Copy className="size-4" /></Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Acesso de fora do cluster (ex.: seu micro). Garanta que a porta NodePort esteja liberada no firewall do nó.</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Usuário</Label><Input readOnly value={detail.username} /></div>
             <div className="space-y-1.5"><Label>Database</Label><Input readOnly value={detail.database} /></div>

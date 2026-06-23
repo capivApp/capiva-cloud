@@ -9,7 +9,12 @@ import { useDatabases } from "@/hooks/useDatabases";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 
 const KINDS = ["POSTGRESQL", "MYSQL", "REDIS", "RABBITMQ", "KAFKA", "MINIO", "ELASTICSEARCH", "CLICKHOUSE"];
-const SIZES = ["SMALL", "MEDIUM", "LARGE"];
+const SIZES = [
+  { id: "EXTRA_SMALL", label: "Extra Small", storage: "2 GB" },
+  { id: "SMALL", label: "Small", storage: "10 GB" },
+  { id: "MEDIUM", label: "Medium", storage: "50 GB" },
+  { id: "LARGE", label: "Large", storage: "100 GB" },
+];
 
 /** Drawer de criação de banco — sem prompt nativo, com credenciais e backups. */
 export function CreateDatabaseDrawer({ open, onClose, presetKind }: { open: boolean; onClose: () => void; presetKind?: string }) {
@@ -73,7 +78,7 @@ export function CreateDatabaseDrawer({ open, onClose, presetKind }: { open: bool
 
         <div className="space-y-2">
           <Label>Tamanho</Label>
-          <div className="flex gap-2">{SIZES.map((s) => <button key={s} onClick={() => set({ size: s })} className={cn("rounded-lg border px-3 py-1.5 text-sm", f.size === s ? "border-primary bg-primary/10" : "border-border")}>{s}</button>)}</div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SIZES.map((s) => <button key={s.id} onClick={() => set({ size: s.id })} className={cn("rounded-lg border px-3 py-1.5 text-left text-sm", f.size === s.id ? "border-primary bg-primary/10" : "border-border")}><span className="block font-medium">{s.label}</span><span className="block text-xs text-muted-foreground">{s.storage}</span></button>)}</div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

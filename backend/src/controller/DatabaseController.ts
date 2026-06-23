@@ -52,4 +52,9 @@ export class DatabaseController {
     await this.databases.attachToApplication(String(req.params.id), applicationId, tenantOf(req));
     res.status(204).end();
   };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    await this.databases.remove(String(req.params.id), tenantOf(req));
+    res.status(204).end();
+  };
 }

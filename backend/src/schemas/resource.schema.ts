@@ -40,7 +40,7 @@ export const createDatabaseSchema = z.object({
   environmentId: z.string(),
   name: z.string().min(1),
   kind: z.enum(["POSTGRESQL", "MYSQL", "REDIS", "RABBITMQ", "KAFKA", "MINIO", "ELASTICSEARCH", "CLICKHOUSE"]),
-  size: z.enum(["SMALL", "MEDIUM", "LARGE"]).default("SMALL"),
+  size: z.enum(["EXTRA_SMALL", "SMALL", "MEDIUM", "LARGE"]).default("SMALL"),
   highAvailability: z.boolean().default(false),
   username: z.string().optional(),
   password: z.string().optional(),

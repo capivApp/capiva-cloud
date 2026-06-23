@@ -128,28 +128,75 @@ export class DeploymentService {
     await step("Deploy iniciado", "DEPLOYING", 60);
 
     // Reconcilia via ApplicationService (carrega envs, volumes, deps, domínio, TLS).
-    const status = await this.appService.reconcile(app, tenant, undefined, imageRef);
+    await this.appService.reconcile(app, tenant, undefined, imageRef);
+    await step("Aguardando readiness dos pods", "DEPLOYING", 80);
+
+    // Espera os pods ficarem prontos, reportando o estado real no timeline e
+    // falhando com o erro concreto (ex.: ImagePullBackOff) em vez de travar.
+    const result = await this.awaitReady(ctx, app, deploymentId, tenant);
 
     await withTransaction(async () => {
-      const label = status.ready ? "Health Check OK" : "Health Check pendente";
+      const label = result.ready
+        ? "Health Check OK"
+        : result.issues.length
+          ? `Falha ao subir pods: ${result.issues.join(" | ")}`
+          : "Health check expirou — pods não ficaram prontos a tempo";
       await this.deployments.addEvent({ deploymentId, label });
       await this.deployments.update(deploymentId, {
-        status: status.ready ? "HEALTHY" : "DEPLOYING",
-        progress: status.ready ? 100 : 80,
+        status: result.ready ? "HEALTHY" : "FAILED",
+        progress: 100,
         imageRef,
-        podCount: status.replicas ?? 0,
-        finishedAt: status.ready ? new Date() : null,
+        podCount: result.ready ? result.replicas : result.podsTotal,
+        finishedAt: new Date(),
       });
-      deploymentEvents.emit(deploymentId, { label, status: status.ready ? "HEALTHY" : "DEPLOYING", progress: status.ready ? 100 : 80, done: status.ready });
+      deploymentEvents.emit(deploymentId, { label, status: result.ready ? "HEALTHY" : "FAILED", progress: 100, done: true });
     }, { tenant });
 
-    if (status.ready) {
+    if (result.ready) {
       void this.notifications.dispatch(tenant.organizationId, {
         event: "deploy.succeeded",
         title: `Deploy concluído: ${app.name}`,
-        body: `Versão ${version} publicada com sucesso (${status.replicas ?? 0} réplicas).`,
+        body: `Versão ${version} publicada com sucesso (${result.replicas} réplicas).`,
       });
     }
+  }
+
+  /** Motivos de pod que NÃO se resolvem sozinhos → falha o deploy de imediato. */
+  private static readonly FATAL_POD = /ImagePullBackOff|ErrImagePull|InvalidImageName|CrashLoopBackOff|CreateContainerConfigError|CreateContainerError|RunContainerError/;
+
+  /**
+   * Aguarda os pods ficarem prontos (timeout), emitindo o estado no timeline.
+   * Retorna o erro concreto se algum pod entrar em falha terminal (pull/crash).
+   */
+  private async awaitReady(
+    ctx: Awaited<ReturnType<KubeContextResolver["forEnvironment"]>>,
+    app: Application,
+    deploymentId: string,
+    tenant: { organizationId: string },
+  ): Promise<{ ready: boolean; replicas: number; podsTotal: number; issues: string[] }> {
+    const [apiVersion, kind] = app.rolloutStrategy === "ROLLING" ? ["apps/v1", "Deployment"] : ["argoproj.io/v1alpha1", "Rollout"];
+    const deadline = Date.now() + 180_000;
+    let lastReport = "";
+
+    while (Date.now() < deadline) {
+      const obs = await this.k8s.observe(ctx, apiVersion, kind, app.name);
+      if (obs.ready) return { ready: true, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: [] };
+
+      const health = await this.k8s.podHealth(ctx, app.name);
+      const fatal = health.issues.filter((i) => DeploymentService.FATAL_POD.test(i));
+      if (fatal.length) return { ready: false, replicas: health.ready, podsTotal: health.total, issues: fatal };
+
+      const report = health.issues.length ? health.issues.join(" | ") : `${health.ready}/${health.total} pods prontos`;
+      if (report !== lastReport) {
+        lastReport = report;
+        await withTransaction(() => this.deployments.addEvent({ deploymentId, label: `Pods: ${report}` }), { tenant }).catch(() => {});
+        deploymentEvents.emit(deploymentId, { label: `Pods: ${report}`, status: "DEPLOYING", progress: 85 });
+      }
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+
+    const health = await this.k8s.podHealth(ctx, app.name);
+    return { ready: false, replicas: health.ready, podsTotal: health.total, issues: health.issues };
   }
 
   private async fail(deploymentId: string, tenant: { organizationId: string }): Promise<void> {

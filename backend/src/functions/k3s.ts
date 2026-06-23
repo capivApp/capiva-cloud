@@ -91,6 +91,9 @@ export const K3S_ADDONS = [
   "kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml",
   // metrics-server (k3s já inclui; reforça em distros sem ele).
   "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
+  // CloudNativePG: operator de Postgres gerenciado (CRD postgresql.cnpg.io/Cluster).
+  // Sem ele, criar banco Postgres dá 404 no CRD. --server-side: manifest grande.
+  "kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.1.yaml",
   // Traefik access log em JSON (alimenta a tela de Requests via Loki).
   TRAEFIK_ACCESSLOG_HELMCONFIG,
 ];

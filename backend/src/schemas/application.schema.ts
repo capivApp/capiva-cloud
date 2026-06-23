@@ -62,6 +62,9 @@ export const envVarItemSchema = z.object({
 
 export const replaceEnvVarsSchema = z.object({ vars: z.array(envVarItemSchema) });
 
+/** Build args (ARG do Dockerfile) editáveis pós-criação. */
+export const replaceBuildArgsSchema = z.object({ buildArgs: z.array(keyValue) });
+
 export const addDomainSchema = z.object({
   host: z.string().min(1),
   tlsMode: z.enum(["lets_encrypt", "uploaded", "none"]).default("lets_encrypt"),
