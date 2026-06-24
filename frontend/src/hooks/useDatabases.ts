@@ -16,6 +16,9 @@ export interface DatabaseDetail extends ManagedDatabase {
   connectionUrl: string;
   /** Acesso externo (IP do nó + NodePort). null se indisponível/não suportado. */
   connectionUrlExternal: string | null;
+  /** URL como superusuário `postgres` (root) — interna e externa. */
+  superuserUrl: string | null;
+  superuserUrlExternal: string | null;
   /** Topologia/saúde vivos do operator. */
   instances: number | null;
   readyInstances: number | null;

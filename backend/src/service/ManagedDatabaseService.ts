@@ -46,6 +46,9 @@ export interface DatabaseDetail extends Omit<ManagedDatabase, "config"> {
   connectionUrl: string;
   /** URL de acesso EXTERNO (IP do nó + NodePort). null se indisponível/não suportado. */
   connectionUrlExternal: string | null;
+  /** URL como superusuário `postgres` (root) — interna e externa. null se não aplicável. */
+  superuserUrl: string | null;
+  superuserUrlExternal: string | null;
   /** Topologia/saúde vivos do operator. null quando o cluster não responde. */
   instances: number | null;
   readyInstances: number | null;
@@ -129,13 +132,20 @@ export class ManagedDatabaseService {
     const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
     const namespace = env?.namespace ?? "default";
     const live = await this.liveStatus(db, namespace, tenant).catch(() => null);
+    const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
+    const internalHost = `${meta.host(db.name)}.${namespace}.svc.cluster.local`;
+    const password = safeDecrypt(cfg.passwordCipher);
+    const superuserPw = safeDecrypt(cfg.superuserPasswordCipher);
+    const isPg = db.kind === "POSTGRESQL";
     const { config, ...rest } = db;
     return {
       ...rest,
       username: cfg.username,
       database: cfg.database,
-      connectionUrl: buildUrl(db, cfg, namespace),
-      connectionUrlExternal: live?.externalUrl ?? null,
+      connectionUrl: urlWith(db, internalHost, meta.port, cfg.username, password, cfg.database),
+      connectionUrlExternal: live?.external ? urlWith(db, live.external.ip, live.external.port, cfg.username, password, cfg.database) : null,
+      superuserUrl: isPg ? urlWith(db, internalHost, meta.port, "postgres", superuserPw, cfg.database) : null,
+      superuserUrlExternal: isPg && live?.external ? urlWith(db, live.external.ip, live.external.port, "postgres", superuserPw, cfg.database) : null,
       instances: live?.instances ?? null,
       readyInstances: live?.readyInstances ?? null,
       phase: live?.phase ?? null,
@@ -144,18 +154,31 @@ export class ManagedDatabaseService {
     };
   }
 
+  /** Estado vivo (topologia/fase/saúde) para o stream SSE e o detalhe. */
+  async status(id: string, tenant: { organizationId: string }): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; observedStatus: string }> {
+    const db = await withTransaction(() => this.databases.findById(id), { tenant });
+    if (!db) throw HttpError.notFound("Banco não encontrado.");
+    const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const live = await this.liveStatus(db, env?.namespace ?? "default", tenant).catch(() => null);
+    return {
+      instances: live?.instances ?? null,
+      readyInstances: live?.readyInstances ?? null,
+      phase: live?.phase ?? null,
+      healthy: Boolean(live?.healthy),
+      observedStatus: db.observedStatus,
+    };
+  }
+
   /**
-   * Estado vivo do banco (topologia + URL externa). Lê o status do operator e o
-   * NodePort do Service de acesso externo. Best-effort: se o cluster/operator
-   * não responder, devolve null (a UI mostra "—" em vez de quebrar).
+   * Estado vivo do banco (topologia + endpoint externo). Lê o status do operator
+   * e o NodePort/IP do nó. Best-effort: se o cluster não responder, devolve null.
    */
   private async liveStatus(
     db: ManagedDatabase,
     namespace: string,
     tenant: { organizationId: string },
-  ): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; externalUrl: string | null }> {
+  ): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; external: { ip: string; port: number } | null }> {
     const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
-    const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
     const manifest = databaseManifest(db.kind, { name: db.name, namespace, size: db.size, ha: db.highAvailability });
     const status = interpretDbStatus(await this.k8s.observe(ctx, manifest.apiVersion, manifest.kind, db.name));
     return {
@@ -163,16 +186,15 @@ export class ManagedDatabaseService {
       readyInstances: status.readyInstances ?? null,
       phase: status.phase ?? null,
       healthy: Boolean(status.ready),
-      externalUrl: await this.externalUrl(db, cfg, ctx),
+      external: await this.externalEndpoint(db, ctx),
     };
   }
 
-  /** URL de acesso externo via NodePort + IP do nó (tipos suportados). */
-  private async externalUrl(db: ManagedDatabase, cfg: DatabaseConfig, ctx: KubeContext): Promise<string | null> {
+  /** IP do nó + NodePort do acesso externo (tipos suportados). */
+  private async externalEndpoint(db: ManagedDatabase, ctx: KubeContext): Promise<{ ip: string; port: number } | null> {
     if (!EXTERNAL_DB[db.kind]) return null;
     const [nodePort, ip] = await Promise.all([this.k8s.serviceNodePort(ctx, `${db.name}-ext`), this.k8s.nodeIP(ctx.kubeconfig)]);
-    if (!nodePort || !ip) return null;
-    return buildUrlAt(db, cfg, ip, nodePort);
+    return nodePort && ip ? { ip, port: nodePort } : null;
   }
 
   async update(
@@ -249,19 +271,18 @@ function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): 
   };
 }
 
-/** Monta a URL de conexão INTERNA (DNS do cluster) a partir do tipo/credenciais/namespace. */
+/** Monta a URL de conexão INTERNA (DNS do cluster) com as credenciais da app. */
 function buildUrl(db: ManagedDatabase, cfg: DatabaseConfig, namespace: string): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-  return buildUrlAt(db, cfg, `${meta.host(db.name)}.${namespace}.svc.cluster.local`, meta.port);
+  return urlWith(db, `${meta.host(db.name)}.${namespace}.svc.cluster.local`, meta.port, cfg.username, safeDecrypt(cfg.passwordCipher), cfg.database);
 }
 
-/** Monta a URL de conexão para um host/porta arbitrários (interno ou externo via NodePort). */
-function buildUrlAt(db: ManagedDatabase, cfg: DatabaseConfig, host: string, port: number): string {
+/** Monta a URL para host/porta/credenciais arbitrários (interno, externo, app ou superusuário). */
+function urlWith(db: ManagedDatabase, host: string, port: number, username: string, password: string, database: string): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-  const password = safeDecrypt(cfg.passwordCipher);
   if (!meta.scheme) return `${host}:${port}`; // ex.: Kafka brokers
-  const auth = `${encodeURIComponent(cfg.username)}:${encodeURIComponent(password)}@`;
-  return `${meta.scheme}://${auth}${host}:${port}/${cfg.database}`;
+  const auth = `${encodeURIComponent(username)}:${encodeURIComponent(password)}@`;
+  return `${meta.scheme}://${auth}${host}:${port}/${database}`;
 }
 
 function safeDecrypt(value: string): string {

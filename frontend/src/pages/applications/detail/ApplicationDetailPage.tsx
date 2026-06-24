@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { useEventSource } from "@/hooks/useEventSource";
 import { useMetricsStream } from "@/hooks/useMetricsStream";
 import { StatusBadge } from "@/pages/applications/components/StatusBadge";
@@ -114,20 +115,29 @@ export function ApplicationDetailPage() {
                 </div>
               )}
               {deployments.length === 0 && <p className="text-sm text-muted-foreground">Nenhum deploy ainda.</p>}
-              {deployments.map((d) => (
-                <div key={d.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
-                  <span className="font-mono text-xs">{d.version}</span>
-                  <span className="text-muted-foreground">{d.podCount} pods</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={d.status === "HEALTHY" ? "success" : d.status === "FAILED" ? "danger" : "warning"}>{d.status}</Badge>
-                    {d.status === "HEALTHY" && (
-                      <Button variant="ghost" size="sm" onClick={act(() => rollback(d.id), "Restaurando versão…")}>
-                        <RotateCcw className="size-3.5" /> Restaurar
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+              {(() => {
+                // Apenas o deploy HEALTHY mais recente serve pods (rolling update); os
+                // anteriores ficam "substituídos" (0 pods, mantidos para rollback).
+                const activeId = deployments.find((d) => d.status === "HEALTHY")?.id;
+                return deployments.map((d) => {
+                  const isActive = d.id === activeId;
+                  const superseded = d.status === "HEALTHY" && !isActive;
+                  return (
+                    <div key={d.id} className={cn("flex items-center justify-between rounded-lg border px-3 py-2 text-sm", isActive ? "border-success/40" : "border-border", superseded && "opacity-70")}>
+                      <span className="font-mono text-xs">{d.version}</span>
+                      <span className="text-muted-foreground">{isActive ? `${d.podCount} pods em execução` : superseded ? "inativo (0 pods)" : `${d.podCount} pods`}</span>
+                      <div className="flex items-center gap-2">
+                        {isActive ? <Badge variant="success">Ativo</Badge> : superseded ? <Badge variant="muted">Substituído</Badge> : <Badge variant={d.status === "FAILED" ? "danger" : "warning"}>{d.status}</Badge>}
+                        {superseded && (
+                          <Button variant="ghost" size="sm" onClick={act(() => rollback(d.id), "Restaurando versão…")}>
+                            <RotateCcw className="size-3.5" /> Restaurar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

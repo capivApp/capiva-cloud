@@ -14,4 +14,5 @@ export const registry = (router: Router): void => {
   router.get("/applications/:id/scaling", sseAuthMiddleware, obs.streamScaling);
   router.get("/deployments/:deploymentId", sseAuthMiddleware, obs.streamDeployment);
   router.get("/deployments/:deploymentId/build-logs", sseAuthMiddleware, obs.streamBuildLogs);
+  router.get("/databases/:id", sseAuthMiddleware, obs.streamDatabase);
 };

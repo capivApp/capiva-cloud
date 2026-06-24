@@ -9,6 +9,15 @@ import { Label } from "@/components/ui/label";
 import { useDatabases, type DatabaseDetail } from "@/hooks/useDatabases";
 import { useDatabaseBackups } from "@/hooks/useDatabaseBackups";
 import { useStorageProviders } from "@/hooks/useStorageProviders";
+import { useEventSource } from "@/hooks/useEventSource";
+import { cn } from "@/lib/utils";
+
+interface DbLiveStatus {
+  instances: number | null;
+  readyInstances: number | null;
+  phase: string | null;
+  healthy: boolean;
+}
 
 const bkVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
 
@@ -96,6 +105,8 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
 export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onClose: () => void; id: string | null }) {
   const { getDetail, update, remove, isRemoving, refetch } = useDatabases();
   const [detail, setDetail] = useState<DatabaseDetail | null>(null);
+  // Estado vivo (fase/réplicas/saúde) via SSE — atualiza sem sair/voltar da tela.
+  const live = useEventSource<DbLiveStatus>(open && id ? `/streams/databases/${id}` : null, "database");
   const [backupEnabled, setBackupEnabled] = useState(true);
   const [schedule, setSchedule] = useState("0 3 * * *");
   const [retentionDays, setRetentionDays] = useState(7);
@@ -153,25 +164,31 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <div className="space-y-5">
-          {/* Topologia/saúde ao vivo do operator. */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-border px-3 py-2">
-              <p className="text-xs text-muted-foreground">Saúde</p>
-              <Badge variant={detail.healthy ? "success" : detail.phase ? "warning" : "danger"} className="mt-1">
-                {detail.healthy ? "Saudável" : detail.phase ? "Degradado" : "Indisponível"}
-              </Badge>
-            </div>
-            <div className="rounded-lg border border-border px-3 py-2">
-              <p className="text-xs text-muted-foreground">Réplicas prontas</p>
-              <p className="mt-0.5 text-lg font-bold">
-                {detail.readyInstances ?? "—"}<span className="text-sm text-muted-foreground"> / {detail.instances ?? (detail.highAvailability ? 3 : 1)}</span>
-              </p>
-            </div>
-            <div className="rounded-lg border border-border px-3 py-2">
-              <p className="text-xs text-muted-foreground">Fase</p>
-              <p className="mt-0.5 truncate text-sm font-medium" title={detail.phase ?? ""}>{detail.phase ?? "—"}</p>
-            </div>
-          </div>
+          {/* Topologia/saúde AO VIVO do operator (SSE) — fallback ao snapshot inicial. */}
+          {(() => {
+            const healthy = live?.healthy ?? detail.healthy;
+            const phase = live?.phase ?? detail.phase;
+            const ready = live?.readyInstances ?? detail.readyInstances;
+            const total = live?.instances ?? detail.instances ?? (detail.highAvailability ? 3 : 1);
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-border px-3 py-2">
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground"><span className={cn("inline-block size-1.5 rounded-full", healthy ? "bg-emerald-500" : "animate-pulse bg-amber-500")} /> Saúde</p>
+                  <Badge variant={healthy ? "success" : phase ? "warning" : "danger"} className="mt-1">
+                    {healthy ? "Saudável" : phase ? "Provisionando" : "Indisponível"}
+                  </Badge>
+                </div>
+                <div className="rounded-lg border border-border px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Réplicas prontas</p>
+                  <p className="mt-0.5 text-lg font-bold">{ready ?? "—"}<span className="text-sm text-muted-foreground"> / {total}</span></p>
+                </div>
+                <div className="rounded-lg border border-border px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Fase</p>
+                  <p className="mt-0.5 truncate text-sm font-medium" title={phase ?? ""}>{phase ?? "—"}</p>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="space-y-1.5">
             <Label>URL de conexão interna (entre pods do cluster)</Label>
@@ -191,6 +208,24 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
               <p className="text-xs text-muted-foreground">Acesso de fora do cluster (ex.: seu micro). Garanta que a porta NodePort esteja liberada no firewall do nó.</p>
             </div>
           )}
+
+          {detail.superuserUrl && (
+            <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <Label>Superusuário <code className="font-mono">postgres</code> (root) — senha aleatória</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={detail.superuserUrl} className="font-mono text-xs" />
+                <Button variant="outline" size="icon" onClick={() => copyText(detail.superuserUrl!)}><Copy className="size-4" /></Button>
+              </div>
+              {detail.superuserUrlExternal && (
+                <div className="flex gap-2">
+                  <Input readOnly value={detail.superuserUrlExternal} className="font-mono text-xs" />
+                  <Button variant="outline" size="icon" onClick={() => copyText(detail.superuserUrlExternal!)}><Copy className="size-4" /></Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Acesso total ao servidor (interno e externo). Guarde com cuidado.</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Usuário</Label><Input readOnly value={detail.username} /></div>
             <div className="space-y-1.5"><Label>Database</Label><Input readOnly value={detail.database} /></div>

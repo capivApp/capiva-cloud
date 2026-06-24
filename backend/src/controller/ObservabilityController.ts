@@ -3,6 +3,7 @@ import { Injectable } from "@di/index";
 import { ObservabilityService } from "@service/ObservabilityService";
 import { DeploymentService } from "@service/DeploymentService";
 import { ScalingService } from "@service/ScalingService";
+import { ManagedDatabaseService } from "@service/ManagedDatabaseService";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { tenantOf } from "@functions/tenant";
 
@@ -21,7 +22,22 @@ export class ObservabilityController {
     private readonly observability: ObservabilityService,
     private readonly deployments: DeploymentService,
     private readonly scaling: ScalingService,
+    private readonly databases: ManagedDatabaseService,
   ) {}
+
+  /** SSE: estado vivo de um banco gerenciado (fase/réplicas/saúde) a cada 3s. */
+  streamDatabase = async (req: Request, res: Response): Promise<void> => {
+    const id = String(req.params.id);
+    const tenant = tenantOf(req);
+    openSse(res);
+    let stop = false;
+    req.on("close", () => (stop = true));
+    while (!stop) {
+      const status = await this.databases.status(id, tenant).catch(() => null);
+      res.write(`event: database\ndata: ${JSON.stringify(status)}\n\n`);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  };
 
   /** SSE: progresso/timeline de um deploy em tempo real. */
   streamDeployment = async (req: Request, res: Response): Promise<void> => {
