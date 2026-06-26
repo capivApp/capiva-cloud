@@ -42,7 +42,10 @@ export function k3sServerScript(opts: { callbackUrl?: string; registrationToken?
   return [
     nodePrerequisitesScript(),
     "# Capiva Cloud — instalar control plane (k3s, Traefik incluso)",
-    "curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644 --tls-san $(hostname -I | awk '{print $1}')",
+    // `--cluster-init` liga o etcd embutido (em vez de SQLite). É O QUE PERMITE
+    // adicionar control planes extras depois (HA): sem isto, k3sControlPlaneJoinScript
+    // falha porque não há cluster etcd para o novo server entrar como membro.
+    "curl -sfL https://get.k3s.io | sh -s - server --cluster-init --write-kubeconfig-mode 644 --tls-san $(hostname -I | awk '{print $1}')",
     callback,
   ].join("\n");
 }
@@ -58,10 +61,13 @@ export function k3sAgentScript(serverUrl: string, nodeToken: string): string {
 
 /** Comando para adicionar um control plane HA (embedded etcd). */
 export function k3sControlPlaneJoinScript(serverUrl: string, nodeToken: string): string {
+  // `--server <url>` faz este nó entrar como MEMBRO do etcd já iniciado pelo
+  // primeiro server (que rodou com `--cluster-init`). A partir de 3 servers há
+  // quórum → derrubar 1 control plane não derruba o plano de controle.
   return [
     nodePrerequisitesScript(),
     "# Capiva Cloud — juntar como control plane (HA)",
-    `curl -sfL https://get.k3s.io | K3S_URL=${serverUrl} K3S_TOKEN=${nodeToken} sh -s - server --server ${serverUrl}`,
+    `curl -sfL https://get.k3s.io | K3S_TOKEN=${nodeToken} sh -s - server --server ${serverUrl} --tls-san $(hostname -I | awk '{print $1}')`,
   ].join("\n");
 }
 

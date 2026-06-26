@@ -18,6 +18,9 @@ export interface NodeMetric {
   memCapacityMib: number;
   memUsedMib: number;
   pods: PodMetric[];
+  internalIP?: string;
+  kubeletVersion?: string;
+  warnings: string[];
 }
 
 export interface ClusterMonitoring {

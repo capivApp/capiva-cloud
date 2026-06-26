@@ -1,10 +1,17 @@
-import { Cpu, MemoryStick, Server } from "lucide-react";
+import { AlertTriangle, Cpu, Database, MemoryStick, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useClusters } from "@/hooks/useClusters";
 import { useMonitoring, type NodeMetric } from "@/hooks/useMonitoring";
+import { useClusterResources, type ClusterPod, type DatabaseView } from "@/hooks/useClusterResources";
+
+const fmtPorts = (ports: { containerPort: number; protocol: string }[]) =>
+  ports.length ? ports.map((p) => `${p.containerPort}/${p.protocol}`).join(", ") : "—";
+
+const phaseBadge = (phase: string, ready: boolean): "success" | "warning" | "danger" =>
+  ready && phase === "Running" ? "success" : phase === "Running" || phase === "Pending" ? "warning" : "danger";
 
 const pct = (used: number, cap: number) => (cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0);
 const fmtCpu = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} vCPU` : `${m}m`);
@@ -38,6 +45,17 @@ function NodeCard({ node }: { node: NodeMetric }) {
           </div>
           <Badge variant={node.ready ? "success" : "danger"}>{node.ready ? "Ready" : "NotReady"}</Badge>
         </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {node.internalIP && <span className="font-mono">{node.internalIP}</span>}
+          {node.kubeletVersion && <span>kubelet {node.kubeletVersion}</span>}
+        </div>
+        {node.warnings.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {node.warnings.map((w) => (
+              <Badge key={w} variant="warning" className="gap-1"><AlertTriangle className="size-3" />{w}</Badge>
+            ))}
+          </div>
+        )}
         <UsageBar label="CPU" icon={Cpu} used={node.cpuUsedM} cap={node.cpuCapacityM} unit={fmtCpu} />
         <UsageBar label="Memória" icon={MemoryStick} used={node.memUsedMib} cap={node.memCapacityMib} unit={fmtMem} />
         <div className="space-y-1">
@@ -66,6 +84,7 @@ export function MonitoringPage() {
   }, [clusters, clusterId]);
 
   const { data, isLoading } = useMonitoring(clusterId);
+  const { pods, databases } = useClusterResources(clusterId);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -106,6 +125,94 @@ export function MonitoringPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {data?.nodes.map((n) => <NodeCard key={n.name} node={n} />)}
       </div>
+
+      {databases && databases.databases.length > 0 && <DatabasesSection databases={databases.databases} />}
+
+      {pods && <PodsSection pods={pods.pods} />}
+    </div>
+  );
+}
+
+/** Todos os bancos do cluster: instâncias com papel (primário/réplica), nó e portas. */
+function DatabasesSection({ databases }: { databases: DatabaseView[] }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="flex items-center gap-2 text-lg font-semibold"><Database className="size-4 text-primary" /> Bancos de dados</h2>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {databases.map((db) => (
+          <Card key={`${db.namespace}/${db.name}`}>
+            <CardContent className="space-y-2 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{db.name}</span>
+                <Badge variant="muted">{db.engine}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">{db.namespace} · {db.instances.length} instância(s)</p>
+              <div className="space-y-1">
+                {db.instances.map((i) => (
+                  <div key={i.pod} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`size-1.5 rounded-full ${i.ready ? "bg-success" : "bg-amber-500"}`} />
+                      <span className="font-mono">{i.pod}</span>
+                      {i.role !== "instance" && <Badge variant={i.role === "primary" ? "default" : "muted"}>{i.role}</Badge>}
+                    </span>
+                    <span className="text-muted-foreground">{i.node || "—"} · {fmtPorts(i.ports)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const CATEGORY_LABEL: Record<ClusterPod["category"], string> = { database: "banco", platform: "capiva", system: "sistema", app: "app" };
+
+/** Todos os pods do cluster: nome, namespace, nó, fase e portas. */
+function PodsSection({ pods }: { pods: ClusterPod[] }) {
+  const [filter, setFilter] = useState("");
+  const visible = pods.filter((p) => !filter || `${p.namespace}/${p.name}`.toLowerCase().includes(filter.toLowerCase()));
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Pods do cluster ({pods.length})</h2>
+        <input
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+          placeholder="Filtrar por nome…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
+      <Card>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Pod</th>
+                <th className="px-3 py-2 text-left font-medium">Namespace</th>
+                <th className="px-3 py-2 text-left font-medium">Nó</th>
+                <th className="px-3 py-2 text-left font-medium">Fase</th>
+                <th className="px-3 py-2 text-left font-medium">Portas</th>
+                <th className="px-3 py-2 text-left font-medium">Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p) => (
+                <tr key={`${p.namespace}/${p.name}`} className="border-b border-border/50 last:border-0">
+                  <td className="px-3 py-1.5 font-mono text-xs">{p.name}{p.restarts > 0 && <span className="ml-1 text-amber-500">↻{p.restarts}</span>}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{p.namespace}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{p.node || "—"}</td>
+                  <td className="px-3 py-1.5"><Badge variant={phaseBadge(p.phase, p.ready)}>{p.phase}</Badge></td>
+                  <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{fmtPorts(p.ports)}</td>
+                  <td className="px-3 py-1.5"><Badge variant="muted">{CATEGORY_LABEL[p.category]}</Badge></td>
+                </tr>
+              ))}
+              {visible.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-sm text-muted-foreground">Nenhum pod.</td></tr>}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

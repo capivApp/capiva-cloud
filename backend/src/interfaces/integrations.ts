@@ -39,6 +39,31 @@ export interface IKubernetesAdapter {
   getServiceIP(ctx: KubeContext, name: string): Promise<string | null>;
   /** Capacidade/uso de recursos dos nós do cluster (para a Fleet view). */
   listNodes(kubeconfig: string): Promise<NodeUsage[]>;
+  /** Todos os pods do cluster com nó, fase e portas (visão cluster-wide). */
+  listClusterPods(kubeconfig: string): Promise<ClusterPod[]>;
+}
+
+/** Porta exposta por um container de um pod. */
+export interface PodPort {
+  name?: string;
+  containerPort: number;
+  protocol: string;
+}
+
+/**
+ * Pod visto na escala do cluster (todos os namespaces): onde roda, fase, portas
+ * e labels — base das telas "todos os pods" e "todos os bancos".
+ */
+export interface ClusterPod {
+  name: string;
+  namespace: string;
+  node: string;
+  phase: string;
+  ready: boolean;
+  restarts: number;
+  podIP: string | null;
+  ports: PodPort[];
+  labels: Record<string, string>;
 }
 
 export interface NodeUsage {
@@ -68,6 +93,11 @@ export interface NodeMetricUsage {
   memCapacityMib: number;
   memUsedMib: number;
   pods: PodMetricUsage[];
+  /** Saúde individual do nó: versão do kubelet, IP e condições problemáticas. */
+  internalIP?: string;
+  kubeletVersion?: string;
+  /** Condições negativas ativas (DiskPressure/MemoryPressure/PIDPressure/NetworkUnavailable). */
+  warnings: string[];
 }
 
 /** Estado vivo do HorizontalPodAutoscaler (observabilidade do autoscaling). */

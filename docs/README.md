@@ -27,6 +27,7 @@ The documentation is intended to serve as the primary source of technical knowle
 | 14  | [Architecture Decision Records](./15-decisoes-tecnicas.md)                     | Technical decisions and rationale                                                           |
 | 15  | [Repository Structure](./16-estrutura-de-pastas.md)                            | Monorepo organization and conventions                                                       |
 | 16  | [Cluster Provisioning](./17-cluster-provisioning.md)                           | Kubernetes cluster installation, node management and infrastructure bootstrap               |
+| 31  | [HA & Failover Demo](./31-ha-failover-demo.md)                                  | Reproducible test: surviving node loss for apps, control plane and database (k3d)            |
 
 ## Documentation Principles
 

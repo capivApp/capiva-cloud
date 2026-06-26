@@ -11,5 +11,7 @@ export const registry = (router: Router): void => {
   router.get("/releases", ctrl.releaseSummary);
   router.get("/fleet", ctrl.fleetView);
   router.get("/monitoring", ctrl.monitoringView);
+  router.get("/cluster-pods", ctrl.clusterPodsView);
+  router.get("/cluster-databases", ctrl.clusterDatabasesView);
   router.get("/requests", ctrl.requestsView);
 };

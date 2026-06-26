@@ -3,6 +3,7 @@ import { Injectable } from "@di/index";
 import { ReleaseTrackingService } from "@service/ReleaseTrackingService";
 import { FleetService } from "@service/FleetService";
 import { MonitoringService } from "@service/MonitoringService";
+import { ClusterWorkloadsService } from "@service/ClusterWorkloadsService";
 import { RequestsService } from "@service/RequestsService";
 import { OverviewService } from "@service/OverviewService";
 import { tenantOf } from "@functions/tenant";
@@ -14,6 +15,7 @@ export class PlatformController {
     private readonly releases: ReleaseTrackingService,
     private readonly fleet: FleetService,
     private readonly monitoring: MonitoringService,
+    private readonly workloads: ClusterWorkloadsService,
     private readonly requests: RequestsService,
     private readonly overview: OverviewService,
   ) {}
@@ -45,5 +47,19 @@ export class PlatformController {
     const clusterId = req.query.clusterId as string;
     if (!clusterId) throw HttpError.badRequest("clusterId é obrigatório.");
     res.json(await this.monitoring.forCluster(tenantOf(req).organizationId, clusterId));
+  };
+
+  /** Todos os pods do cluster (nó/fase/portas), categorizados. */
+  clusterPodsView = async (req: Request, res: Response): Promise<void> => {
+    const clusterId = req.query.clusterId as string;
+    if (!clusterId) throw HttpError.badRequest("clusterId é obrigatório.");
+    res.json(await this.workloads.pods(tenantOf(req).organizationId, clusterId));
+  };
+
+  /** Todos os bancos do cluster (pods agrupados por recurso do operator). */
+  clusterDatabasesView = async (req: Request, res: Response): Promise<void> => {
+    const clusterId = req.query.clusterId as string;
+    if (!clusterId) throw HttpError.badRequest("clusterId é obrigatório.");
+    res.json(await this.workloads.databases(tenantOf(req).organizationId, clusterId));
   };
 }

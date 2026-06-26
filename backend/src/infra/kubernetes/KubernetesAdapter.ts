@@ -15,6 +15,7 @@ import stream from "stream";
 import { Injectable } from "@di/index";
 import { cpuToMillicores, memoryToMib } from "@functions/quantity";
 import type {
+  ClusterPod,
   HpaLiveStatus,
   IKubernetesAdapter,
   K8sManifest,
@@ -279,14 +280,23 @@ export class KubernetesAdapter implements IKubernetesAdapter {
           "node-role.kubernetes.io/control-plane" in (n.metadata?.labels ?? {}) ||
           "node-role.kubernetes.io/master" in (n.metadata?.labels ?? {});
         const usage = usageByNode.get(name);
+        const conditions = n.status?.conditions ?? [];
+        // Pressões de recurso e indisponibilidade têm status "True" quando há problema.
+        const warnings = conditions
+          .filter((c) => c.type !== "Ready" && c.status === "True")
+          .map((c) => c.type ?? "")
+          .filter(Boolean);
         return {
           name,
           role: isControlPlane ? ("control-plane" as const) : ("worker" as const),
-          ready: (n.status?.conditions ?? []).some((c) => c.type === "Ready" && c.status === "True"),
+          ready: conditions.some((c) => c.type === "Ready" && c.status === "True"),
           cpuCapacityM: cpuToMillicores(n.status?.capacity?.cpu),
           cpuUsedM: cpuToMillicores(usage?.cpu),
           memCapacityMib: memoryToMib(n.status?.capacity?.memory),
           memUsedMib: memoryToMib(usage?.memory),
+          internalIP: (n.status?.addresses ?? []).find((a) => a.type === "InternalIP")?.address,
+          kubeletVersion: n.status?.nodeInfo?.kubeletVersion,
+          warnings,
           pods: (podsByNode.get(name) ?? []).sort((a, b) => b.cpuMillicores - a.cpuMillicores),
         };
       });
@@ -502,6 +512,38 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         }
       },
     };
+  }
+
+  /**
+   * Todos os pods do cluster (todos os namespaces) com nó, fase, reinícios e as
+   * portas declaradas pelos containers. Base das telas "todos os pods" e, por
+   * label, "todos os bancos". Não depende do metrics-server.
+   */
+  async listClusterPods(kubeconfig: string): Promise<ClusterPod[]> {
+    if (!kubeconfig) return [];
+    try {
+      const core = this.loadKc(kubeconfig).makeApiClient(CoreV1Api);
+      const pods = await core.listPodForAllNamespaces();
+      return pods.items.map((p) => {
+        const statuses = p.status?.containerStatuses ?? [];
+        const ports = (p.spec?.containers ?? []).flatMap((c) =>
+          (c.ports ?? []).map((port) => ({ name: port.name, containerPort: port.containerPort, protocol: port.protocol ?? "TCP" })),
+        );
+        return {
+          name: p.metadata?.name ?? "pod",
+          namespace: p.metadata?.namespace ?? "default",
+          node: p.spec?.nodeName ?? "",
+          phase: p.status?.phase ?? "Unknown",
+          ready: (p.status?.conditions ?? []).some((c) => c.type === "Ready" && c.status === "True"),
+          restarts: statuses.reduce((sum, s) => sum + (s.restartCount ?? 0), 0),
+          podIP: p.status?.podIP ?? null,
+          ports,
+          labels: p.metadata?.labels ?? {},
+        };
+      });
+    } catch {
+      return [];
+    }
   }
 
   /** Uso de CPU/memória por pod (somando containers), com o nó onde roda. */

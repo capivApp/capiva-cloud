@@ -14,14 +14,21 @@
 # ============================================================
 set -euo pipefail
 CLUSTER="capiva"
+# Nº de control planes (servers) e workers (agents). Default HA: 3 servers (etcd
+# embutido com quórum → derrubar 1 control plane NÃO derruba o plano de controle).
+# Sobrescreva para um cluster leve: SERVERS=1 AGENTS=1 ./scripts/dev-cluster.sh up
+SERVERS="${SERVERS:-3}"
+AGENTS="${AGENTS:-2}"
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "❌ '$1' não encontrado. Instale antes (veja https://k3d.io)."; exit 1; }; }
 
 up() {
   need docker; need k3d; need kubectl
   if ! k3d cluster list | grep -q "^${CLUSTER}"; then
-    echo "🚀 Criando cluster k3d '${CLUSTER}' (Traefik já incluso no k3s)..."
-    k3d cluster create "${CLUSTER}" --servers 1 --agents 2 \
+    echo "🚀 Criando cluster k3d '${CLUSTER}' — ${SERVERS} control plane(s) + ${AGENTS} worker(s)..."
+    # k3d sobe o serverlb (load balancer) na frente de TODOS os servers: se um
+    # control plane cair, o kubectl continua funcionando pelos demais.
+    k3d cluster create "${CLUSTER}" --servers "${SERVERS}" --agents "${AGENTS}" \
       --port "8880:80@loadbalancer" --port "8843:443@loadbalancer" --wait
   fi
 
