@@ -1,0 +1,87 @@
+# ============================================================
+# Capiva Cloud — stack de deploy (Docker)
+#
+#   cp .env.deploy.example .env   # ajuste PUBLIC_HOST e os segredos
+#   docker compose -f docker-compose.deploy.yml up -d --build
+#
+# Portas publicadas no host:
+#   PANEL_PORT (default 8410) -> painel (frontend + proxy /api, /docs, /terminal)
+#   API_PORT   (default 8411) -> API do backend (acesso direto / Scalar em /docs)
+#
+# Postgres e MinIO são dedicados a este stack e ficam apenas na rede interna.
+# ============================================================
+name: capiva-cloud
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: capiva-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: capiva
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: capiva
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capiva -d capiva"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: capiva-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.deploy
+    container_name: capiva-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://capiva:${POSTGRES_PASSWORD}@postgres:5432/capiva?schema=public
+      PORT: "3000"
+      TERMINAL_WS_PORT: "3001"
+      PUBLIC_URL: http://${PUBLIC_HOST}:${PANEL_PORT:-8410}
+      COOKIE_SECURE: "false"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: capiva
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${API_PORT:-8411}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.deploy
+      args:
+        # Vazio => o cliente usa caminhos relativos (/api) na mesma origem,
+        # evitando o whitelist de CORS fixo em localhost no backend.
+        VITE_API_URL: ""
+        VITE_TERMINAL_WS_URL: ws://${PUBLIC_HOST}:${PANEL_PORT:-8410}
+    container_name: capiva-frontend
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-8410}:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  miniodata:

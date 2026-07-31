@@ -112,3 +112,46 @@ Capiva Cloud provisions and configures everything automatically.
 Whenever new code is pushed to your repository, the platform can build, deploy and roll back changes automatically according to your deployment settings.
 
 No Kubernetes manifests, no kubectl commands and no cluster administration required.
+
+## 📦 Self-hosting the control plane (Docker)
+
+`docker-compose.yml` is the local development stack (ports 3000/5173/5432/9000, CORS pointing at `localhost`).
+To run the control plane on a server, use `docker-compose.deploy.yml`:
+
+```bash
+cp .env.deploy.example .env      # set PUBLIC_HOST, ports and generate the secrets
+docker compose -f docker-compose.deploy.yml up -d --build
+```
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PUBLIC_HOST` | — | Host/IP used to reach the panel (feeds the web terminal WebSocket URL) |
+| `PANEL_PORT` | `8410` | Published port of the panel |
+| `API_PORT` | `8411` | Published port of the API (direct access and Scalar docs at `/docs`) |
+| `POSTGRES_PASSWORD` | — | Password of the dedicated control plane Postgres |
+| `ENCRYPTION_KEY` | — | 32-byte hex key for credential encryption at rest |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | — | Credentials of the dedicated MinIO (backups/uploads) |
+
+The stack ships four containers: `capiva-postgres` and `capiva-minio` (dedicated, **not** published to the
+host network), `capiva-backend` and `capiva-frontend`.
+
+Two details matter when deploying:
+
+- **Panel and API share a single origin.** `frontend/nginx.deploy.conf` proxies `/api`, `/docs` and
+  `/terminal` (WebSocket) to the backend, because `ORIGIN_WHITELIST` in `backend/src/http/server.ts` is
+  hardcoded to `localhost` and the refresh cookie uses `sameSite=strict`.
+- **`VITE_API_URL` is resolved at build time.** It is passed as a build arg in `frontend/Dockerfile.deploy`
+  and defaults to empty, so the client issues relative `/api` requests. Setting it as a runtime environment
+  variable has no effect.
+
+`backend/Dockerfile.deploy` runs `prisma migrate deploy` before starting the API, so the schema is applied
+on every rollout.
+
+There is no seed script: create the first user (and its organization, as `OWNER`) through the panel's
+sign-up screen or via the API:
+
+```bash
+curl -X POST http://PUBLIC_HOST:8410/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","name":"Admin","password":"change-me","organizationName":"My Org"}'
+```

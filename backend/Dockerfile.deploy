@@ -1,0 +1,23 @@
+# ---- Capiva Cloud — Backend (Bun) — imagem de deploy ----
+# Diferenças em relação ao Dockerfile de desenvolvimento:
+#   - git no build (a dependência @mateusseiboth/ts-decorators vem do GitHub);
+#   - sem `|| true`: falha de install/generate quebra o build em vez de gerar
+#     uma imagem silenciosamente quebrada;
+#   - aplica as migrations antes de subir a API.
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json bunfig.toml tsconfig.json ./
+COPY prisma ./prisma
+RUN bun install
+
+COPY . .
+
+RUN bunx prisma generate
+
+ENV NODE_ENV=production
+EXPOSE 3000 3001
+CMD ["sh", "-c", "bunx prisma migrate deploy && bun src/index.ts"]
