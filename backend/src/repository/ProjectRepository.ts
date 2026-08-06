@@ -13,18 +13,20 @@ export class ProjectRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<Project | null> {
-    return this.tx.project.findUnique({ where: { id } });
+    return this.tx.project.findFirst({ where: { id, ...this.scope("project") } });
   }
 
   findBySlug(organizationId: string, slug: string): Promise<Project | null> {
     return this.tx.project.findUnique({ where: { organizationId_slug: { organizationId, slug } } });
   }
 
-  update(id: string, data: Prisma.ProjectUncheckedUpdateInput): Promise<Project> {
+  async update(id: string, data: Prisma.ProjectUncheckedUpdateInput): Promise<Project> {
+    await this.ensureScoped(() => this.findById(id), "Projeto");
     return this.tx.project.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<Project> {
+  async delete(id: string): Promise<Project> {
+    await this.ensureScoped(() => this.findById(id), "Projeto");
     return this.tx.project.delete({ where: { id } });
   }
 }

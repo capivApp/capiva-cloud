@@ -50,7 +50,9 @@ export class GitService {
    * dispara deploy nas aplicações vinculadas cuja branch de deploy corresponde.
    */
   async handleWebhook(connectionId: string, signature: string | undefined, rawBody: Buffer): Promise<{ triggered: number }> {
-    const conn = await withTransaction(() => this.connections.findById(connectionId));
+    // Webhook é público: chega sem organização no contexto. A conexão é
+    // resolvida sem escopo e a assinatura HMAC (abaixo) é o que autentica.
+    const conn = await withTransaction(() => this.connections.findByIdUnscoped(connectionId));
     if (!conn) throw HttpError.notFound("Conexão Git não encontrada.");
 
     const provider = this.factory.build({
@@ -74,6 +76,10 @@ export class GitService {
       const repo = (cfg.repo as string) ?? (cfg.fullName as string);
       if (branch !== event.branch) continue;
       if (repo && event.repo && repo !== event.repo) continue;
+      // Deploy automático ligado por padrão (comportamento anterior); quem
+      // prefere promover manualmente desliga em Configurações.
+      if (cfg.autoDeploy === false) continue;
+      if (!matchesWatchPaths(cfg.watchPaths as unknown, event.changedPaths)) continue;
       await this.deployments.trigger(app.id, event.sha.slice(0, 7), tenant);
       triggered++;
     }
@@ -81,14 +87,48 @@ export class GitService {
   }
 }
 
+/**
+ * Filtro de caminhos observados (monorepo): sem `watchPaths` configurado, todo
+ * push dispara. Com a lista, só dispara quando o push mexeu em algum arquivo
+ * sob um dos prefixos — evita reconstruir todos os serviços do repositório a
+ * cada commit.
+ *
+ * Um push sem lista de arquivos no payload (ou com mais de 20 commits, quando
+ * os provedores truncam) dispara por segurança: melhor um build a mais do que
+ * perder um deploy.
+ */
+export function matchesWatchPaths(configured: unknown, changedPaths: string[] | undefined): boolean {
+  const paths = Array.isArray(configured) ? configured.map(String).map((p) => p.trim()).filter(Boolean) : [];
+  if (paths.length === 0) return true;
+  if (!changedPaths?.length) return true;
+
+  const normalize = (value: string) => value.replace(/^\.?\//, "").replace(/\/+$/, "");
+  const prefixes = paths.map(normalize);
+  return changedPaths.some((file) => {
+    const target = normalize(file);
+    return prefixes.some((prefix) => target === prefix || target.startsWith(`${prefix}/`));
+  });
+}
+
+/**
+ * Arquivos tocados pelo push. GitHub, GitLab e Gitea usam o mesmo formato de
+ * commit (`added`/`modified`/`removed`), então uma leitura só cobre os três.
+ */
+function changedPathsOf(body: any): string[] {
+  const commits: any[] = Array.isArray(body?.commits) ? body.commits : [];
+  const files = commits.flatMap((c) => [...(c?.added ?? []), ...(c?.modified ?? []), ...(c?.removed ?? [])]);
+  return [...new Set(files.filter((f): f is string => typeof f === "string"))];
+}
+
 /** Normaliza payloads de push de GitHub/GitLab/Gitea para um formato comum. */
-function parsePushEvent(body: any): { branch: string; sha: string; repo?: string } | null {
+function parsePushEvent(body: any): { branch: string; sha: string; repo?: string; changedPaths: string[] } | null {
   // GitHub/Gitea: { ref: "refs/heads/main", after, repository.full_name }
   if (body.ref?.startsWith("refs/heads/")) {
     return {
       branch: body.ref.replace("refs/heads/", ""),
       sha: body.after ?? body.head_commit?.id ?? "",
       repo: body.repository?.full_name,
+      changedPaths: changedPathsOf(body),
     };
   }
   // GitLab: { ref: "refs/heads/main", checkout_sha, project.path_with_namespace }
@@ -97,6 +137,7 @@ function parsePushEvent(body: any): { branch: string; sha: string; repo?: string
       branch: body.ref.replace("refs/heads/", ""),
       sha: body.checkout_sha ?? body.after ?? "",
       repo: body.project?.path_with_namespace,
+      changedPaths: changedPathsOf(body),
     };
   }
   return null;

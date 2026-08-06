@@ -13,7 +13,7 @@ export class DockerRegistryRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<DockerRegistry | null> {
-    return this.tx.dockerRegistry.findUnique({ where: { id } });
+    return this.tx.dockerRegistry.findFirst({ where: { id, ...this.scope("dockerRegistry") } });
   }
 
   findDefault(organizationId: string): Promise<DockerRegistry | null> {
@@ -25,11 +25,13 @@ export class DockerRegistryRepository extends BaseRepository {
     return this.tx.dockerRegistry.updateMany({ where: { organizationId, isDefault: true }, data: { isDefault: false } });
   }
 
-  update(id: string, data: Prisma.DockerRegistryUncheckedUpdateInput): Promise<DockerRegistry> {
+  async update(id: string, data: Prisma.DockerRegistryUncheckedUpdateInput): Promise<DockerRegistry> {
+    await this.ensureScoped(() => this.findById(id), "Registry");
     return this.tx.dockerRegistry.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<DockerRegistry> {
+  async delete(id: string): Promise<DockerRegistry> {
+    await this.ensureScoped(() => this.findById(id), "Registry");
     return this.tx.dockerRegistry.delete({ where: { id } });
   }
 }

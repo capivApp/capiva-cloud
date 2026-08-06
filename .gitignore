@@ -21,3 +21,5 @@ uploads/
 plane.md
 mobile.md
 plano.md
+# Chaves de assinatura JWT (geradas em dev, providas por secret em produção)
+backend/src/keys/

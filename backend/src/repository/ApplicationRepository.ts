@@ -4,32 +4,43 @@ import type { Prisma, Application } from "@prisma-generated/client";
 
 @Injectable()
 export class ApplicationRepository extends BaseRepository {
-  create(data: Prisma.ApplicationUncheckedCreateInput): Promise<Application> {
+  async create(data: Prisma.ApplicationUncheckedCreateInput): Promise<Application> {
+    await this.assertParents({ project: data.projectId, environment: data.environmentId });
     return this.tx.application.create({ data });
   }
 
+  /** Busca restrita à organização ativa (ver BaseRepository.scope). */
   findById(id: string): Promise<Application | null> {
-    return this.tx.application.findUnique({ where: { id } });
+    return this.tx.application.findFirst({ where: { id, ...this.scope("application") } });
   }
 
   listByProject(projectId: string): Promise<Application[]> {
-    return this.tx.application.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+    return this.tx.application.findMany({
+      where: { projectId, ...this.scope("application") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
-  /** Aplicações vinculadas a uma conexão Git — usadas no auto-deploy por webhook. */
+  /**
+   * Aplicações vinculadas a uma conexão Git — usadas no auto-deploy por webhook.
+   * O tenant vem da própria conexão (resolvida antes), então segue escopado.
+   */
   listByGitConnection(gitConnectionId: string): Promise<Application[]> {
-    return this.tx.application.findMany({ where: { gitConnectionId } });
+    return this.tx.application.findMany({ where: { gitConnectionId, ...this.scope("application") } });
   }
 
-  updateStatus(id: string, observedStatus: string): Promise<Application> {
+  async updateStatus(id: string, observedStatus: string): Promise<Application> {
+    await this.ensureScoped(() => this.findById(id), "Aplicação");
     return this.tx.application.update({ where: { id }, data: { observedStatus } });
   }
 
-  update(id: string, data: Prisma.ApplicationUncheckedUpdateInput): Promise<Application> {
+  async update(id: string, data: Prisma.ApplicationUncheckedUpdateInput): Promise<Application> {
+    await this.ensureScoped(() => this.findById(id), "Aplicação");
     return this.tx.application.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<Application> {
+  async delete(id: string): Promise<Application> {
+    await this.ensureScoped(() => this.findById(id), "Aplicação");
     return this.tx.application.delete({ where: { id } });
   }
 }

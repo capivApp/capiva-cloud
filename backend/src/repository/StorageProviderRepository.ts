@@ -13,7 +13,7 @@ export class StorageProviderRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<StorageProvider | null> {
-    return this.tx.storageProvider.findUnique({ where: { id } });
+    return this.tx.storageProvider.findFirst({ where: { id, ...this.scope("storageProvider") } });
   }
 
   findDefault(organizationId: string): Promise<StorageProvider | null> {
@@ -25,7 +25,8 @@ export class StorageProviderRepository extends BaseRepository {
     return this.tx.storageProvider.updateMany({ where: { organizationId, isDefault: true }, data: { isDefault: false } });
   }
 
-  delete(id: string): Promise<StorageProvider> {
+  async delete(id: string): Promise<StorageProvider> {
+    await this.ensureScoped(() => this.findById(id), "Storage provider");
     return this.tx.storageProvider.delete({ where: { id } });
   }
 }

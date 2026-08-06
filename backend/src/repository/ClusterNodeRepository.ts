@@ -4,19 +4,33 @@ import type { ClusterNode, Prisma } from "@prisma-generated/client";
 
 @Injectable()
 export class ClusterNodeRepository extends BaseRepository {
-  create(data: Prisma.ClusterNodeUncheckedCreateInput): Promise<ClusterNode> {
+  async create(data: Prisma.ClusterNodeUncheckedCreateInput): Promise<ClusterNode> {
+    await this.ensureScoped(
+      () => this.tx.cluster.findFirst({ where: { id: data.clusterId, ...this.scope("cluster") } }),
+      "Cluster",
+    );
     return this.tx.clusterNode.create({ data });
   }
+
   listByCluster(clusterId: string): Promise<ClusterNode[]> {
-    return this.tx.clusterNode.findMany({ where: { clusterId }, orderBy: { createdAt: "asc" } });
+    return this.tx.clusterNode.findMany({
+      where: { clusterId, ...this.scope("clusterNode") },
+      orderBy: { createdAt: "asc" },
+    });
   }
+
+  /** Busca restrita à organização ativa — a credencial SSH do nó sai daqui. */
   findById(id: string): Promise<ClusterNode | null> {
-    return this.tx.clusterNode.findUnique({ where: { id } });
+    return this.tx.clusterNode.findFirst({ where: { id, ...this.scope("clusterNode") } });
   }
-  updateStatus(id: string, status: string, internalIp?: string): Promise<ClusterNode> {
+
+  async updateStatus(id: string, status: string, internalIp?: string): Promise<ClusterNode> {
+    await this.ensureScoped(() => this.findById(id), "Nó");
     return this.tx.clusterNode.update({ where: { id }, data: { status, internalIp } });
   }
-  delete(id: string): Promise<ClusterNode> {
+
+  async delete(id: string): Promise<ClusterNode> {
+    await this.ensureScoped(() => this.findById(id), "Nó");
     return this.tx.clusterNode.delete({ where: { id } });
   }
 }

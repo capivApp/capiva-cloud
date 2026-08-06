@@ -4,30 +4,40 @@ import type { Prisma, Deployment, DeploymentEvent } from "@prisma-generated/clie
 
 @Injectable()
 export class DeploymentRepository extends BaseRepository {
-  create(data: Prisma.DeploymentUncheckedCreateInput): Promise<Deployment> {
+  async create(data: Prisma.DeploymentUncheckedCreateInput): Promise<Deployment> {
+    await this.ensureScoped(
+      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      "Aplicação",
+    );
     return this.tx.deployment.create({ data });
   }
 
   findById(id: string): Promise<Deployment | null> {
-    return this.tx.deployment.findUnique({ where: { id }, include: { events: true } });
+    return this.tx.deployment.findFirst({ where: { id, ...this.scope("deployment") }, include: { events: true } });
   }
 
   listByApplication(applicationId: string): Promise<Deployment[]> {
     return this.tx.deployment.findMany({
-      where: { applicationId },
+      where: { applicationId, ...this.scope("deployment") },
       orderBy: { startedAt: "desc" },
       take: 50,
     });
   }
 
-  update(id: string, data: Prisma.DeploymentUncheckedUpdateInput): Promise<Deployment> {
+  async update(id: string, data: Prisma.DeploymentUncheckedUpdateInput): Promise<Deployment> {
+    await this.ensureScoped(() => this.findById(id), "Deploy");
     return this.tx.deployment.update({ where: { id }, data });
   }
 
   /** Último deploy saudável (para rollback automático), excluindo um id. */
   lastHealthy(applicationId: string, excludeId?: string): Promise<Deployment | null> {
     return this.tx.deployment.findFirst({
-      where: { applicationId, status: "HEALTHY", id: excludeId ? { not: excludeId } : undefined },
+      where: {
+        applicationId,
+        status: "HEALTHY",
+        id: excludeId ? { not: excludeId } : undefined,
+        ...this.scope("deployment"),
+      },
       orderBy: { startedAt: "desc" },
     });
   }

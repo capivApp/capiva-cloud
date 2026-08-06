@@ -4,23 +4,34 @@ import type { Prisma, UptimeCheck, UptimeResult } from "@prisma-generated/client
 
 @Injectable()
 export class UptimeRepository extends BaseRepository {
-  createCheck(data: Prisma.UptimeCheckUncheckedCreateInput): Promise<UptimeCheck> {
+  async createCheck(data: Prisma.UptimeCheckUncheckedCreateInput): Promise<UptimeCheck> {
+    await this.ensureScoped(
+      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      "Aplicação",
+    );
     return this.tx.uptimeCheck.create({ data });
   }
 
   listChecks(applicationId: string): Promise<UptimeCheck[]> {
-    return this.tx.uptimeCheck.findMany({ where: { applicationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.uptimeCheck.findMany({
+      where: { applicationId, ...this.scope("uptimeCheck") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findCheck(id: string): Promise<UptimeCheck | null> {
-    return this.tx.uptimeCheck.findUnique({ where: { id } });
+    return this.tx.uptimeCheck.findFirst({ where: { id, ...this.scope("uptimeCheck") } });
   }
 
-  deleteCheck(id: string): Promise<UptimeCheck> {
+  async deleteCheck(id: string): Promise<UptimeCheck> {
+    await this.ensureScoped(() => this.findCheck(id), "Verificação");
     return this.tx.uptimeCheck.delete({ where: { id } });
   }
 
-  /** Todas as verificações habilitadas (para o scheduler). Sem filtro de tenant. */
+  /**
+   * Todas as verificações habilitadas (scheduler da plataforma). Roda fora de
+   * tenant de propósito — varre todas as organizações.
+   */
   listEnabled(): Promise<UptimeCheck[]> {
     return this.tx.uptimeCheck.findMany({ where: { enabled: true } });
   }

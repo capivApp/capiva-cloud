@@ -27,8 +27,21 @@ export class VolumeBackupService {
     private readonly k8s: KubernetesAdapter,
   ) {}
 
-  list(applicationId: string, volumeId: string, tenant: { organizationId: string }): Promise<Backup[]> {
+  /**
+   * Backups de um volume. O registro de Backup não tem relação com Volume no
+   * schema, então a posse é estabelecida aqui: o Volume é resolvido escopado
+   * pela organização e conferido contra a aplicação antes de listar.
+   */
+  async list(applicationId: string, volumeId: string, tenant: { organizationId: string }): Promise<Backup[]> {
+    await this.requireVolume(applicationId, volumeId, tenant);
     return withTransaction(() => this.backups.listByVolume(volumeId), { tenant });
+  }
+
+  /** Resolve o volume garantindo que pertence à aplicação E à organização ativa. */
+  private async requireVolume(applicationId: string, volumeId: string, tenant: { organizationId: string }) {
+    const volume = await withTransaction(() => this.volumes.findById(volumeId), { tenant });
+    if (!volume || volume.applicationId !== applicationId) throw HttpError.notFound("Volume não encontrado.");
+    return volume;
   }
 
   /** Dispara um backup do volume para o StorageProvider (default da org se omitido). */
@@ -38,8 +51,7 @@ export class VolumeBackupService {
     tenant: { organizationId: string },
     storageProviderId?: string,
   ): Promise<Backup> {
-    const volume = await withTransaction(() => this.volumes.findById(volumeId), { tenant });
-    if (!volume || volume.applicationId !== applicationId) throw HttpError.notFound("Volume não encontrado.");
+    const volume = await this.requireVolume(applicationId, volumeId, tenant);
     const app = await withTransaction(() => this.apps.findById(applicationId), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
 

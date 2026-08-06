@@ -712,3 +712,15 @@ model UptimeResult {
   @@index([uptimeCheckId])
   @@map("uptime_results")
 }
+
+/// Lease de liderança do control plane. Com N réplicas do backend, tarefas
+/// periódicas (uptime, backups agendados) precisam rodar em UMA réplica por vez;
+/// a lease expira sozinha, então a queda do líder não trava o agendamento.
+model PlatformLock {
+  name       String   @id
+  holder     String
+  acquiredAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@map("platform_locks")
+}

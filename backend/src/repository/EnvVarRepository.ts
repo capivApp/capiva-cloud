@@ -5,11 +5,23 @@ import type { EnvVar, Prisma } from "@prisma-generated/client";
 @Injectable()
 export class EnvVarRepository extends BaseRepository {
   listByApplication(applicationId: string): Promise<EnvVar[]> {
-    return this.tx.envVar.findMany({ where: { applicationId }, orderBy: { key: "asc" } });
+    return this.tx.envVar.findMany({
+      where: { applicationId, ...this.scope("envVar") },
+      orderBy: { key: "asc" },
+    });
+  }
+
+  /** Confirma que a aplicação alvo pertence à organização ativa. */
+  private async assertApplication(applicationId: string): Promise<void> {
+    await this.ensureScoped(
+      () => this.tx.application.findFirst({ where: { id: applicationId, ...this.scope("application") } }),
+      "Aplicação",
+    );
   }
 
   /** Upsert por (applicationId, key) — usado por manual e injeção de dependências. */
-  upsert(data: { applicationId: string; key: string; value: string; secret?: boolean; source?: "MANUAL" | "INJECTED" }): Promise<EnvVar> {
+  async upsert(data: { applicationId: string; key: string; value: string; secret?: boolean; source?: "MANUAL" | "INJECTED" }): Promise<EnvVar> {
+    await this.assertApplication(data.applicationId);
     const payload: Prisma.EnvVarUncheckedCreateInput = {
       applicationId: data.applicationId,
       key: data.key,
@@ -24,7 +36,8 @@ export class EnvVarRepository extends BaseRepository {
     });
   }
 
-  delete(applicationId: string, key: string): Promise<EnvVar> {
+  async delete(applicationId: string, key: string): Promise<EnvVar> {
+    await this.assertApplication(applicationId);
     return this.tx.envVar.delete({ where: { applicationId_key: { applicationId, key } } });
   }
 }

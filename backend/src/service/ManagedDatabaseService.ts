@@ -11,7 +11,7 @@ import { KubeContextResolver } from "@service/KubeContextResolver";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt, encrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
-import { CONNECTION_META, EXTERNAL_DB, databaseManifest } from "@infra/kubernetes/databaseManifests";
+import { CONNECTION_META, EXTERNAL_DB, REDIS_SENTINEL, databaseManifest } from "@infra/kubernetes/databaseManifests";
 import { interpretDbStatus } from "@infra/kubernetes/reconcilers/DatabaseReconciler";
 import type { KubeContext } from "@interface/integrations";
 import type { ManagedDatabase, ManagedServiceKind, ManagedSize, Prisma } from "@prisma-generated/client";
@@ -245,8 +245,16 @@ export class ManagedDatabaseService {
       const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
       const env = await this.environments.findById(db.environmentId);
       const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-      const url = buildUrl(db, cfg, env?.namespace ?? "default");
+      const namespace = env?.namespace ?? "default";
+      const url = buildUrl(db, cfg, namespace);
       await this.envVars.upsert({ applicationId, key: meta.envKey, value: encrypt(url), secret: true, source: "INJECTED" });
+
+      // Redis em HA: além da URL direta, expõe o endereço do Sentinel para
+      // clientes que fazem failover automático (o master muda de pod).
+      if (db.kind === "REDIS") {
+        const sentinel = `${REDIS_SENTINEL.host(db.name)}.${namespace}.svc.cluster.local:${REDIS_SENTINEL.port}`;
+        await this.envVars.upsert({ applicationId, key: "REDIS_SENTINEL_URL", value: encrypt(sentinel), secret: true, source: "INJECTED" });
+      }
     }, { tenant });
   }
 }

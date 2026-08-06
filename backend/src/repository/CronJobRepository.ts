@@ -4,23 +4,31 @@ import type { CronJob, Prisma } from "@prisma-generated/client";
 
 @Injectable()
 export class CronJobRepository extends BaseRepository {
-  create(data: Prisma.CronJobUncheckedCreateInput): Promise<CronJob> {
+  async create(data: Prisma.CronJobUncheckedCreateInput): Promise<CronJob> {
+    await this.assertParents({ project: data.projectId });
     return this.tx.cronJob.create({ data });
   }
+
   listByProject(projectId: string): Promise<CronJob[]> {
-    return this.tx.cronJob.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+    return this.tx.cronJob.findMany({ where: { projectId, ...this.scope("cronJob") }, orderBy: { createdAt: "asc" } });
   }
+
   findById(id: string): Promise<CronJob | null> {
-    return this.tx.cronJob.findUnique({ where: { id } });
+    return this.tx.cronJob.findFirst({ where: { id, ...this.scope("cronJob") } });
   }
-  updateStatus(id: string, observedStatus: string): Promise<CronJob> {
+
+  async updateStatus(id: string, observedStatus: string): Promise<CronJob> {
+    await this.ensureScoped(() => this.findById(id), "Cron job");
     return this.tx.cronJob.update({ where: { id }, data: { observedStatus } });
   }
 
-  update(id: string, data: Prisma.CronJobUncheckedUpdateInput): Promise<CronJob> {
+  async update(id: string, data: Prisma.CronJobUncheckedUpdateInput): Promise<CronJob> {
+    await this.ensureScoped(() => this.findById(id), "Cron job");
     return this.tx.cronJob.update({ where: { id }, data });
   }
-  delete(id: string): Promise<CronJob> {
+
+  async delete(id: string): Promise<CronJob> {
+    await this.ensureScoped(() => this.findById(id), "Cron job");
     return this.tx.cronJob.delete({ where: { id } });
   }
 }

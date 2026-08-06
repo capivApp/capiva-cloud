@@ -1,6 +1,7 @@
 import { container } from "@di/index";
 import { verifyAccessToken } from "@auth/tokens";
 import { SessionService } from "@service/SessionService";
+import { OrganizationService } from "@service/OrganizationService";
 import { TerminalService } from "@service/TerminalService";
 import { NodeTerminalService } from "@service/NodeTerminalService";
 import { withTransaction } from "@database/withTransaction";
@@ -47,12 +48,18 @@ export function startTerminalGateway(port: number): void {
       const organizationId = url.searchParams.get("org");
       if (!token || !organizationId) return new Response("missing credentials", { status: 401 });
 
+      // O `org` da query é escolhido pelo cliente: além do token e da sessão,
+      // é obrigatório confirmar a associação do usuário à organização e o papel
+      // mínimo. Sem isso, um usuário autenticado abriria shell em pods e SSH em
+      // nós de qualquer outra organização.
       try {
         const payload = verifyAccessToken(token);
         const active = await withTransaction(() => container.get(SessionService).isActive(payload.sid));
         if (!active) return new Response("session revoked", { status: 401 });
-      } catch {
-        return new Response("invalid token", { status: 401 });
+        await container.get(OrganizationService).assertRole(payload.sub, organizationId, "DEVELOPER");
+      } catch (error) {
+        const status = (error as { status?: number }).status === 403 ? 403 : 401;
+        return new Response(status === 403 ? "forbidden" : "invalid token", { status });
       }
 
       const data: TerminalConnection = pod

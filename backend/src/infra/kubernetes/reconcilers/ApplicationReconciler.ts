@@ -7,6 +7,7 @@ import {
   ingressManifest,
   ingressNameFor,
   networkPolicyManifest,
+  podDisruptionBudgetManifest,
   pvcManifest,
   rolloutManifest,
   serviceManifest,
@@ -81,6 +82,12 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
     // Isolamento de rede (default-deny + origens do grafo de dependências).
     await this.k8s.apply(ctx, networkPolicyManifest(app.name, ctx.namespace, allowedFrom));
 
+    // Orçamento de interrupção: protege a app de drain de nó e upgrade de
+    // cluster derrubarem todas as réplicas ao mesmo tempo.
+    await this.k8s.apply(ctx, podDisruptionBudgetManifest(app.name, ctx.namespace)).catch((e) => {
+      console.error("[app] PodDisruptionBudget não aplicado:", (e as Error).message);
+    });
+
     let status: ObservedStatus;
     if (app.rolloutStrategy === "ROLLING") {
       // Réplicas: HPA ativo → null (HPA é o dono). Senão, se o Deployment já
@@ -125,11 +132,40 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
     return status;
   }
 
+  /**
+   * Remove TODOS os recursos que `reconcile` cria. A versão anterior deixava
+   * para trás Rollout, AnalysisTemplate, PDB, PVCs e os Ingress/Secret dos
+   * domínios adicionais — recursos órfãos que continuavam consumindo storage e
+   * bloqueavam recriar a app com o mesmo nome.
+   */
   async destroy(input: AppReconcileInput, ctx: KubeContext): Promise<void> {
-    await this.k8s.remove(ctx, "autoscaling/v2", "HorizontalPodAutoscaler", input.app.name).catch(() => undefined);
-    await this.k8s.remove(ctx, "networking.k8s.io/v1", "Ingress", input.app.name);
-    await this.k8s.remove(ctx, "v1", "Service", input.app.name);
-    await this.k8s.remove(ctx, "apps/v1", "Deployment", input.app.name);
-    await this.k8s.remove(ctx, "networking.k8s.io/v1", "NetworkPolicy", `${input.app.name}-allow`);
+    const { app, domains = [], volumes = [] } = input;
+    const drop = (apiVersion: string, kind: string, name: string) =>
+      this.k8s.remove(ctx, apiVersion, kind, name).catch(() => undefined);
+
+    await drop("autoscaling/v2", "HorizontalPodAutoscaler", app.name);
+    await drop("policy/v1", "PodDisruptionBudget", app.name);
+
+    // Ingress do domínio primário (legado) + um por domínio adicional.
+    await drop("networking.k8s.io/v1", "Ingress", app.name);
+    await drop("v1", "Secret", `${app.name}-tls`);
+    for (const d of domains) {
+      const ingressName = ingressNameFor(app.name, d.host);
+      await drop("networking.k8s.io/v1", "Ingress", ingressName);
+      await drop("v1", "Secret", `${ingressName}-tls`);
+    }
+
+    await drop("v1", "Service", app.name);
+    await drop("v1", "Service", `${app.name}-preview`);
+
+    // O workload depende da estratégia — remove ambos (o inexistente é no-op).
+    await drop("apps/v1", "Deployment", app.name);
+    await drop("argoproj.io/v1alpha1", "Rollout", app.name);
+    await drop("argoproj.io/v1alpha1", "AnalysisTemplate", `${app.name}-health`);
+
+    // PVCs por último: só depois que nada mais os monta.
+    for (const v of volumes) await drop("v1", "PersistentVolumeClaim", `${app.name}-${v.name}`);
+
+    await drop("networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`);
   }
 }

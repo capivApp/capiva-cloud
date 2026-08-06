@@ -13,22 +13,35 @@ export class ClusterRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<Cluster | null> {
-    return this.tx.cluster.findUnique({ where: { id } });
+    return this.tx.cluster.findFirst({ where: { id, ...this.scope("cluster") } });
   }
 
+  /**
+   * Resolução pelo token de registro (callback público do nó k3s). NÃO é
+   * escopada de propósito: o chamador é o próprio nó, que ainda não tem
+   * organização — o token de uso único é a credencial.
+   */
   findByRegistrationToken(token: string): Promise<Cluster | null> {
     return this.tx.cluster.findUnique({ where: { registrationToken: token } });
   }
 
-  updateStatus(id: string, status: string): Promise<Cluster> {
+  async updateStatus(id: string, status: string): Promise<Cluster> {
+    await this.ensureScoped(() => this.findById(id), "Cluster");
     return this.tx.cluster.update({ where: { id }, data: { status } });
   }
 
-  update(id: string, data: Prisma.ClusterUncheckedUpdateInput): Promise<Cluster> {
+  async update(id: string, data: Prisma.ClusterUncheckedUpdateInput): Promise<Cluster> {
+    await this.ensureScoped(() => this.findById(id), "Cluster");
     return this.tx.cluster.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<Cluster> {
+  /** Update do fluxo de auto-registro (sem tenant no contexto). Uso interno. */
+  updateUnscoped(id: string, data: Prisma.ClusterUncheckedUpdateInput): Promise<Cluster> {
+    return this.tx.cluster.update({ where: { id }, data });
+  }
+
+  async delete(id: string): Promise<Cluster> {
+    await this.ensureScoped(() => this.findById(id), "Cluster");
     return this.tx.cluster.delete({ where: { id } });
   }
 }

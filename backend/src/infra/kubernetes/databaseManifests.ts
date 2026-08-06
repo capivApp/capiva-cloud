@@ -153,13 +153,22 @@ export interface ConnectionMeta {
 export const CONNECTION_META: Record<string, ConnectionMeta> = {
   POSTGRESQL: { envKey: "DATABASE_URL", scheme: "postgresql", host: (n) => `${n}-rw`, port: 5432 },
   MYSQL: { envKey: "DATABASE_URL", scheme: "mysql", host: (n) => `${n}`, port: 3306 },
-  REDIS: { envKey: "REDIS_URL", scheme: "redis", host: (n) => `rfs-${n}`, port: 26379 },
+  // `rfr-<n>`:6379 é o Service do REDIS. `rfs-<n>`:26379 é o do SENTINEL, que
+  // só responde ao protocolo de descoberta — um cliente comum apontado para lá
+  // nunca conecta. Quem quiser failover automático usa o sentinel explicitamente
+  // (o host está em REDIS_SENTINEL_URL, ver connectionEnv).
+  REDIS: { envKey: "REDIS_URL", scheme: "redis", host: (n) => `rfr-${n}`, port: 6379 },
   RABBITMQ: { envKey: "RABBITMQ_URL", scheme: "amqp", host: (n) => `${n}`, port: 5672 },
   KAFKA: { envKey: "KAFKA_BROKERS", scheme: "", host: (n) => `${n}-kafka-bootstrap`, port: 9092 },
-  MINIO: { envKey: "S3_ENDPOINT", scheme: "http", host: (n) => `minio`, port: 80 },
+  // O Service do MinIO Operator leva o nome do Tenant — `minio` fixo apontaria
+  // para o tenant errado (ou nenhum) quando há mais de um na plataforma.
+  MINIO: { envKey: "S3_ENDPOINT", scheme: "http", host: (n) => `minio-${n}-hl`, port: 9000 },
   ELASTICSEARCH: { envKey: "ELASTICSEARCH_URL", scheme: "https", host: (n) => `${n}-es-http`, port: 9200 },
   CLICKHOUSE: { envKey: "CLICKHOUSE_URL", scheme: "clickhouse", host: (n) => `clickhouse-${n}`, port: 9000 },
 };
+
+/** Host/porta do Sentinel (Redis em HA), para clientes que fazem failover. */
+export const REDIS_SENTINEL = { host: (n: string) => `rfs-${n}`, port: 26379 };
 
 /**
  * Tipos que expomos externamente (NodePort) e como selecionar o pod primário.

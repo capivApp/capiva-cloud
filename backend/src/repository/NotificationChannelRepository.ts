@@ -17,14 +17,16 @@ export class NotificationChannelRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<NotificationChannel | null> {
-    return this.tx.notificationChannel.findUnique({ where: { id } });
+    return this.tx.notificationChannel.findFirst({ where: { id, ...this.scope("notificationChannel") } });
   }
 
-  update(id: string, data: Prisma.NotificationChannelUncheckedUpdateInput): Promise<NotificationChannel> {
+  async update(id: string, data: Prisma.NotificationChannelUncheckedUpdateInput): Promise<NotificationChannel> {
+    await this.ensureScoped(() => this.findById(id), "Canal");
     return this.tx.notificationChannel.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<NotificationChannel> {
+  async delete(id: string): Promise<NotificationChannel> {
+    await this.ensureScoped(() => this.findById(id), "Canal");
     return this.tx.notificationChannel.delete({ where: { id } });
   }
 }

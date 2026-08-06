@@ -243,6 +243,11 @@ export class ApplicationService {
       branch?: string;
       image?: string;
       healthPath?: string;
+      dockerfile?: string;
+      subPath?: string;
+      compose?: string;
+      autoDeploy?: boolean;
+      watchPaths?: string[];
     },
     tenant: { organizationId: string },
   ): Promise<Application> {
@@ -253,6 +258,17 @@ export class ApplicationService {
     if (dto.branch !== undefined) cfg.branch = dto.branch;
     if (dto.image !== undefined) cfg.image = dto.image;
     if (dto.healthPath !== undefined) cfg.healthPath = dto.healthPath;
+    // Configuração de build: vale no PRÓXIMO deploy (não reconstrói sozinha).
+    // String vazia limpa o campo — o builder volta ao default (ex.: "Dockerfile"
+    // na raiz) em vez de gravar um caminho vazio que falharia o build.
+    for (const key of ["dockerfile", "subPath", "compose"] as const) {
+      const value = dto[key];
+      if (value === undefined) continue;
+      if (value === "") delete cfg[key];
+      else cfg[key] = value;
+    }
+    if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
+    if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
 
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;
@@ -261,9 +277,16 @@ export class ApplicationService {
     if (dto.port !== undefined) data.port = dto.port;
 
     // Renomear: remove os recursos de nome antigo antes de recriar com o novo nome.
+    // Passa os domínios para apagar os Ingress nomeados pelo nome ANTIGO; NÃO
+    // passa volumes — apagar os PVCs aqui destruiria os dados da aplicação.
     if (renaming) {
       const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-      await this.reconcilers.forApplication().destroy({ app, image: "" }, ctx).catch((e) => console.error("[app] destroy (rename):", (e as Error).message));
+      const domainRows = await withTransaction(() => this.domainRepo.listByApplication(app.id), { tenant });
+      const domains = domainRows.map((d) => ({ host: d.host, tlsMode: "NONE" as TlsModeManifest }));
+      await this.reconcilers
+        .forApplication()
+        .destroy({ app, image: "", domains }, ctx)
+        .catch((e) => console.error("[app] destroy (rename):", (e as Error).message));
     }
 
     const updated = await withTransaction(() => this.apps.update(id, data), { tenant });
@@ -335,11 +358,29 @@ export class ApplicationService {
     }, { tenant });
   }
 
-  /** Remove a aplicação e seus recursos no cluster. */
+  /**
+   * Remove a aplicação e seus recursos no cluster. Domínios e volumes são
+   * carregados para que o destroy apague também os Ingress por domínio e os
+   * PVCs — que de outro modo ficariam órfãos consumindo storage.
+   */
   async remove(id: string, tenant: { organizationId: string }): Promise<void> {
     const app = await this.getById(id, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-    await this.reconcilers.forApplication().destroy({ app, image: "" }, ctx);
+
+    const [domainRows, volumeRows] = await withTransaction(
+      async () => [await this.domainRepo.listByApplication(id), await this.volumes.listByApplication(id)] as const,
+      { tenant },
+    );
+
+    await this.reconcilers.forApplication().destroy(
+      {
+        app,
+        image: "",
+        domains: domainRows.map((d) => ({ host: d.host, tlsMode: "NONE" as TlsModeManifest })),
+        volumes: volumeRows.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" })),
+      },
+      ctx,
+    );
     await withTransaction(() => this.apps.delete(id), { tenant });
   }
 }

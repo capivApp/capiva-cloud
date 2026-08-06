@@ -39,6 +39,11 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   backend:
     build:
@@ -53,8 +58,16 @@ services:
       PORT: "3000"
       TERMINAL_WS_PORT: "3001"
       PUBLIC_URL: http://${PUBLIC_HOST}:${PANEL_PORT:-8410}
-      COOKIE_SECURE: "false"
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Par RSA de assinatura dos access tokens. Sem ele o backend recusa subir
+      # em produção: uma chave gerada no disco do container é perdida a cada
+      # rollout (derrubando todas as sessões) e diverge entre réplicas.
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      # Clusters cujo kubeconfig não traz a CA (k3s self-signed). Vale só para
+      # as chamadas ao API server, não para o processo inteiro.
+      CAPIVA_K8S_INSECURE_TLS: ${CAPIVA_K8S_INSECURE_TLS:-false}
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
       S3_BUCKET: capiva
@@ -62,6 +75,9 @@ services:
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     ports:
       - "${API_PORT:-8411}:3000"
+    # SIGTERM inicia o encerramento gracioso (drena as requisições em voo e
+    # libera as leases dos schedulers); 30s cobre a janela default de 15s.
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,7 +96,8 @@ services:
     ports:
       - "${PANEL_PORT:-8410}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

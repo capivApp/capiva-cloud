@@ -13,10 +13,11 @@ export class TlsCertificateRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<TlsCertificate | null> {
-    return this.tx.tlsCertificate.findUnique({ where: { id } });
+    return this.tx.tlsCertificate.findFirst({ where: { id, ...this.scope("tlsCertificate") } });
   }
 
-  delete(id: string): Promise<TlsCertificate> {
+  async delete(id: string): Promise<TlsCertificate> {
+    await this.ensureScoped(() => this.findById(id), "Certificado");
     return this.tx.tlsCertificate.delete({ where: { id } });
   }
 }

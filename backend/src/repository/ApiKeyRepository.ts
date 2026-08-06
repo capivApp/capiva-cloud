@@ -17,14 +17,16 @@ export class ApiKeyRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<ApiKey | null> {
-    return this.tx.apiKey.findUnique({ where: { id } });
+    return this.tx.apiKey.findFirst({ where: { id, ...this.scope("apiKey") } });
   }
 
-  touch(id: string): Promise<ApiKey> {
+  async touch(id: string): Promise<ApiKey> {
+    await this.ensureScoped(() => this.findById(id), "Chave de API");
     return this.tx.apiKey.update({ where: { id }, data: { lastUsedAt: new Date() } });
   }
 
-  delete(id: string): Promise<ApiKey> {
+  async delete(id: string): Promise<ApiKey> {
+    await this.ensureScoped(() => this.findById(id), "Chave de API");
     return this.tx.apiKey.delete({ where: { id } });
   }
 }

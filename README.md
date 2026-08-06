@@ -130,7 +130,15 @@ docker compose -f docker-compose.deploy.yml up -d --build
 | `API_PORT` | `8411` | Published port of the API (direct access and Scalar docs at `/docs`) |
 | `POSTGRES_PASSWORD` | — | Password of the dedicated control plane Postgres |
 | `ENCRYPTION_KEY` | — | 32-byte hex key for credential encryption at rest |
+| `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | — | RS256 PEM pair signing access tokens (**required in production**) |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | — | Credentials of the dedicated MinIO (backups/uploads) |
+| `ORIGIN_WHITELIST` | empty in prod | Extra CORS origins, comma-separated |
+| `CAPIVA_K8S_INSECURE_TLS` | `false` | Accept self-signed certs **only** on Kubernetes API server calls |
+
+> ⚠️ **Before running in production**, read [docs/32 — Hardening](./docs/32-hardening-producao.md).
+> Two steps are mandatory: rotate the JWT key pair (the previous private key was committed
+> to this repository's history) and replace the example `ENCRYPTION_KEY` — the backend
+> refuses to start in production with the placeholder value.
 
 The stack ships four containers: `capiva-postgres` and `capiva-minio` (dedicated, **not** published to the
 host network), `capiva-backend` and `capiva-frontend`.

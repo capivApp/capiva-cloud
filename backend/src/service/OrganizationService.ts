@@ -23,6 +23,11 @@ export class OrganizationService {
     });
   }
 
+  /** Papel do usuário na organização, ou null se não for membro. */
+  async roleOf(userId: string, organizationId: string): Promise<Role | null> {
+    return (await withTransaction(() => this.orgs.roleOf(userId, organizationId))) ?? null;
+  }
+
   /** Verifica se o usuário tem ao menos o papel exigido na organização. */
   async assertRole(userId: string, organizationId: string, minimum: Role): Promise<void> {
     const order: Role[] = ["VIEWER", "DEVELOPER", "ADMIN", "OWNER"];

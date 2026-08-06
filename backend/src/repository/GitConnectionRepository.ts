@@ -13,14 +13,26 @@ export class GitConnectionRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<GitConnection | null> {
+    return this.tx.gitConnection.findFirst({ where: { id, ...this.scope("gitConnection") } });
+  }
+
+  /**
+   * Resolução para o WEBHOOK público (`/webhooks/git/:connectionId`), que chega
+   * sem sessão e portanto sem organização no contexto. A autenticação desse
+   * fluxo é a assinatura HMAC do corpo, validada logo em seguida; a organização
+   * sai da própria conexão e passa a escopar todo o resto do processamento.
+   */
+  findByIdUnscoped(id: string): Promise<GitConnection | null> {
     return this.tx.gitConnection.findUnique({ where: { id } });
   }
 
-  update(id: string, data: Prisma.GitConnectionUncheckedUpdateInput): Promise<GitConnection> {
+  async update(id: string, data: Prisma.GitConnectionUncheckedUpdateInput): Promise<GitConnection> {
+    await this.ensureScoped(() => this.findById(id), "Conexão Git");
     return this.tx.gitConnection.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<GitConnection> {
+  async delete(id: string): Promise<GitConnection> {
+    await this.ensureScoped(() => this.findById(id), "Conexão Git");
     return this.tx.gitConnection.delete({ where: { id } });
   }
 }

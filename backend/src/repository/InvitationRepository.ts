@@ -17,14 +17,16 @@ export class InvitationRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<Invitation | null> {
-    return this.tx.invitation.findUnique({ where: { id } });
+    return this.tx.invitation.findFirst({ where: { id, ...this.scope("invitation") } });
   }
 
-  markAccepted(id: string): Promise<Invitation> {
+  async markAccepted(id: string): Promise<Invitation> {
+    await this.ensureScoped(() => this.findById(id), "Convite");
     return this.tx.invitation.update({ where: { id }, data: { acceptedAt: new Date() } });
   }
 
-  delete(id: string): Promise<Invitation> {
+  async delete(id: string): Promise<Invitation> {
+    await this.ensureScoped(() => this.findById(id), "Convite");
     return this.tx.invitation.delete({ where: { id } });
   }
 }

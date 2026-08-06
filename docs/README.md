@@ -28,6 +28,8 @@ The documentation is intended to serve as the primary source of technical knowle
 | 15  | [Repository Structure](./16-estrutura-de-pastas.md)                            | Monorepo organization and conventions                                                       |
 | 16  | [Cluster Provisioning](./17-cluster-provisioning.md)                           | Kubernetes cluster installation, node management and infrastructure bootstrap               |
 | 31  | [HA & Failover Demo](./31-ha-failover-demo.md)                                  | Reproducible test: surviving node loss for apps, control plane and database (k3d)            |
+| 32  | [Production Hardening](./32-hardening-producao.md)                              | Production-readiness sweep: tenant isolation, secrets, HA primitives and operator actions    |
+| 33  | [Build Configuration](./33-configuracao-de-build.md)                            | Custom Dockerfile path, monorepo build context, auto-deploy toggle and watch paths           |
 
 ## Documentation Principles
 

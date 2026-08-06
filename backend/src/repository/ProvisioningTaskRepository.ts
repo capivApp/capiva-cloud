@@ -7,14 +7,26 @@ export class ProvisioningTaskRepository extends BaseRepository {
   create(data: Prisma.ProvisioningTaskUncheckedCreateInput): Promise<ProvisioningTask> {
     return this.tx.provisioningTask.create({ data });
   }
+
+  /**
+   * Log/finish são escritos pelo próprio provisionador com um id que ele criou
+   * (nunca entrada do usuário) e frequentemente fora de um tenant — mantidos
+   * sem escopo de propósito.
+   */
   async appendLog(id: string, line: string): Promise<ProvisioningTask> {
     const t = await this.tx.provisioningTask.findUnique({ where: { id } });
     return this.tx.provisioningTask.update({ where: { id }, data: { log: `${t?.log ?? ""}${line}\n` } });
   }
+
   finish(id: string, status: "success" | "failed"): Promise<ProvisioningTask> {
     return this.tx.provisioningTask.update({ where: { id }, data: { status, finishedAt: new Date() } });
   }
+
   listByCluster(clusterId: string): Promise<ProvisioningTask[]> {
-    return this.tx.provisioningTask.findMany({ where: { clusterId }, orderBy: { createdAt: "desc" }, take: 20 });
+    return this.tx.provisioningTask.findMany({
+      where: { clusterId, ...this.scope("provisioningTask") },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
   }
 }

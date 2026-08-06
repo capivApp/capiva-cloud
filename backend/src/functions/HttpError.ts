@@ -27,4 +27,10 @@ export class HttpError extends Error {
   static conflict(msg: string) {
     return new HttpError(msg, 409, "CONFLICT");
   }
+  static tooManyRequests(msg = "Muitas requisições") {
+    return new HttpError(msg, 429, "TOO_MANY_REQUESTS");
+  }
+  static serviceUnavailable(msg = "Serviço indisponível") {
+    return new HttpError(msg, 503, "SERVICE_UNAVAILABLE");
+  }
 }

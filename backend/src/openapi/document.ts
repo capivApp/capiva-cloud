@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
-import { createApplicationSchema } from "@schemas/application.schema";
+import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -23,6 +23,20 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     required: true,
     content: { "application/json": { schema: json(schema) } },
   });
+
+  /**
+   * Organização ativa. Toda rota autenticada exige o header: o backend valida
+   * que o solicitante é MEMBRO dessa organização e usa o valor para escopar as
+   * consultas. Chaves de API dispensam o header (a org vem da própria chave).
+   */
+  const orgHeader = {
+    name: "x-organization-id",
+    in: "header",
+    required: true,
+    schema: { type: "string" },
+    description: "Organização ativa. O usuário precisa ser membro; caso contrário 403.",
+  };
+  const appId = { name: "id", in: "path", required: true, schema: { type: "string" } };
 
   return {
     openapi: "3.1.0",
@@ -70,8 +84,31 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         post: { tags: ["Organizations"], summary: "Criar organização", security: bearer, responses: { "201": { description: "Criado" } } },
       },
       "/applications": {
-        get: { tags: ["Applications"], summary: "Listar aplicações por projeto", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Applications"], summary: "Criar aplicação", security: bearer, requestBody: body(createApplicationSchema), responses: { "201": { description: "Criado" } } },
+        get: { tags: ["Applications"], summary: "Listar aplicações por projeto", security: bearer, parameters: [orgHeader], responses: { "200": { description: "OK" } } },
+        post: {
+          tags: ["Applications"],
+          summary: "Criar aplicação",
+          description:
+            "`sourceConfig` carrega a configuração do builder. Para origens com Dockerfile: `dockerfile` (caminho relativo, ex.: `docker/Dockerfile.prod`) e `subPath` (subpasta usada como contexto de build em monorepo). Caminho absoluto ou com `..` é recusado.",
+          security: bearer,
+          parameters: [orgHeader],
+          requestBody: body(createApplicationSchema),
+          responses: { "201": { description: "Criado" }, "400": { description: "Caminho de build inválido" }, "403": { description: "Não é membro da organização" } },
+        },
+      },
+      "/applications/{id}": {
+        get: { tags: ["Applications"], summary: "Detalhe da aplicação", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } } },
+        patch: {
+          tags: ["Applications"],
+          summary: "Editar configurações gerais e de build",
+          description:
+            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy por push e `watchPaths` restringe o disparo a caminhos do monorepo. Mudanças de build valem no próximo deploy.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(updateApplicationSchema),
+          responses: { "200": { description: "Atualizado" }, "400": { description: "Caminho de build inválido" }, "404": { description: "Fora da organização ativa" } },
+        },
+        delete: { tags: ["Applications"], summary: "Remover aplicação e seus recursos", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
       },
       "/applications/{id}/deploy": {
         post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },

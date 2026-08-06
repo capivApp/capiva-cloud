@@ -29,14 +29,22 @@ class PromiseObservable<T> {
 
 type AgentLike = { options?: { ca?: unknown; cert?: unknown; key?: unknown; rejectUnauthorized?: boolean } };
 
+/**
+ * Escape hatch para clusters cujo kubeconfig não traz a CA (self-signed sem
+ * `certificate-authority-data`). Vale APENAS para as chamadas ao API server —
+ * antes isto era `NODE_TLS_REJECT_UNAUTHORIZED=0` no processo inteiro, o que
+ * também desligava a verificação de TLS de Git, S3, webhooks e notificações.
+ */
+const insecureK8sTls = (): boolean => process.env.CAPIVA_K8S_INSECURE_TLS === "true";
+
 const buildTls = (agent: AgentLike | undefined): Record<string, unknown> | undefined => {
   const opts = agent?.options;
-  if (!opts) return undefined;
   const tls: Record<string, unknown> = {};
-  if (opts.ca) tls.ca = opts.ca;
-  if (opts.cert) tls.cert = opts.cert;
-  if (opts.key) tls.key = opts.key;
-  if (opts.rejectUnauthorized !== undefined) tls.rejectUnauthorized = opts.rejectUnauthorized;
+  if (opts?.ca) tls.ca = opts.ca;
+  if (opts?.cert) tls.cert = opts.cert;
+  if (opts?.key) tls.key = opts.key;
+  if (opts?.rejectUnauthorized !== undefined) tls.rejectUnauthorized = opts.rejectUnauthorized;
+  if (insecureK8sTls()) tls.rejectUnauthorized = false;
   return Object.keys(tls).length ? tls : undefined;
 };
 

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { validateRepoPath, validateRequiredRepoPath } from "@/lib/repoPath";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 import { useApplications, type VolumeSpec } from "@/pages/applications/hooks/useApplications";
 import { VolumeEditor } from "@/pages/applications/components/VolumeEditor";
@@ -60,6 +61,9 @@ function KVEditor({ list, setList, kPlaceholder }: { list: KV[]; setList: (l: KV
     </div>
   );
 }
+
+/** Sugestões de Dockerfile — atalhos, não a lista de opções possíveis. */
+const DOCKERFILE_PRESETS = ["Dockerfile", "Dockerfile.prod", "Dockerfile.api", "Dockerfile.worker"];
 
 type GitPick = { gitConnectionId: string; repo: string; cloneUrl: string; branch: string };
 
@@ -127,6 +131,8 @@ export function NewApplicationWizard() {
     image: template?.image ?? "",
     composeFile: "docker-compose.yml",
     dockerfile: "Dockerfile",
+    /** Subpasta usada como raiz do build (monorepo). Vazio = raiz do repo. */
+    subPath: "",
     profile: "SMALL",
     rolloutStrategy: "ROLLING",
     port: template?.port ?? 3000,
@@ -146,18 +152,32 @@ export function NewApplicationWizard() {
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const buildKind = SOURCES.find((s) => s.id === form.source)?.build ?? "auto";
   const isGit = GIT_SOURCES.includes(form.source);
+
+  // Caminhos digitáveis: validados aqui com a mesma regra do backend, para o
+  // erro aparecer no passo do build em vez de só na resposta da criação.
+  const dockerfileError = buildKind === "dockerfile" ? validateRequiredRepoPath(form.dockerfile) : null;
+  const subPathError = buildKind === "dockerfile" ? validateRepoPath(form.subPath) : null;
+  const composeError = buildKind === "compose" ? validateRequiredRepoPath(form.composeFile) : null;
+  const buildError = dockerfileError ?? subPathError ?? composeError;
+
   const next = () => {
     if (step === 1 && isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch.");
+    if (step === 1 && buildError) return toast.error(buildError);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
   async function finish() {
     if (!projectId || !environmentId) return toast.error("Selecione um projeto e um ambiente no topo antes de criar.");
     if (isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch no passo Build.");
+    if (buildError) return toast.error(buildError);
     const sourceConfig: Record<string, unknown> = { domain: form.domain };
     if (buildKind === "image") sourceConfig.image = form.image;
-    if (buildKind === "compose") sourceConfig.compose = form.composeFile;
-    if (buildKind === "dockerfile") sourceConfig.dockerfile = form.dockerfile;
+    if (buildKind === "compose") sourceConfig.compose = form.composeFile.trim();
+    if (buildKind === "dockerfile") {
+      sourceConfig.dockerfile = form.dockerfile.trim();
+      // Só envia o contexto quando informado — vazio significa raiz do repo.
+      if (form.subPath.trim()) sourceConfig.subPath = form.subPath.trim();
+    }
     if (isGit) {
       sourceConfig.repoUrl = git.cloneUrl;
       sourceConfig.repo = git.repo;
@@ -234,21 +254,74 @@ export function NewApplicationWizard() {
                 </div>
               )}
               {buildKind === "dockerfile" && (
-                <>
-                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">✨ Escolha o Dockerfile do repositório (ou troque o builder).</div>
-                  <Label>Qual Dockerfile usar?</Label>
-                  {["Dockerfile", "Dockerfile.prod", "Dockerfile.api", "Dockerfile.worker"].map((d) => (
-                    <label key={d} className="flex items-center gap-2 text-sm">
-                      <input type="radio" name="dockerfile" checked={form.dockerfile === d} onChange={() => set({ dockerfile: d })} className="accent-primary" /> {d}
-                    </label>
-                  ))}
-                </>
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">✨ Informe o Dockerfile do repositório (ou troque o builder).</div>
+
+                  <div className="space-y-1.5">
+                    <Label>Caminho do Dockerfile</Label>
+                    <Input
+                      value={form.dockerfile}
+                      onChange={(e) => set({ dockerfile: e.target.value })}
+                      placeholder="Dockerfile"
+                      className="font-mono text-xs"
+                      spellCheck={false}
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {DOCKERFILE_PRESETS.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => set({ dockerfile: d })}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
+                            form.dockerfile === d ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/40",
+                          )}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                    {dockerfileError ? (
+                      <p className="text-xs text-destructive">{dockerfileError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Relativo ao contexto de build. Ex.: <code>docker/Dockerfile.prod</code>.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Contexto de build (opcional)</Label>
+                    <Input
+                      value={form.subPath}
+                      onChange={(e) => set({ subPath: e.target.value })}
+                      placeholder="apps/api"
+                      className="font-mono text-xs"
+                      spellCheck={false}
+                    />
+                    {subPathError ? (
+                      <p className="text-xs text-destructive">{subPathError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Monorepo: subpasta usada como raiz do build. Vazio = raiz do repositório.
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {buildKind === "image" && (
                 <div className="space-y-1.5"><Label>Imagem Docker</Label><Input placeholder="ghcr.io/empresa/app:latest" value={form.image} onChange={(e) => set({ image: e.target.value })} /><p className="text-xs text-muted-foreground">Imagem pronta — sem build.</p></div>
               )}
               {buildKind === "compose" && (
-                <div className="space-y-1.5"><Label>Arquivo docker-compose</Label><Input value={form.composeFile} onChange={(e) => set({ composeFile: e.target.value })} placeholder="docker-compose.yml" /><p className="text-xs text-muted-foreground">Construímos a partir do compose — sem seleção de Dockerfile.</p></div>
+                <div className="space-y-1.5">
+                  <Label>Arquivo docker-compose</Label>
+                  <Input value={form.composeFile} onChange={(e) => set({ composeFile: e.target.value })} placeholder="docker-compose.yml" className="font-mono text-xs" spellCheck={false} />
+                  {composeError ? (
+                    <p className="text-xs text-destructive">{composeError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Construímos a partir do compose — sem seleção de Dockerfile.</p>
+                  )}
+                </div>
               )}
               {buildKind === "auto" && (
                 <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Build automático ({form.source}) — detecta a linguagem e constrói sozinho, sem Dockerfile. 🪄</div>

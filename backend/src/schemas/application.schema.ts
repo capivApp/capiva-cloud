@@ -17,6 +17,31 @@ export const rolloutStrategy = z.enum(["ROLLING", "BLUE_GREEN", "CANARY"]);
 
 const keyValue = z.object({ key: z.string().min(1), value: z.string().default("") });
 
+/**
+ * Caminho RELATIVO dentro do repositório (Dockerfile, contexto de build,
+ * arquivo de compose). O valor vai direto para os argumentos do Job de build,
+ * então recusamos caminho absoluto e travessia (`..`): sem isso dá para apontar
+ * o build para fora do contexto clonado.
+ */
+export const repoPathSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o caminho.")
+  .max(255)
+  .refine((v) => !v.startsWith("/"), "Use um caminho relativo à raiz do repositório (sem barra inicial).")
+  .refine((v) => !v.split("/").includes(".."), "Caminho não pode subir de diretório ('..').")
+  .refine((v) => !/[\0\n\r]/.test(v), "Caminho contém caracteres inválidos.");
+
+/**
+ * Caminho opcional. String vazia é aceita e significa "limpar o campo" — quem
+ * consome (ApplicationService.patch) remove a chave do sourceConfig.
+ *
+ * Sem `.transform()` de propósito: o documento OpenAPI é gerado por
+ * `z.toJSONSchema` a partir destes schemas, e transforms não são representáveis
+ * em JSON Schema (quebraria a rota /docs).
+ */
+const optionalRepoPath = z.union([z.literal(""), repoPathSchema]).optional();
+
 export const volumeSchema = z.object({
   name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen"),
   mountPath: z.string().min(1),
@@ -31,7 +56,24 @@ export const createApplicationSchema = z.object({
   source: sourceKind,
   /** Conexão Git usada para clonar/build (origens GitHub/GitLab/Gitea). */
   gitConnectionId: z.string().optional(),
-  sourceConfig: z.record(z.string(), z.unknown()).default({}),
+  /**
+   * Configuração da origem (aberta por design: cada builder tem os seus campos).
+   * As chaves que viram argumento do Job de build passam pela mesma validação
+   * de caminho do editor pós-criação.
+   */
+  sourceConfig: z
+    .record(z.string(), z.unknown())
+    .default({})
+    .superRefine((cfg, ctx) => {
+      for (const key of ["dockerfile", "subPath", "compose"] as const) {
+        const value = cfg[key];
+        if (value === undefined || value === "") continue;
+        const parsed = repoPathSchema.safeParse(value);
+        if (!parsed.success) {
+          ctx.addIssue({ code: "custom", path: [key], message: parsed.error.issues[0]?.message ?? "Caminho inválido." });
+        }
+      }
+    }),
   profile: profileKind.default("SMALL"),
   rolloutStrategy: rolloutStrategy.default("ROLLING"),
   port: z.number().int().positive().default(3000),
@@ -92,6 +134,19 @@ export const updateApplicationSchema = z
     image: z.string().optional(),
     /** Caminho do health check (readiness) → sourceConfig.healthPath. */
     healthPath: z.string().optional(),
+    /** Dockerfile do build (relativo ao contexto) → sourceConfig.dockerfile. */
+    dockerfile: optionalRepoPath,
+    /** Subpasta usada como contexto de build (monorepo) → sourceConfig.subPath. */
+    subPath: optionalRepoPath,
+    /** Arquivo de compose (origem Docker Compose) → sourceConfig.compose. */
+    compose: optionalRepoPath,
+    /** Deploy automático a cada push na branch. Desligado = só deploy manual. */
+    autoDeploy: z.boolean().optional(),
+    /**
+     * Só dispara o deploy automático quando o push mexer nestes caminhos
+     * (monorepo). Vazio = qualquer alteração dispara.
+     */
+    watchPaths: z.array(z.string().trim().min(1).max(255)).max(50).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nada para atualizar." });
 

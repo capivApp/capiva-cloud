@@ -4,32 +4,43 @@ import type { ManagedDatabase, Prisma } from "@prisma-generated/client";
 
 @Injectable()
 export class ManagedDatabaseRepository extends BaseRepository {
-  create(data: Prisma.ManagedDatabaseUncheckedCreateInput): Promise<ManagedDatabase> {
+  async create(data: Prisma.ManagedDatabaseUncheckedCreateInput): Promise<ManagedDatabase> {
+    await this.assertParents({ project: data.projectId, environment: data.environmentId });
     return this.tx.managedDatabase.create({ data });
   }
 
   listByProject(projectId: string): Promise<ManagedDatabase[]> {
-    return this.tx.managedDatabase.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+    return this.tx.managedDatabase.findMany({
+      where: { projectId, ...this.scope("managedDatabase") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
-  /** Todos os bancos com o organizationId do projeto (usado pelo scheduler de backups). */
+  /**
+   * Todos os bancos com o organizationId do projeto (scheduler de backups).
+   * Roda fora de tenant de propósito — varre a plataforma inteira e usa o
+   * organizationId retornado para abrir uma transação escopada por banco.
+   */
   listAllWithOrg(): Promise<(ManagedDatabase & { project: { organizationId: string } })[]> {
     return this.tx.managedDatabase.findMany({ include: { project: { select: { organizationId: true } } } });
   }
 
   findById(id: string): Promise<ManagedDatabase | null> {
-    return this.tx.managedDatabase.findUnique({ where: { id } });
+    return this.tx.managedDatabase.findFirst({ where: { id, ...this.scope("managedDatabase") } });
   }
 
-  updateStatus(id: string, observedStatus: string): Promise<ManagedDatabase> {
+  async updateStatus(id: string, observedStatus: string): Promise<ManagedDatabase> {
+    await this.ensureScoped(() => this.findById(id), "Banco");
     return this.tx.managedDatabase.update({ where: { id }, data: { observedStatus } });
   }
 
-  updateConfig(id: string, config: Prisma.InputJsonValue): Promise<ManagedDatabase> {
+  async updateConfig(id: string, config: Prisma.InputJsonValue): Promise<ManagedDatabase> {
+    await this.ensureScoped(() => this.findById(id), "Banco");
     return this.tx.managedDatabase.update({ where: { id }, data: { config } });
   }
 
-  delete(id: string): Promise<ManagedDatabase> {
+  async delete(id: string): Promise<ManagedDatabase> {
+    await this.ensureScoped(() => this.findById(id), "Banco");
     return this.tx.managedDatabase.delete({ where: { id } });
   }
 }

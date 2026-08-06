@@ -4,23 +4,31 @@ import type { Prisma, Worker } from "@prisma-generated/client";
 
 @Injectable()
 export class WorkerRepository extends BaseRepository {
-  create(data: Prisma.WorkerUncheckedCreateInput): Promise<Worker> {
+  async create(data: Prisma.WorkerUncheckedCreateInput): Promise<Worker> {
+    await this.assertParents({ project: data.projectId });
     return this.tx.worker.create({ data });
   }
+
   listByProject(projectId: string): Promise<Worker[]> {
-    return this.tx.worker.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+    return this.tx.worker.findMany({ where: { projectId, ...this.scope("worker") }, orderBy: { createdAt: "asc" } });
   }
+
   findById(id: string): Promise<Worker | null> {
-    return this.tx.worker.findUnique({ where: { id } });
+    return this.tx.worker.findFirst({ where: { id, ...this.scope("worker") } });
   }
-  updateStatus(id: string, observedStatus: string): Promise<Worker> {
+
+  async updateStatus(id: string, observedStatus: string): Promise<Worker> {
+    await this.ensureScoped(() => this.findById(id), "Worker");
     return this.tx.worker.update({ where: { id }, data: { observedStatus } });
   }
 
-  update(id: string, data: Prisma.WorkerUncheckedUpdateInput): Promise<Worker> {
+  async update(id: string, data: Prisma.WorkerUncheckedUpdateInput): Promise<Worker> {
+    await this.ensureScoped(() => this.findById(id), "Worker");
     return this.tx.worker.update({ where: { id }, data });
   }
-  delete(id: string): Promise<Worker> {
+
+  async delete(id: string): Promise<Worker> {
+    await this.ensureScoped(() => this.findById(id), "Worker");
     return this.tx.worker.delete({ where: { id } });
   }
 }

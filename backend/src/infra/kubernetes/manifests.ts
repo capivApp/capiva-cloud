@@ -30,9 +30,50 @@ export interface AppManifestInput {
  * faz HTTP GET nesse caminho. Evita o deploy travar em "Implantando" por um
  * health check HTTP que o usuário nunca configurou.
  */
+function probeTarget(input: AppManifestInput) {
+  return input.healthPath ? { httpGet: { path: input.healthPath, port: input.port } } : { tcpSocket: { port: input.port } };
+}
+
 function readinessProbe(input: AppManifestInput) {
-  const probe = input.healthPath ? { httpGet: { path: input.healthPath, port: input.port } } : { tcpSocket: { port: input.port } };
-  return { ...probe, initialDelaySeconds: 5, periodSeconds: 10 };
+  return { ...probeTarget(input), initialDelaySeconds: 5, periodSeconds: 10, failureThreshold: 3 };
+}
+
+/**
+ * Liveness probe. Só a readiness tira o pod do Service — um processo travado
+ * (deadlock, event loop preso) continua "não pronto" para sempre e ninguém o
+ * reinicia. Os limiares são deliberadamente mais frouxos que os da readiness:
+ * um falso positivo aqui MATA o container, então preferimos demorar a agir.
+ */
+function livenessProbe(input: AppManifestInput) {
+  return { ...probeTarget(input), initialDelaySeconds: 30, periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 };
+}
+
+/**
+ * Espalha as réplicas entre nós (e zonas, quando o cluster rotula). `ScheduleAnyway`
+ * mantém o comportamento de "melhor esforço": em cluster de nó único a app sobe
+ * do mesmo jeito, em vez de ficar Pending — o objetivo é resiliência, não uma
+ * restrição rígida que quebre ambientes pequenos.
+ */
+function topologySpreadConstraints(name: string) {
+  const selector = { matchLabels: labels(name) };
+  return [
+    { maxSkew: 1, topologyKey: "kubernetes.io/hostname", whenUnsatisfiable: "ScheduleAnyway", labelSelector: selector },
+    { maxSkew: 1, topologyKey: "topology.kubernetes.io/zone", whenUnsatisfiable: "ScheduleAnyway", labelSelector: selector },
+  ];
+}
+
+/**
+ * PodDisruptionBudget: impede que drain de nó, upgrade de cluster ou autoscaler
+ * derrubem todas as réplicas de uma vez. `maxUnavailable: 1` funciona para
+ * qualquer escala — com 1 réplica o PDB não bloqueia o drain (evita nó preso).
+ */
+export function podDisruptionBudgetManifest(name: string, namespace: string): K8sManifest {
+  return {
+    apiVersion: "policy/v1",
+    kind: "PodDisruptionBudget",
+    metadata: { name, namespace, labels: labels(name) },
+    spec: { maxUnavailable: 1, selector: { matchLabels: labels(name) } },
+  };
 }
 
 /** Monta volumeMounts (container) e volumes (pod) a partir dos volumes da app. */
@@ -131,6 +172,9 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
     spec: {
       backoffLimit: 0,
       ttlSecondsAfterFinished: 300,
+      // Build travado (rede, registry inacessível) segura um pod e as reservas
+      // do nó indefinidamente — o deadline encerra o Job.
+      activeDeadlineSeconds: Number(process.env.CAPIVA_BUILD_TIMEOUT_SECONDS ?? 1800),
       template: {
         metadata: { labels: buildLabels },
         spec: {
@@ -140,6 +184,12 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
               name: "kaniko",
               image: process.env.CAPIVA_KANIKO_IMAGE || "gcr.io/kaniko-project/executor:latest",
               args,
+              // Build sem teto compete com as aplicações do mesmo nó. O request
+              // é modesto (o Job só precisa ser agendado) e o limit contém o pico.
+              resources: {
+                requests: { cpu: process.env.CAPIVA_BUILD_CPU_REQUEST || "250m", memory: process.env.CAPIVA_BUILD_MEMORY_REQUEST || "512Mi" },
+                limits: { cpu: process.env.CAPIVA_BUILD_CPU_LIMIT || "2", memory: process.env.CAPIVA_BUILD_MEMORY_LIMIT || "4Gi" },
+              },
               ...mountSecret,
               ...gitEnv,
             },
@@ -157,7 +207,7 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
  * das réplicas, evitando conflito de server-side apply com o autoscaler).
  */
 export function deploymentManifest(input: AppManifestInput, replicas: number | null = 2): K8sManifest {
-  const res = resolveResources(input.profile, input.customResources);
+  const bits = volumeBits(input);
   return {
     apiVersion: "apps/v1",
     kind: "Deployment",
@@ -165,25 +215,40 @@ export function deploymentManifest(input: AppManifestInput, replicas: number | n
     spec: {
       ...(replicas === null ? {} : { replicas }),
       selector: { matchLabels: labels(input.name) },
+      // Zero-downtime de verdade: o default do Kubernetes (maxUnavailable 25%)
+      // permite derrubar réplica antiga antes da nova ficar pronta.
+      strategy: { type: "RollingUpdate", rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } },
+      // Uma réplica só é contada como disponível depois de 10s pronta — evita
+      // declarar sucesso num pod que aceita conexões e morre logo em seguida.
+      minReadySeconds: 10,
+      revisionHistoryLimit: 5,
       template: {
         metadata: { labels: labels(input.name) },
         spec: {
-          ...(volumeBits(input).imagePullSecrets ? { imagePullSecrets: volumeBits(input).imagePullSecrets } : {}),
-          containers: [
-            {
-              name: input.name,
-              image: input.image,
-              ports: [{ containerPort: input.port }],
-              resources: { requests: res, limits: res },
-              env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
-              volumeMounts: volumeBits(input).volumeMounts,
-              readinessProbe: readinessProbe(input),
-            },
-          ],
-          volumes: volumeBits(input).volumes,
+          ...(bits.imagePullSecrets ? { imagePullSecrets: bits.imagePullSecrets } : {}),
+          // Tempo para o processo terminar o que está em voo antes do SIGKILL.
+          terminationGracePeriodSeconds: 30,
+          topologySpreadConstraints: topologySpreadConstraints(input.name),
+          containers: [podContainer(input)],
+          volumes: bits.volumes,
         },
       },
     },
+  };
+}
+
+/** Container da aplicação — compartilhado por Deployment e Rollout. */
+function podContainer(input: AppManifestInput) {
+  const res = resolveResources(input.profile, input.customResources);
+  return {
+    name: input.name,
+    image: input.image,
+    ports: [{ containerPort: input.port }],
+    resources: { requests: res, limits: res },
+    env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
+    volumeMounts: volumeBits(input).volumeMounts,
+    readinessProbe: readinessProbe(input),
+    livenessProbe: livenessProbe(input),
   };
 }
 
@@ -194,6 +259,20 @@ export function deploymentManifest(input: AppManifestInput, replicas: number | n
  */
 export function analysisTemplateManifest(name: string, namespace: string): K8sManifest {
   const promAddress = process.env.PROMETHEUS_URL || "http://prometheus-operated.monitoring:9090";
+  // Seletor das séries da app. O default casa com o Service que a plataforma
+  // cria (`service=<app>`) e é preso ao namespace do ambiente — antes o filtro
+  // era `app="<nome>"`, label que NENHUM recurso gerado aqui aplica: a query
+  // não retornava série alguma e a análise ficava sem dado.
+  const selector = (process.env.CAPIVA_ANALYSIS_SELECTOR || 'service="{{name}}",namespace="{{namespace}}"')
+    .replace(/\{\{name\}\}/g, name)
+    .replace(/\{\{namespace\}\}/g, namespace);
+
+  // `or vector(0)` garante um valor mesmo sem tráfego no intervalo: sem isso a
+  // query vazia é inconclusiva e o rollout trava (ou cai em rollback) em app
+  // recém-criada que ainda não recebeu requisição.
+  const errors = `sum(rate(http_requests_total{${selector},status=~"5.."}[2m]))`;
+  const total = `sum(rate(http_requests_total{${selector}}[2m]))`;
+
   return {
     apiVersion: "argoproj.io/v1alpha1",
     kind: "AnalysisTemplate",
@@ -203,12 +282,12 @@ export function analysisTemplateManifest(name: string, namespace: string): K8sMa
         {
           name: "error-rate",
           interval: "1m",
-          successCondition: "result < 0.05",
+          successCondition: "result[0] < 0.05",
           failureLimit: 2,
           provider: {
             prometheus: {
               address: promAddress,
-              query: `sum(rate(http_requests_total{app="${name}",status=~"5.."}[2m])) / sum(rate(http_requests_total{app="${name}"}[2m]))`,
+              query: `(${errors} / clamp_min(${total}, 1)) or vector(0)`,
             },
           },
         },
@@ -218,28 +297,42 @@ export function analysisTemplateManifest(name: string, namespace: string): K8sMa
 }
 
 /** Rollout (Argo Rollouts) — usado para Blue/Green e Canary. Abstrai a CRD. */
+/**
+ * Passos do canary: `initial`% → +incremento até 100%, pausando a cada passo.
+ * O incremento é forçado a ser positivo: um `increment` 0 ou negativo vindo da
+ * configuração do usuário travaria o processo num laço infinito.
+ */
+function canarySteps(initialTraffic: number, incrementBy: number, interval: string): Record<string, unknown>[] {
+  const initial = Math.min(Math.max(Number.isFinite(initialTraffic) ? initialTraffic : 10, 1), 99);
+  const increment = Math.min(Math.max(Number.isFinite(incrementBy) ? incrementBy : 20, 1), 100);
+
+  const steps: Record<string, unknown>[] = [];
+  for (let weight = initial; weight < 100; weight += increment) {
+    steps.push({ setWeight: weight });
+    steps.push({ pause: { duration: interval } });
+  }
+  steps.push({ setWeight: 100 });
+  return steps;
+}
+
 export function rolloutManifest(
   input: AppManifestInput,
   strategy: "BLUE_GREEN" | "CANARY",
   replicas = 2,
   rolloutConfig?: Record<string, unknown> | null,
 ): K8sManifest {
-  const res = resolveResources(input.profile, input.customResources);
+  const bits = volumeBits(input);
   const autoRollback = rolloutConfig?.autoRollback !== false;
-  const initial = Number(rolloutConfig?.initialTraffic ?? 10);
-  const increment = Number(rolloutConfig?.increment ?? 20);
-  const interval = `${Number(rolloutConfig?.intervalMinutes ?? 5)}m`;
+  const intervalMinutes = Math.max(Number(rolloutConfig?.intervalMinutes ?? 5) || 5, 1);
   const analysis = autoRollback
     ? { analysis: { templates: [{ templateName: `${input.name}-health` }], startingStep: 1 } }
     : {};
 
-  // Passos de canary: 10% → +incremento até 100%, pausando a cada passo.
-  const steps: Record<string, unknown>[] = [];
-  for (let w = initial; w < 100; w += increment) {
-    steps.push({ setWeight: w });
-    steps.push({ pause: { duration: interval } });
-  }
-  steps.push({ setWeight: 100 });
+  const steps = canarySteps(
+    Number(rolloutConfig?.initialTraffic ?? 10),
+    Number(rolloutConfig?.increment ?? 20),
+    `${intervalMinutes}m`,
+  );
 
   return {
     apiVersion: "argoproj.io/v1alpha1",
@@ -248,6 +341,8 @@ export function rolloutManifest(
     spec: {
       replicas,
       selector: { matchLabels: labels(input.name) },
+      minReadySeconds: 10,
+      revisionHistoryLimit: 5,
       strategy:
         strategy === "CANARY"
           ? { canary: { steps, ...analysis } }
@@ -261,16 +356,16 @@ export function rolloutManifest(
             },
       template: {
         metadata: { labels: labels(input.name) },
+        // Mesmo pod spec do Deployment: volumes, imagePullSecrets, probes e
+        // espalhamento. Antes o Rollout montava um container mínimo, então
+        // trocar a estratégia para Blue/Green ou Canary fazia a app perder os
+        // volumes persistentes e o pull secret do registry privado.
         spec: {
-          containers: [
-            {
-              name: input.name,
-              image: input.image,
-              ports: [{ containerPort: input.port }],
-              resources: { requests: res, limits: res },
-              env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
-            },
-          ],
+          ...(bits.imagePullSecrets ? { imagePullSecrets: bits.imagePullSecrets } : {}),
+          terminationGracePeriodSeconds: 30,
+          topologySpreadConstraints: topologySpreadConstraints(input.name),
+          containers: [podContainer(input)],
+          volumes: bits.volumes,
         },
       },
     },
@@ -543,9 +638,20 @@ export function cronJobManifest(name: string, namespace: string, schedule: strin
     metadata: { name, namespace, labels: labels(name) },
     spec: {
       schedule,
+      // Uma execução por vez: sem isto, um job que demora mais que o intervalo
+      // acumula réplicas concorrentes até esgotar o nó.
+      concurrencyPolicy: "Forbid",
+      // Depois de uma janela de indisponibilidade o controller dispara TODAS as
+      // execuções perdidas; o deadline descarta as que já não fazem sentido.
+      startingDeadlineSeconds: 120,
+      successfulJobsHistoryLimit: 3,
+      failedJobsHistoryLimit: 3,
       jobTemplate: {
         spec: {
+          backoffLimit: 3,
+          ttlSecondsAfterFinished: 86_400,
           template: {
+            metadata: { labels: labels(name) },
             spec: {
               restartPolicy: "OnFailure",
               containers: [{ name, image, resources: { requests: res, limits: res } }],
@@ -557,17 +663,10 @@ export function cronJobManifest(name: string, namespace: string, schedule: strin
   };
 }
 
-/** CloudNativePG Cluster — Postgres single/HA. Abstrai StatefulSet/Patroni/failover. */
-export function postgresClusterManifest(name: string, namespace: string, size: string, ha: boolean): K8sManifest {
-  const storage = size === "LARGE" ? "100Gi" : size === "MEDIUM" ? "50Gi" : "10Gi";
-  return {
-    apiVersion: "postgresql.cnpg.io/v1",
-    kind: "Cluster",
-    metadata: { name, namespace, labels: labels(name) },
-    spec: {
-      instances: ha ? 3 : 1,
-      storage: { size: storage },
-      ...(ha ? { primaryUpdateStrategy: "unsupervised" } : {}),
-    },
-  };
-}
+/*
+ * O manifest do Postgres gerenciado vive em `databaseManifests.ts`
+ * (`databaseManifest("POSTGRESQL", ...)`), junto com os demais operators. Havia
+ * aqui uma segunda versão, sem `bootstrap` nem `superuserSecret`, que ninguém
+ * chamava — se alguém a tivesse usado, o CNPG criaria um usuário aleatório e o
+ * login do usuário falharia.
+ */

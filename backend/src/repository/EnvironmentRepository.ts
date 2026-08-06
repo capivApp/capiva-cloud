@@ -12,15 +12,18 @@ export class EnvironmentRepository extends BaseRepository {
     return this.tx.environment.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
   }
 
+  /** Busca restrita à organização ativa — o kubeconfig do cluster sai daqui. */
   findById(id: string): Promise<Environment | null> {
-    return this.tx.environment.findUnique({ where: { id }, include: { cluster: true } });
+    return this.tx.environment.findFirst({ where: { id, ...this.scope("environment") }, include: { cluster: true } });
   }
 
-  update(id: string, data: Prisma.EnvironmentUncheckedUpdateInput): Promise<Environment> {
+  async update(id: string, data: Prisma.EnvironmentUncheckedUpdateInput): Promise<Environment> {
+    await this.ensureScoped(() => this.findById(id), "Ambiente");
     return this.tx.environment.update({ where: { id }, data });
   }
 
-  delete(id: string): Promise<Environment> {
+  async delete(id: string): Promise<Environment> {
+    await this.ensureScoped(() => this.findById(id), "Ambiente");
     return this.tx.environment.delete({ where: { id } });
   }
 }
