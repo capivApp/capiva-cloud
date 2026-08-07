@@ -89,6 +89,7 @@ Volumes are automatically replicated across cluster nodes, providing high availa
 capiva-cloud/
 ├── backend/    # Bun + Express + @mateusseiboth/ts-decorators + Prisma 7
 ├── frontend/   # React + TanStack Query + Zustand + React Hook Form + Zod
+├── mobile/     # Expo (Expo Go) + NativeWind + React Native Reusables
 └── docs/       # Architecture, workflows and technical documentation
 ```
 
@@ -155,7 +156,29 @@ Two details matter when deploying:
 `backend/Dockerfile.deploy` runs `prisma migrate deploy` before starting the API, so the schema is applied
 on every rollout.
 
-There is no seed script: create the first user (and its organization, as `OWNER`) through the panel's
+## 📱 Mobile app (Expo Go)
+
+The `mobile/` app monitors the platform, attaches to pod/node terminals and runs lifecycle
+actions (deploy, restart, rollback) from your phone. It targets **self-hosted** instances:
+enter your panel URL on the login screen (e.g. `http://YOUR_HOST:8410`) — the panel's nginx
+proxies `/api` and `/terminal`, so a single URL covers REST, SSE and the terminal WebSocket.
+
+```bash
+cd mobile
+bun install
+bun run start   # scan the QR code with Expo Go
+```
+
+See [mobile/README.md](./mobile/README.md) for details.
+
+To create (or reset the password of) the admin user, use the idempotent seed script — it creates
+user + organization (`OWNER`) on first run and only resets the password afterwards:
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='change-me' bun run --cwd backend seed:admin
+```
+
+Alternatively, create the first user (and its organization, as `OWNER`) through the panel's
 sign-up screen or via the API:
 
 ```bash

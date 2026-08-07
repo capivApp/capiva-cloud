@@ -9,6 +9,7 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "seed:admin": "bun src/scripts/seed-admin.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
