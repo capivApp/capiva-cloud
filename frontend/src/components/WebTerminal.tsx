@@ -2,21 +2,16 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
+import { resolveTerminalWsBase } from "@/lib/terminalWs";
 import { useAuthStore } from "@/stores/useAuthStore";
 
-/** Resolve a URL base do WebSocket do terminal (porta dedicada do backend). */
+/** Resolve a URL base do WebSocket do terminal (ver `resolveTerminalWsBase`). */
 function terminalWsBase(): string {
-  const explicit = import.meta.env.VITE_TERMINAL_WS_URL as string | undefined;
-  if (explicit) return explicit.replace(/\/$/, "");
-  const api = (import.meta.env.VITE_API_URL as string) || window.location.origin;
-  try {
-    const u = new URL(api);
-    u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-    u.port = String(Number(u.port || (u.protocol === "wss:" ? 443 : 80)) + 1);
-    return u.origin;
-  } catch {
-    return "ws://localhost:3001";
-  }
+  return resolveTerminalWsBase({
+    explicit: import.meta.env.VITE_TERMINAL_WS_URL as string | undefined,
+    apiUrl: import.meta.env.VITE_API_URL as string | undefined,
+    origin: window.location.origin,
+  });
 }
 
 /**
