@@ -44,6 +44,6 @@
     "oxlint": "^1.91.0",
     "oxlint-tsgolint": "^7.0.2005",
     "prisma": "^7.0.0",
-    "typescript": "^6"
+    "typescript": "7.0.2"
   }
 }
