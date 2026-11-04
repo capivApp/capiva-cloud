@@ -371,6 +371,8 @@ model Deployment {
   status        DeploymentStatus  @default(QUEUED)
   progress      Int               @default(0)
   podCount      Int               @default(0)
+  /// Resumo do scan de vulnerabilidades (Trivy): contagem por severidade + principais CVEs.
+  scanSummary   Json?
   startedAt     DateTime          @default(now())
   finishedAt    DateTime?
   application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)

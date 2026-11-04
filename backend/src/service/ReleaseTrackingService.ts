@@ -12,6 +12,8 @@ export interface ReleaseRow {
   durationSeconds: number | null;
   startedAt: string;
   finishedAt: string | null;
+  /** Resumo do scan de vulnerabilidades (selo na lista de deploys). */
+  scanSummary: unknown;
 }
 
 export interface ReleaseSummary {
@@ -53,6 +55,7 @@ export class ReleaseTrackingService {
             durationSeconds: duration,
             startedAt: d.startedAt.toISOString(),
             finishedAt: d.finishedAt?.toISOString() ?? null,
+            scanSummary: d.scanSummary ?? null,
           });
         }
       }

@@ -1,0 +1,366 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-11-04T14:02:11.418295731Z",
+  "ArtifactName": "registry.local:5000/api:1.4.0",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "Size": 58412032,
+    "OS": {
+      "Family": "alpine",
+      "Name": "3.19.1"
+    },
+    "ImageID": "sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412",
+    "DiffIDs": [
+      "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820",
+      "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+    ],
+    "RepoTags": [
+      "registry.local:5000/api:1.4.0"
+    ],
+    "RepoDigests": [
+      "registry.local:5000/api@sha256:1c0a4b8f2e6d9a3c5b7e1f0d2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "created": "2026-11-04T13:58:40.123456789Z",
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820",
+          "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+        ]
+      },
+      "config": {
+        "Cmd": ["node", "dist/index.js"],
+        "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "NODE_VERSION=20.11.1"],
+        "WorkingDir": "/app"
+      }
+    }
+  },
+  "Results": [
+    {
+      "Target": "registry.local:5000/api:1.4.0 (alpine 3.19.1)",
+      "Class": "os-pkgs",
+      "Type": "alpine",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-5535",
+          "PkgID": "libcrypto3@3.1.4-r5",
+          "PkgName": "libcrypto3",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libcrypto3@3.1.4-r5?arch=x86_64&distro=3.19.1",
+            "UID": "5a3e0e5a8b1c2d3e"
+          },
+          "InstalledVersion": "3.1.4-r5",
+          "FixedVersion": "3.1.6-r0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-5535",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "openssl: SSL_select_next_proto buffer overread",
+          "Description": "Calling the OpenSSL API function SSL_select_next_proto with an empty supported client protocols buffer may cause a crash or memory contents to be sent to the peer.",
+          "Severity": "CRITICAL",
+          "CweIDs": ["CWE-200"],
+          "VendorSeverity": {
+            "nvd": 4,
+            "redhat": 1
+          },
+          "CVSS": {
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:H",
+              "V3Score": 9.1
+            }
+          },
+          "References": ["https://www.openssl.org/news/secadv/20240627.txt"],
+          "PublishedDate": "2024-06-27T11:15:24.447Z",
+          "LastModifiedDate": "2024-07-12T14:15:16.79Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-5535",
+          "PkgID": "libssl3@3.1.4-r5",
+          "PkgName": "libssl3",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libssl3@3.1.4-r5?arch=x86_64&distro=3.19.1",
+            "UID": "7c1d2e3f4a5b6c7d"
+          },
+          "InstalledVersion": "3.1.4-r5",
+          "FixedVersion": "3.1.6-r0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-5535",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "openssl: SSL_select_next_proto buffer overread",
+          "Description": "Calling the OpenSSL API function SSL_select_next_proto with an empty supported client protocols buffer may cause a crash or memory contents to be sent to the peer.",
+          "Severity": "CRITICAL",
+          "CweIDs": ["CWE-200"],
+          "VendorSeverity": {
+            "nvd": 4,
+            "redhat": 1
+          },
+          "PublishedDate": "2024-06-27T11:15:24.447Z",
+          "LastModifiedDate": "2024-07-12T14:15:16.79Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-4741",
+          "PkgID": "libcrypto3@3.1.4-r5",
+          "PkgName": "libcrypto3",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libcrypto3@3.1.4-r5?arch=x86_64&distro=3.19.1",
+            "UID": "5a3e0e5a8b1c2d3e"
+          },
+          "InstalledVersion": "3.1.4-r5",
+          "FixedVersion": "3.1.5-r0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-4741",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "openssl: Use After Free with SSL_free_buffers",
+          "Description": "Calling the OpenSSL API function SSL_free_buffers may cause memory to be accessed that was previously freed in some situations.",
+          "Severity": "HIGH",
+          "CweIDs": ["CWE-416"],
+          "PublishedDate": "2024-11-13T11:15:04.48Z",
+          "LastModifiedDate": "2024-11-13T17:01:16.85Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-2511",
+          "PkgID": "libcrypto3@3.1.4-r5",
+          "PkgName": "libcrypto3",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libcrypto3@3.1.4-r5?arch=x86_64&distro=3.19.1",
+            "UID": "5a3e0e5a8b1c2d3e"
+          },
+          "InstalledVersion": "3.1.4-r5",
+          "FixedVersion": "3.1.4-r6",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-2511",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "openssl: Unbounded memory growth with session handling in TLSv1.3",
+          "Description": "Some non-default TLS server configurations can cause unbounded memory growth when processing TLSv1.3 sessions.",
+          "Severity": "MEDIUM",
+          "CweIDs": ["CWE-1325"],
+          "PublishedDate": "2024-04-08T14:15:07.66Z",
+          "LastModifiedDate": "2024-11-21T09:00:00.51Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-9143",
+          "PkgID": "libcrypto3@3.1.4-r5",
+          "PkgName": "libcrypto3",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libcrypto3@3.1.4-r5?arch=x86_64&distro=3.19.1",
+            "UID": "5a3e0e5a8b1c2d3e"
+          },
+          "InstalledVersion": "3.1.4-r5",
+          "FixedVersion": "3.1.7-r1",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-9143",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "openssl: Low-level invalid GF(2^m) parameters lead to OOB memory access",
+          "Description": "Use of the low-level GF(2^m) elliptic curve APIs with untrusted explicit values for the field polynomial can lead to out-of-bounds memory reads or writes.",
+          "Severity": "LOW",
+          "CweIDs": ["CWE-787"],
+          "PublishedDate": "2024-10-16T17:15:18.13Z",
+          "LastModifiedDate": "2024-11-08T16:35:21.58Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2023-42363",
+          "PkgID": "busybox@1.36.1-r15",
+          "PkgName": "busybox",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/busybox@1.36.1-r15?arch=x86_64&distro=3.19.1",
+            "UID": "1f2e3d4c5b6a7980"
+          },
+          "InstalledVersion": "1.36.1-r15",
+          "FixedVersion": "1.36.1-r17",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8",
+            "DiffID": "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-42363",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "busybox: use-after-free in awk",
+          "Description": "A use-after-free vulnerability was discovered in xasprintf function in xfuncs_printf.c:344 in BusyBox v.1.36.1.",
+          "Severity": "MEDIUM",
+          "CweIDs": ["CWE-416"],
+          "PublishedDate": "2023-11-27T22:15:07.94Z",
+          "LastModifiedDate": "2023-11-30T05:06:49.523Z"
+        }
+      ]
+    },
+    {
+      "Target": "app/package-lock.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-21538",
+          "PkgID": "cross-spawn@7.0.3",
+          "PkgName": "cross-spawn",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/cross-spawn@7.0.3",
+            "UID": "a1b2c3d4e5f60718"
+          },
+          "InstalledVersion": "7.0.3",
+          "FixedVersion": "7.0.5, 6.0.6",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "DiffID": "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-21538",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Title": "cross-spawn: regular expression denial of service",
+          "Description": "Versions of the package cross-spawn before 7.0.5 are vulnerable to Regular Expression Denial of Service (ReDoS) due to improper input sanitization.",
+          "Severity": "HIGH",
+          "CweIDs": ["CWE-1333"],
+          "PublishedDate": "2024-11-08T05:15:06.453Z",
+          "LastModifiedDate": "2024-11-19T16:15:31.453Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-45296",
+          "PkgID": "path-to-regexp@0.1.7",
+          "PkgName": "path-to-regexp",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/path-to-regexp@0.1.7",
+            "UID": "b2c3d4e5f6071829"
+          },
+          "InstalledVersion": "0.1.7",
+          "FixedVersion": "1.9.0, 0.1.10, 8.0.0, 3.3.0, 6.3.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "DiffID": "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-45296",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Title": "path-to-regexp: Backtracking regular expressions cause ReDoS",
+          "Description": "path-to-regexp turns path strings into a regular expressions. In certain cases, path-to-regexp will output a regular expression that can be exploited to cause poor performance.",
+          "Severity": "HIGH",
+          "CweIDs": ["CWE-1333"],
+          "PublishedDate": "2024-09-09T19:15:13.33Z",
+          "LastModifiedDate": "2024-09-10T12:09:50.377Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-29415",
+          "PkgID": "ip@2.0.1",
+          "PkgName": "ip",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/ip@2.0.1",
+            "UID": "c3d4e5f60718293a"
+          },
+          "InstalledVersion": "2.0.1",
+          "Status": "affected",
+          "Layer": {
+            "Digest": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "DiffID": "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-29415",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Title": "node-ip: Incomplete fix for CVE-2023-42282",
+          "Description": "The ip package through 2.0.1 for Node.js might allow SSRF because some IP addresses (such as 127.1, 01200034567, 012.1.2.3, 000:0:0000::01, and ::fFFf:127.0.0.1) are improperly categorized as globally routable via isPublic.",
+          "Severity": "HIGH",
+          "CweIDs": ["CWE-918"],
+          "PublishedDate": "2024-05-27T20:15:08.97Z",
+          "LastModifiedDate": "2024-06-10T17:16:27.147Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2024-4067",
+          "PkgID": "micromatch@4.0.5",
+          "PkgName": "micromatch",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/micromatch@4.0.5",
+            "UID": "d4e5f60718293a4b"
+          },
+          "InstalledVersion": "4.0.5",
+          "FixedVersion": "4.0.8",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "DiffID": "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-4067",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Title": "micromatch: vulnerable to Regular Expression Denial of Service",
+          "Description": "The NPM package micromatch prior to 4.0.8 is vulnerable to Regular Expression Denial of Service (ReDoS).",
+          "Severity": "MEDIUM",
+          "CweIDs": ["CWE-1333"],
+          "PublishedDate": "2024-05-14T15:42:48.66Z",
+          "LastModifiedDate": "2024-08-30T00:15:04.12Z"
+        }
+      ]
+    },
+    {
+      "Target": "usr/local/bin/healthcheck",
+      "Class": "lang-pkgs",
+      "Type": "gobinary"
+    }
+  ]
+}

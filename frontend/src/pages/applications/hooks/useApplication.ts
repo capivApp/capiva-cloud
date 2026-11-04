@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Application } from "@/pages/applications/hooks/useApplications";
+import type { ScanSummary } from "@/pages/applications/components/scan/types";
 
 export interface Deployment {
   id: string;
@@ -10,6 +11,7 @@ export interface Deployment {
   podCount: number;
   startedAt: string;
   finishedAt: string | null;
+  scanSummary?: ScanSummary | null;
 }
 
 /**
