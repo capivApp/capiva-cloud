@@ -154,6 +154,8 @@ export interface BuildRequest {
   /** Nome da app e id do deploy → labels do Job (lookup dos logs de build). */
   app?: string;
   deploymentId?: string;
+  /** Porta da aplicação (o Static gera o nginx escutando nela). */
+  port?: number;
   /** Credenciais para clonar repositório privado (Git → Kaniko). */
   gitAuth?: { username: string; password: string };
   /** Registry de destino do push. `insecure` = HTTP/sem TLS; sem `credentials` = registry aberto. */
@@ -164,7 +166,8 @@ export interface BuildRequest {
 }
 
 export interface IBuildStrategy {
-  supports(source: string): boolean;
+  /** Origens (`SourceKind`) atendidas: o resolver indexa as strategies por elas. */
+  readonly sources: readonly string[];
   build(req: BuildRequest): Promise<{ imageRef: string; manifest?: K8sManifest }>;
 }
 

@@ -309,7 +309,8 @@ export class KubernetesAdapter implements IKubernetesAdapter {
    * Logs do primeiro pod que casa com o labelSelector (ex.: Job de build Kaniko).
    * Retorna o texto atual (não-follow); o SSE faz o polling. "" se não houver pod.
    */
-  async podLogsByLabel(ctx: KubeContext, labelSelector: string, tailLines = 1000): Promise<string> {
+  /** `container` lê um container específico (ex.: o initContainer `clone` do build). */
+  async podLogsByLabel(ctx: KubeContext, labelSelector: string, tailLines = 1000, container?: string): Promise<string> {
     if (!ctx.kubeconfig) return "";
     try {
       const kc = this.loadKc(ctx.kubeconfig);
@@ -317,7 +318,7 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       const pods = await core.listNamespacedPod({ namespace: ctx.namespace, labelSelector });
       const podName = pods.items[0]?.metadata?.name;
       if (!podName) return "";
-      return await core.readNamespacedPodLog({ name: podName, namespace: ctx.namespace, tailLines });
+      return await core.readNamespacedPodLog({ name: podName, namespace: ctx.namespace, tailLines, container });
     } catch {
       return "";
     }
