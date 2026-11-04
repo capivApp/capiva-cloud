@@ -6,6 +6,8 @@ export interface NotificationMessage {
   event: string;
   title: string;
   body: string;
+  /** Contexto do evento (ex.: `applicationId`). O push leva ao app para o deep link. */
+  data?: Record<string, string>;
 }
 
 export interface NotificationAdapter {
@@ -45,7 +47,7 @@ const push: NotificationAdapter = {
   send: async (c, m) => {
     const tokens = (c.expoTokens as string[] | undefined) ?? [];
     if (tokens.length === 0) return;
-    await post("https://exp.host/--/api/v2/push/send", tokens.map((to) => ({ to, title: m.title, body: m.body, data: { event: m.event } })));
+    await post("https://exp.host/--/api/v2/push/send", tokens.map((to) => ({ to, title: m.title, body: m.body, data: { ...m.data, event: m.event } })));
   },
 };
 
