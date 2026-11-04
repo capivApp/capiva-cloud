@@ -10,6 +10,7 @@ import { NotificationService } from "@service/NotificationService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
+import { ImageScanService } from "@service/ImageScanService";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -35,6 +36,7 @@ export class DeploymentService {
     private readonly notifications: NotificationService,
     private readonly gitConnections: GitConnectionService,
     private readonly registries: DockerRegistryService,
+    private readonly scans: ImageScanService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -125,6 +127,8 @@ export class DeploymentService {
     const imageRef = built.imageRef;
 
     await step("Imagem publicada", "PUSHING", 40);
+    // Scan de vulnerabilidades (Trivy) antes de pôr no ar: lança se a política bloquear.
+    await this.scans.guard({ deploymentId, app, imageRef, ctx, tenant });
     await step("Deploy iniciado", "DEPLOYING", 60);
 
     // Reconcilia via ApplicationService (carrega envs, volumes, deps, domínio, TLS).

@@ -2,6 +2,7 @@ import type { Router } from "express";
 import { container } from "@di/index";
 import { ApplicationController } from "@controller/ApplicationController";
 import { ObservabilityController } from "@controller/ObservabilityController";
+import { ScanPolicyController } from "@controller/ScanPolicyController";
 import { authMiddleware } from "@middleware/auth";
 import { requireRole } from "@middleware/rbac";
 
@@ -42,6 +43,7 @@ export const registry = (router: Router): void => {
   router.delete("/:id/env/:key", dev, ctrl.removeEnv);
   router.get("/:id/build-args", ctrl.listBuildArgs);
   router.put("/:id/build-args", dev, ctrl.replaceBuildArgs);
+  router.put("/:id/security", dev, container.get(ScanPolicyController).update);
   router.patch("/:id", dev, ctrl.patch);
   router.patch("/:id/tags", dev, ctrl.updateTags);
   router.patch("/:id/tls", dev, ctrl.updateTls);

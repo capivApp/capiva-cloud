@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
 import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { scanPolicySchema } from "@schemas/scan.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -112,6 +113,18 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/applications/{id}/deploy": {
         post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },
+      },
+      "/applications/{id}/security": {
+        put: {
+          tags: ["Applications"],
+          summary: "Política de scan de vulnerabilidades (Trivy)",
+          description:
+            "Grava em `sourceConfig.security`. `scanEnabled` (default true) liga o scan da imagem antes de cada deploy; `blockOnSeverity` (`none` default, `critical`, `high`) falha o deploy quando a imagem tem vulnerabilidade daquele nível ou acima. Falha do próprio scanner nunca bloqueia. O resumo de cada scan sai em `scanSummary` nos deploys (`GET /applications/{id}/deployments`). Vale a partir do próximo deploy.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(scanPolicySchema),
+          responses: { "200": { description: "Aplicação atualizada" }, "400": { description: "Política inválida" }, "404": { description: "Fora da organização ativa" } },
+        },
       },
       "/applications/{id}/dependencies": {
         get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },
