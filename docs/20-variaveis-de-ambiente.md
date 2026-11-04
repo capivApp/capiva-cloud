@@ -41,3 +41,16 @@ Todos sob `/api/applications/:id` (auth + RBAC). Leitura: qualquer papel. Mutaç
 
 `PUT /applications/:id/env` → `kubectl -n <ns> get deploy <app> -o jsonpath='{..env}'`
 mostra as variáveis; o `GET` não vaza o valor dos segredos.
+
+## Variáveis da plataforma: tabela de preços (FinOps)
+
+Lidas pelo backend a cada estimativa (`readTabelaDePrecos`, `@functions/finops/custo`). Valor
+vazio, inválido ou negativo volta ao default. Só visibilidade de custo: não há cobrança.
+Detalhes em [42-quotas-e-custos.md](42-quotas-e-custos.md).
+
+| Variável                     | Default | Descrição                         |
+|------------------------------|---------|-----------------------------------|
+| `CAPIVA_PRICE_CURRENCY`      | `BRL`   | Moeda (código ISO 4217).          |
+| `CAPIVA_PRICE_VCPU_HOUR`     | `0.2`   | Preço por vCPU-hora.              |
+| `CAPIVA_PRICE_RAM_GB_HOUR`   | `0.03`  | Preço por GB de RAM-hora.         |
+| `CAPIVA_PRICE_DISK_GB_MONTH` | `0.5`   | Preço por GB de disco-mês.        |

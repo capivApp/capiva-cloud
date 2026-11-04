@@ -16,6 +16,8 @@ import { useDockerRegistries } from "@/hooks/useDockerRegistries";
 import { useGitConnections } from "@/hooks/useGitConnections";
 import { useGitRepos, useGitBranches } from "@/hooks/useGitRepos";
 import { findTemplate } from "@/pages/applications/new/appTemplates";
+import { useCustoEstimadoDoPerfil } from "@/hooks/useCosts";
+import { formatCustoMensal, readCampoErrors } from "@/lib/finops";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
 const GIT_SOURCES = ["GITHUB", "GITLAB", "GITEA"];
@@ -46,6 +48,14 @@ const STRATEGIES = [
 ];
 
 type KV = { key: string; value: string };
+
+/** Passo do wizard onde fica cada campo que a API pode recusar (`errors[].path`). */
+const STEP_DO_CAMPO: Record<string, number> = { profile: 2, volumes: 4 };
+
+function CampoErro({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-destructive">{message}</p>;
+}
 
 function KVEditor({ list, setList, kPlaceholder }: { list: KV[]; setList: (l: KV[]) => void; kPlaceholder: string }) {
   return (
@@ -146,6 +156,8 @@ export function NewApplicationWizard() {
   const [env, setEnv] = useState<KV[]>(template?.env ?? []);
   const [volumes, setVolumes] = useState<VolumeSpec[]>(template?.volumes ?? []);
   const [git, setGit] = useState<GitPick>({ gitConnectionId: "", repo: "", cloneUrl: "", branch: "" });
+  const [campoErrors, setCampoErrors] = useState<Record<string, string>>({});
+  const { estimativa } = useCustoEstimadoDoPerfil(form.profile);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const setGitPick = (patch: Partial<GitPick>) => setGit((g) => ({ ...g, ...patch }));
@@ -206,8 +218,16 @@ export function NewApplicationWizard() {
       toast.success("Aplicação criada! Iniciando primeiro deploy…");
       navigate("/applications");
     } catch (e) {
+      showCampoErrors(readCampoErrors(e));
       toast.error((e as Error).message || "Falha ao criar aplicação");
     }
+  }
+
+  /** Erro da API volta para o campo e abre o passo onde ele está. */
+  function showCampoErrors(errors: { path: string; message: string }[]) {
+    setCampoErrors(Object.fromEntries(errors.map((err) => [err.path, err.message])));
+    const passo = errors.map((err) => STEP_DO_CAMPO[err.path]).find((s) => s !== undefined);
+    if (passo !== undefined) setStep(passo);
   }
 
   return (
@@ -350,6 +370,8 @@ export function NewApplicationWizard() {
                     </button>
                   ))}
                 </div>
+                {estimativa && <p className="text-xs text-muted-foreground">Custo estimado: {formatCustoMensal(estimativa.custo, estimativa.currency)}</p>}
+                <CampoErro message={campoErrors.profile} />
               </div>
               <div className="space-y-2">
                 <Label>Estratégia de deploy</Label>
@@ -423,6 +445,7 @@ export function NewApplicationWizard() {
                 <Label>Volumes (pastas persistentes)</Label>
                 <p className="text-xs text-muted-foreground">Pastas que sobrevivem a deploys/reinícios. Marque "compartilhado" para que todas as réplicas vejam os mesmos arquivos (Longhorn RWX).</p>
                 <VolumeEditor list={volumes} setList={setVolumes} />
+                <CampoErro message={campoErrors.volumes} />
               </div>
             </div>
           )}
