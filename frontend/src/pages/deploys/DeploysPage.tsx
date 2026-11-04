@@ -3,8 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
+import { DeploymentScanBadge } from "@/pages/applications/components/scan/DeploymentScanBadge";
+import type { ScanSummary } from "@/pages/applications/components/scan/types";
 
-interface ReleaseRow { id: string; applicationName: string; version: string; status: string; durationSeconds: number | null; startedAt: string }
+interface ReleaseRow { id: string; applicationName: string; version: string; status: string; durationSeconds: number | null; startedAt: string; scanSummary?: ScanSummary | null }
 interface ReleaseSummary { totalDeploys: number; successRate: number; rollbacks: number; avgDeploySeconds: number | null; recent: ReleaseRow[] }
 
 export function DeploysPage() {
@@ -37,6 +39,7 @@ export function DeploysPage() {
               <span className="font-medium">{r.applicationName}</span>
               <span className="font-mono text-xs text-muted-foreground">{r.version}</span>
               <span className="text-xs text-muted-foreground">{r.durationSeconds != null ? `${r.durationSeconds}s` : "—"}</span>
+              <DeploymentScanBadge summary={r.scanSummary} version={r.version} />
               <Badge variant={r.status === "HEALTHY" ? "success" : r.status === "FAILED" ? "danger" : "warning"}>{r.status}</Badge>
             </div>
           ))}

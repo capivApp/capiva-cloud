@@ -19,6 +19,8 @@ import { DomainsTab } from "@/pages/applications/detail/DomainsTab";
 import { ScalingTab } from "@/pages/applications/detail/ScalingTab";
 import { SettingsTab } from "@/pages/applications/detail/SettingsTab";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
+import { DeploymentScanBadge } from "@/pages/applications/components/scan/DeploymentScanBadge";
+import { ScanPolicyCard } from "@/pages/applications/components/scan/ScanPolicyCard";
 
 interface LogLine { ts: string; line: string }
 
@@ -127,6 +129,7 @@ export function ApplicationDetailPage() {
                       <span className="font-mono text-xs">{d.version}</span>
                       <span className="text-muted-foreground">{isActive ? `${d.podCount} pods em execução` : superseded ? "inativo (0 pods)" : `${d.podCount} pods`}</span>
                       <div className="flex items-center gap-2">
+                        <DeploymentScanBadge summary={d.scanSummary} version={d.version} />
                         {isActive ? <Badge variant="success">Ativo</Badge> : superseded ? <Badge variant="muted">Substituído</Badge> : <Badge variant={d.status === "FAILED" ? "danger" : "warning"}>{d.status}</Badge>}
                         {superseded && (
                           <Button variant="ghost" size="sm" onClick={act(() => rollback(d.id), "Restaurando versão…")}>
@@ -163,7 +166,12 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="pt-5">
-          {app && <SettingsTab app={app} />}
+          {app && (
+            <div className="space-y-5">
+              <SettingsTab app={app} />
+              <ScanPolicyCard app={app} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="logs" className="pt-5">
