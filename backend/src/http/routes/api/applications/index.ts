@@ -2,6 +2,7 @@ import type { Router } from "express";
 import { container } from "@di/index";
 import { ApplicationController } from "@controller/ApplicationController";
 import { ObservabilityController } from "@controller/ObservabilityController";
+import { AlertRuleController } from "@controller/AlertRuleController";
 import { authMiddleware } from "@middleware/auth";
 import { requireRole } from "@middleware/rbac";
 
@@ -14,6 +15,7 @@ const dev = requireRole("DEVELOPER");
 export const registry = (router: Router): void => {
   const ctrl = container.get(ApplicationController);
   const obs = container.get(ObservabilityController);
+  const alerts = container.get(AlertRuleController);
   router.get("/", ctrl.list);
   router.post("/", dev, ctrl.create);
   router.get("/:id", ctrl.get);
@@ -56,5 +58,9 @@ export const registry = (router: Router): void => {
   router.post("/:id/uptime-checks/:checkId/run", dev, ctrl.runUptimeCheck);
   router.delete("/:id/uptime-checks/:checkId", dev, ctrl.removeUptimeCheck);
   router.get("/:id/reports", ctrl.reportsView);
+  router.get("/:id/alert-rules", alerts.list);
+  router.post("/:id/alert-rules", dev, alerts.create);
+  router.patch("/:id/alert-rules/:ruleId", dev, alerts.update);
+  router.delete("/:id/alert-rules/:ruleId", dev, alerts.remove);
   router.delete("/:id", dev, ctrl.remove);
 };

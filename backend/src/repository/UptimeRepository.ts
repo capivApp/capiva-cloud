@@ -2,6 +2,13 @@ import { Injectable } from "@di/index";
 import { BaseRepository } from "@repository/BaseRepository";
 import type { Prisma, UptimeCheck, UptimeResult } from "@prisma-generated/client";
 
+/** Dono da verificação: a notificação precisa do nome da app e da organização. */
+const INCLUDE_OWNER = {
+  application: { select: { name: true, project: { select: { organizationId: true } } } },
+} satisfies Prisma.UptimeCheckInclude;
+
+export type UptimeCheckWithOwner = Prisma.UptimeCheckGetPayload<{ include: typeof INCLUDE_OWNER }>;
+
 @Injectable()
 export class UptimeRepository extends BaseRepository {
   async createCheck(data: Prisma.UptimeCheckUncheckedCreateInput): Promise<UptimeCheck> {
@@ -19,8 +26,8 @@ export class UptimeRepository extends BaseRepository {
     });
   }
 
-  findCheck(id: string): Promise<UptimeCheck | null> {
-    return this.tx.uptimeCheck.findFirst({ where: { id, ...this.scope("uptimeCheck") } });
+  findCheck(id: string): Promise<UptimeCheckWithOwner | null> {
+    return this.tx.uptimeCheck.findFirst({ where: { id, ...this.scope("uptimeCheck") }, include: INCLUDE_OWNER });
   }
 
   async deleteCheck(id: string): Promise<UptimeCheck> {
@@ -32,8 +39,8 @@ export class UptimeRepository extends BaseRepository {
    * Todas as verificações habilitadas (scheduler da plataforma). Roda fora de
    * tenant de propósito — varre todas as organizações.
    */
-  listEnabled(): Promise<UptimeCheck[]> {
-    return this.tx.uptimeCheck.findMany({ where: { enabled: true } });
+  listEnabled(): Promise<UptimeCheckWithOwner[]> {
+    return this.tx.uptimeCheck.findMany({ where: { enabled: true }, include: INCLUDE_OWNER });
   }
 
   recordResult(data: Prisma.UptimeResultUncheckedCreateInput): Promise<UptimeResult> {

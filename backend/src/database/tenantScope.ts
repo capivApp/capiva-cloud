@@ -52,6 +52,7 @@ const SCOPES = {
   scalingPolicy: byApplication,
   volume: byApplication,
   uptimeCheck: byApplication,
+  alertRule: byApplication,
 
   // Backup de banco chega na org pelo banco gerenciado. Backup de VOLUME não tem
   // relação no schema (`volumeId` é solto) — quem resolve volume valida a posse

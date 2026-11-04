@@ -14,6 +14,7 @@ import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
+import { isRolloutAborted } from "@functions/rolloutStatus";
 import type { Application, Deployment } from "@prisma-generated/client";
 
 /**
@@ -180,6 +181,15 @@ export class DeploymentService {
 
     while (Date.now() < deadline) {
       const obs = await this.k8s.observe(ctx, apiVersion, kind, app.name);
+      // A análise do Argo abortou o rollout e devolveu o tráfego à versão estável.
+      if (isRolloutAborted(obs.raw)) {
+        void this.notifications.dispatch(tenant.organizationId, {
+          event: "deploy.rollback",
+          title: `Rollback automático: ${app.name}`,
+          body: "A nova versão falhou na análise e a versão estável foi mantida.",
+        });
+        return { ready: false, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: ["Rollout abortado pela análise, versão estável mantida"] };
+      }
       if (obs.ready) return { ready: true, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: [] };
 
       const health = await this.k8s.podHealth(ctx, app.name);
@@ -264,6 +274,12 @@ export class DeploymentService {
       });
       deploymentEvents.emit(rollback.id, { label, status: "HEALTHY", progress: 100, done: true });
     }, { tenant });
+
+    void this.notifications.dispatch(tenant.organizationId, {
+      event: "deploy.rollback",
+      title: `${automatic ? "Rollback automático" : "Rollback"}: ${app.name}`,
+      body: `Versão ${target.version} restaurada.`,
+    });
 
     return rollback;
   }

@@ -5,15 +5,9 @@ import { DomainRepository } from "@repository/DomainRepository";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
+import { buildTraefikSelector, parseTraefikAccessLog, type RequestEntry } from "@functions/requestStats";
 
-export interface RequestEntry {
-  time: string;
-  method: string;
-  host: string;
-  path: string;
-  status: number;
-  durationMs: number;
-}
+export type { RequestEntry };
 
 /**
  * Requests recebidos pelo Traefik (access log JSON → Loki). A Service traduz o
@@ -33,16 +27,15 @@ export class RequestsService {
   async list(tenant: { organizationId: string }, opts: { host?: string; applicationId?: string }): Promise<RequestEntry[]> {
     const host = opts.host ?? (opts.applicationId ? await this.hostOf(opts.applicationId, tenant) : undefined);
     // Access log do Traefik (entrypoint) — filtra pelo host quando informado.
-    const hostFilter = host ? ` |~ \`${host}\`` : "";
-    const selector = `{namespace="kube-system",pod=~"traefik.*"}${hostFilter}`;
-    const lines = await this.loki.queryBySelector(selector, 200);
+    const lines = await this.loki.queryBySelector(buildTraefikSelector(host), 200);
 
-    const parsed = lines.map((l) => this.parse(l.line)).filter((e): e is RequestEntry => e !== null);
+    const parsed = lines.map((l) => parseTraefikAccessLog(l.line)).filter((e): e is RequestEntry => e !== null);
     if (parsed.length > 0) return parsed.reverse();
     return this.simulated(host);
   }
 
-  private async hostOf(applicationId: string, tenant: { organizationId: string }): Promise<string | undefined> {
+  /** Host primário da aplicação (também usado pelos alertas de 5xx e latência). */
+  async hostOf(applicationId: string, tenant: { organizationId: string }): Promise<string | undefined> {
     const { app, domains } = await withTransaction(
       async () => ({ app: await this.apps.findById(applicationId), domains: await this.domains.listByApplication(applicationId) }),
       { tenant },
@@ -50,26 +43,6 @@ export class RequestsService {
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
     // Host primário vem da entidade Domain; fallback ao legado sourceConfig.domain.
     return domains[0]?.host ?? ((app.sourceConfig as Record<string, unknown>)?.domain as string | undefined);
-  }
-
-  /** Parseia uma linha de access log JSON do Traefik numa entrada estruturada. */
-  private parse(line: string): RequestEntry | null {
-    const start = line.indexOf("{");
-    if (start < 0) return null;
-    try {
-      const log = JSON.parse(line.slice(start)) as Record<string, unknown>;
-      if (!log.RequestMethod && !log.DownstreamStatus) return null;
-      return {
-        time: (log.StartUTC as string) ?? (log.time as string) ?? new Date().toISOString(),
-        method: (log.RequestMethod as string) ?? "GET",
-        host: (log.RequestHost as string) ?? "",
-        path: (log.RequestPath as string) ?? "/",
-        status: Number(log.DownstreamStatus ?? 0),
-        durationMs: Math.round(Number(log.Duration ?? 0) / 1e6),
-      };
-    } catch {
-      return null;
-    }
   }
 
   private simulated(host?: string): RequestEntry[] {
