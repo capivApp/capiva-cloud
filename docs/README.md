@@ -32,6 +32,7 @@ The documentation is intended to serve as the primary source of technical knowle
 | 33  | [Build Configuration](./33-configuracao-de-build.md)                            | Custom Dockerfile path, monorepo build context, auto-deploy toggle and watch paths           |
 | 34  | [Build Strategies](./34-build-strategies.md)                                    | One build Job per source: Kaniko, Nixpacks, Railpack (BuildKit), Buildpacks, Static, Compose |
 | 39  | [Log Search](./39-busca-de-logs.md)                                              | LogQL builder, level/pod/time filters, log download (.txt/.ndjson) and shareable filter URLs |
+| 41  | [NetworkPolicy & External Secrets](./41-network-policy-e-external-secrets.md)   | Default per-namespace NetworkPolicy and env vars from an external vault (ESO)               |
 
 ## Documentation Principles
 

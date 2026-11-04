@@ -8,6 +8,14 @@ export interface Environment {
   kind: "DEVELOPMENT" | "STAGING" | "PRODUCTION";
   namespace: string;
   clusterId: string | null;
+  networkIsolation: boolean;
+}
+
+export interface EnvironmentInput {
+  name: string;
+  kind: Environment["kind"];
+  clusterId?: string | null;
+  networkIsolation?: boolean;
 }
 
 export function useEnvironments() {
@@ -21,12 +29,12 @@ export function useEnvironments() {
 
   const createMut = useMutation({
     mutationKey: ["environments", "create"],
-    mutationFn: (input: { name: string; kind: Environment["kind"]; clusterId?: string }) =>
+    mutationFn: (input: EnvironmentInput) =>
       api.post<Environment>("/environments", input),
   });
   const updateMut = useMutation({
     mutationKey: ["environments", "update"],
-    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; kind?: string; clusterId?: string | null } }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<EnvironmentInput> }) =>
       api.patch(`/environments/${id}`, patch),
   });
   const removeMut = useMutation({ mutationKey: ["environments", "remove"], mutationFn: (id: string) => api.del(`/environments/${id}`) });

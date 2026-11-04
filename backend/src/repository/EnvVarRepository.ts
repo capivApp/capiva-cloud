@@ -20,7 +20,15 @@ export class EnvVarRepository extends BaseRepository {
   }
 
   /** Upsert por (applicationId, key) — usado por manual e injeção de dependências. */
-  async upsert(data: { applicationId: string; key: string; value: string; secret?: boolean; source?: "MANUAL" | "INJECTED" }): Promise<EnvVar> {
+  async upsert(data: {
+    applicationId: string;
+    key: string;
+    value: string;
+    secret?: boolean;
+    source?: EnvVar["source"];
+    secretStoreId?: string | null;
+    remoteProperty?: string | null;
+  }): Promise<EnvVar> {
     await this.assertApplication(data.applicationId);
     const payload: Prisma.EnvVarUncheckedCreateInput = {
       applicationId: data.applicationId,
@@ -28,11 +36,19 @@ export class EnvVarRepository extends BaseRepository {
       value: data.value,
       secret: data.secret ?? false,
       source: data.source ?? "MANUAL",
+      secretStoreId: data.secretStoreId ?? null,
+      remoteProperty: data.remoteProperty ?? null,
     };
     return this.tx.envVar.upsert({
       where: { applicationId_key: { applicationId: data.applicationId, key: data.key } },
       create: payload,
-      update: { value: data.value, secret: payload.secret, source: payload.source },
+      update: {
+        value: data.value,
+        secret: payload.secret,
+        source: payload.source,
+        secretStoreId: payload.secretStoreId,
+        remoteProperty: payload.remoteProperty,
+      },
     });
   }
 

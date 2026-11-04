@@ -6,14 +6,15 @@ import {
   hpaManifest,
   ingressManifest,
   ingressNameFor,
-  networkPolicyManifest,
   podDisruptionBudgetManifest,
   pvcManifest,
   rolloutManifest,
   serviceManifest,
   tlsSecretManifest,
+  type ContainerEnvVar,
   type TlsModeManifest,
 } from "@infra/kubernetes/manifests";
+import { externalSecretName } from "@infra/kubernetes/externalSecretManifests";
 import type { IResourceReconciler, KubeContext, ObservedStatus } from "@interface/integrations";
 import type { Application } from "@prisma-generated/client";
 
@@ -28,9 +29,7 @@ export interface AppReconcileInput {
   app: Application;
   image: string;
   replicas?: number;
-  envVars?: { key: string; value: string }[];
-  /** Origens permitidas (grafo de dependências) para a NetworkPolicy. */
-  allowedFrom?: string[];
+  envVars?: ContainerEnvVar[];
   /** Domínio custom → Ingress (Traefik) + TLS. */
   domain?: string;
   /** Modo TLS do Ingress: lets_encrypt | uploaded | none. */
@@ -49,7 +48,7 @@ export interface AppReconcileInput {
 
 /**
  * Strategy de reconciliação de Aplicação: traduz a entidade nos recursos
- * Kubernetes escondidos (Deployment/Rollout + Service + NetworkPolicy + HTTPRoute).
+ * Kubernetes escondidos (Deployment/Rollout + Service + Ingress).
  * Tudo idempotente (server-side apply).
  */
 @Injectable()
@@ -57,7 +56,7 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
   constructor(private readonly k8s: KubernetesAdapter) {}
 
   async reconcile(input: AppReconcileInput, ctx: KubeContext): Promise<ObservedStatus> {
-    const { app, image, replicas = 2, envVars = [], allowedFrom = [], domain, tlsMode = "LETS_ENCRYPT", tlsCert, domains = [], scaling, volumes = [], imagePullSecret } = input;
+    const { app, image, replicas = 2, envVars = [], domain, tlsMode = "LETS_ENCRYPT", tlsCert, domains = [], scaling, volumes = [], imagePullSecret } = input;
     // HPA só para ROLLING (Deployment). Quando há autoscaling, o HPA é o dono das réplicas.
     const hpaEnabled = Boolean(scaling) && app.rolloutStrategy === "ROLLING";
     const port = app.port ?? 3000;
@@ -79,8 +78,10 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
       await this.k8s.apply(ctx, pvcManifest(`${app.name}-${v.name}`, ctx.namespace, v.sizeGi, v.accessMode));
     }
 
-    // Isolamento de rede (default-deny + origens do grafo de dependências).
-    await this.k8s.apply(ctx, networkPolicyManifest(app.name, ctx.namespace, allowedFrom));
+    // A NetworkPolicy é do namespace (NetworkPolicyService). A policy por app das
+    // versões anteriores negava o tráfego mesmo com o isolamento do ambiente
+    // desligado, por isso sai do cluster aqui.
+    await this.k8s.remove(ctx, "networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`).catch(() => undefined);
 
     // Orçamento de interrupção: protege a app de drain de nó e upgrade de
     // cluster derrubarem todas as réplicas ao mesmo tempo.
@@ -167,5 +168,8 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
     for (const v of volumes) await drop("v1", "PersistentVolumeClaim", `${app.name}-${v.name}`);
 
     await drop("networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`);
+    await drop("networking.k8s.io/v1", "NetworkPolicy", `capiva-deps-${app.name}`);
+    // O Secret sincronizado é `Owner`: sai junto com o ExternalSecret.
+    await drop("external-secrets.io/v1", "ExternalSecret", externalSecretName(app.name));
   }
 }

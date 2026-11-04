@@ -36,6 +36,18 @@ export class ServiceDependencyRepository extends BaseRepository {
     return this.tx.serviceDependency.findMany({ where: { sourceId, ...this.edgeScope } });
   }
 
+  /** Arestas que chegam em apps do ambiente, com o namespace de onde a origem vem. */
+  listIncomingForEnvironment(environmentId: string) {
+    const application = this.scope("application");
+    return this.tx.serviceDependency.findMany({
+      where: { source: { ...application }, target: { ...application, environmentId } },
+      select: {
+        source: { select: { name: true, environment: { select: { namespace: true } } } },
+        target: { select: { name: true } },
+      },
+    });
+  }
+
   find(sourceId: string, targetId: string): Promise<ServiceDependency | null> {
     return this.tx.serviceDependency.findFirst({ where: { sourceId, targetId, ...this.edgeScope } });
   }

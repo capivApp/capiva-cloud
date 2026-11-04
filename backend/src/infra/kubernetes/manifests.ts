@@ -8,6 +8,16 @@ import type { K8sManifest } from "@interface/integrations";
  */
 const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
 
+/** Variável do container: valor literal ou referência a um Secret (cofre externo). */
+export interface ContainerEnvVar {
+  key: string;
+  value: string;
+  secretRef?: { name: string; key: string };
+}
+
+const containerEnv = (e: ContainerEnvVar) =>
+  e.secretRef ? { name: e.key, valueFrom: { secretKeyRef: e.secretRef } } : { name: e.key, value: e.value };
+
 export interface AppManifestInput {
   name: string;
   namespace: string;
@@ -17,7 +27,7 @@ export interface AppManifestInput {
   customResources?: Record<string, unknown> | null;
   /** Caminho do health check (readiness). Default "/". */
   healthPath?: string;
-  envVars?: { key: string; value: string }[];
+  envVars?: ContainerEnvVar[];
   /** volumes montados: claimName = <app>-<volName>. RWX → mesma pasta em todos os pods. */
   volumes?: { name: string; mountPath: string }[];
   /** registry privado → imagePullSecrets */
@@ -268,7 +278,7 @@ function podContainer(input: AppManifestInput) {
     image: input.image,
     ports: [{ containerPort: input.port }],
     resources: { requests: res, limits: res },
-    env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
+    env: (input.envVars ?? []).map(containerEnv),
     volumeMounts: volumeBits(input).volumeMounts,
     readinessProbe: readinessProbe(input),
     livenessProbe: livenessProbe(input),
@@ -622,33 +632,6 @@ export function hpaManifest(
       minReplicas: min,
       maxReplicas: max,
       metrics,
-    },
-  };
-}
-
-/**
- * NetworkPolicy: default-deny de ingress, liberando APENAS as origens declaradas
- * no grafo de dependências (isolamento entre serviços). Gerada a partir das
- * dependências — o usuário nunca escreve policy.
- */
-export function networkPolicyManifest(name: string, namespace: string, allowedFrom: string[]): K8sManifest {
-  // Namespace do ingress controller (Traefik). SEMPRE liberado, senão o roteamento
-  // por domínio dá 502 (Traefik alcança a rota mas a NetworkPolicy bloqueia o pod).
-  const ingressNamespace = process.env.CAPIVA_INGRESS_NAMESPACE || "kube-system";
-  const from = [
-    { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ingressNamespace } } },
-    // Origens do grafo de dependências (apps que dependem desta).
-    ...allowedFrom.map((src) => ({ podSelector: { matchLabels: { "app.kubernetes.io/name": src } } })),
-  ];
-  return {
-    apiVersion: "networking.k8s.io/v1",
-    kind: "NetworkPolicy",
-    metadata: { name: `${name}-allow`, namespace, labels: labels(name) },
-    spec: {
-      podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
-      policyTypes: ["Ingress"],
-      // Default-deny + ingress controller + dependências (regras OR-ed).
-      ingress: [{ from }],
     },
   };
 }

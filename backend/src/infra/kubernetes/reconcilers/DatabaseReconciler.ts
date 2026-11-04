@@ -1,6 +1,7 @@
 import { Injectable } from "@di/index";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { databaseManifest, databaseExternalServiceManifest, basicAuthSecretManifest, EXTERNAL_DB } from "@infra/kubernetes/databaseManifests";
+import { databaseExternalNetworkPolicyManifest } from "@infra/kubernetes/networkPolicyManifests";
 import { decrypt } from "@functions/crypto";
 import type { IResourceReconciler, K8sManifest, KubeContext, ObservedStatus } from "@interface/integrations";
 import type { ManagedDatabase } from "@prisma-generated/client";
@@ -49,7 +50,11 @@ export class DatabaseReconciler implements IResourceReconciler<ManagedDatabase> 
     await this.k8s.apply(ctx, manifest);
     // Acesso externo (NodePort) para tipos suportados (ex.: Postgres).
     const ext = EXTERNAL_DB[db.kind];
-    if (ext) await this.k8s.apply(ctx, databaseExternalServiceManifest(db.name, ctx.namespace, ext.selector(db.name), ext.port));
+    if (ext) {
+      await this.k8s.apply(ctx, databaseExternalServiceManifest(db.name, ctx.namespace, ext.selector(db.name), ext.port));
+      // O deny-all do namespace bloquearia a conexão que entra pelo NodePort.
+      await this.k8s.apply(ctx, databaseExternalNetworkPolicyManifest(db.name, ctx.namespace, ext.selector(db.name), ext.port));
+    }
     return interpretDbStatus(await this.k8s.observe(ctx, manifest.apiVersion, manifest.kind, db.name));
   }
 
@@ -58,6 +63,7 @@ export class DatabaseReconciler implements IResourceReconciler<ManagedDatabase> 
     await this.k8s.remove(ctx, manifest.apiVersion, manifest.kind, db.name);
     // Remove também o Service NodePort de acesso externo (`<name>-ext`), senão fica órfão.
     if (EXTERNAL_DB[db.kind]) await this.k8s.remove(ctx, "v1", "Service", `${db.name}-ext`).catch(() => undefined);
+    await this.k8s.remove(ctx, "networking.k8s.io/v1", "NetworkPolicy", `${db.name}-ext`).catch(() => undefined);
     // Secrets de credenciais (Postgres).
     if (db.kind === "POSTGRESQL") {
       await this.k8s.remove(ctx, "v1", "Secret", `${db.name}-app`).catch(() => undefined);

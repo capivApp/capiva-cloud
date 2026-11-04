@@ -6,16 +6,26 @@ export interface EnvVar {
   key: string;
   value: string;
   secret: boolean;
-  source: "MANUAL" | "INJECTED";
+  source: "MANUAL" | "INJECTED" | "EXTERNAL";
+  /** Origem EXTERNAL: cofre e propriedade; `value` traz a chave no cofre. */
+  secretStoreId: string | null;
+  remoteProperty: string | null;
   overridden: boolean;
   /** Indica que há valor armazenado (segredos vêm mascarados). */
   hasValue: boolean;
+}
+
+export interface ExternalEnvRef {
+  secretStoreId: string;
+  remoteKey: string;
+  remoteProperty?: string | null;
 }
 
 export interface EnvVarInput {
   key: string;
   value: string;
   secret: boolean;
+  external?: ExternalEnvRef | null;
 }
 
 /**

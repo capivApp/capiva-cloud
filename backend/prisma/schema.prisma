@@ -51,6 +51,7 @@ model Organization {
   apiKeys              ApiKey[]
   notificationChannels NotificationChannel[]
   backupRestores       BackupRestore[]
+  secretStores         SecretStore[]
 
   @@map("organizations")
 }
@@ -213,6 +214,8 @@ model Environment {
   quotaMemoryMib     Int?
   quotaPods          Int?
   quotaStorageGi     Int?
+  // NetworkPolicy padrão do namespace (deny-all de ingress + liberações da plataforma)
+  networkIsolation Boolean         @default(true)
   createdAt      DateTime          @default(now())
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cluster        Cluster?          @relation(fields: [clusterId], references: [id])
@@ -419,6 +422,33 @@ model Domain {
 enum EnvVarSource {
   MANUAL
   INJECTED
+  // valor lido do cofre externo (External Secrets Operator)
+  EXTERNAL
+}
+
+enum SecretStoreProvider {
+  AWS_SECRETS_MANAGER
+  VAULT
+  GCP_SECRET_MANAGER
+}
+
+// Cofre externo da organização → SecretStore (External Secrets Operator) no namespace do ambiente
+model SecretStore {
+  id                String              @id @default(cuid())
+  organizationId    String
+  name              String
+  provider          SecretStoreProvider
+  // região, servidor/caminho ou projeto (não sensível)
+  config            Json
+  // credenciais do cofre, JSON CIFRADO
+  credentialsCipher String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  envVars           EnvVar[]
+
+  @@unique([organizationId, name])
+  @@map("secret_stores")
 }
 
 model EnvVar {
@@ -431,7 +461,11 @@ model EnvVar {
   source        EnvVarSource @default(MANUAL)
   // se INJECTED, qual dependência originou (permite sobrescrita)
   overridden    Boolean      @default(false)
+  // se EXTERNAL: cofre de origem; `value` guarda a chave remota
+  secretStoreId  String?
+  remoteProperty String?
   application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  secretStore   SecretStore? @relation(fields: [secretStoreId], references: [id], onDelete: SetNull)
 
   @@unique([applicationId, key])
   @@map("env_vars")

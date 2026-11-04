@@ -1,15 +1,17 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
-import { createApplicationSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { createApplicationSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema } from "@schemas/application.schema";
 import { createAlertRuleSchema, updateAlertRuleSchema } from "@schemas/alert.schema";
 import { scanPolicySchema } from "@schemas/scan.schema";
 import { LOG_DIRECTIONS, LOG_EXPORT_FORMATS, LOG_LEVELS, LOG_SINCE } from "@interface/logs";
 import { LOG_DOWNLOAD_DEFAULT_LINES, LOG_DOWNLOAD_MAX_LINES, LOG_QUERY_MAX_LIMIT } from "@schemas/logs.schema";
+import { createSecretStoreSchema } from "@schemas/secretStore.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
   createEnvironmentSchema,
   createGitConnectionSchema,
+  updateEnvironmentSchema,
 } from "@schemas/resource.schema";
 import { buildRestorePaths } from "@openapi/restorePaths";
 import { setQuotaSchema } from "@schemas/finops.schema";
@@ -102,6 +104,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: "Databases", description: "Bancos gerenciados (HA, backups)" },
       { name: "Observability", description: "Logs (busca, download e SSE) e métricas" },
       { name: "FinOps", description: "Quotas por ambiente e custo mensal estimado" },
+      { name: "SecretStores", description: "Cofres externos (External Secrets Operator)" },
     ],
     paths: {
       "/auth/register": {
@@ -222,6 +225,35 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           responses: { "200": { description: "Aplicação atualizada" }, "400": { description: "Política inválida" }, "404": { description: "Fora da organização ativa" } },
         },
       },
+      "/applications/{id}/env": {
+        put: {
+          tags: ["Applications"],
+          summary: "Substituir variáveis de ambiente do editor",
+          description:
+            "Substitui as variáveis MANUAL e EXTERNAL. Item com `external` lê o valor do cofre (`secretStoreId` + `remoteKey` + `remoteProperty` opcional): a plataforma grava só a referência e gera um ExternalSecret sincronizado num Secret lido pelo Deployment.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(replaceEnvVarsSchema),
+          responses: { "200": { description: "Variáveis atualizadas" }, "400": { description: "Cofre de outra organização ou chave inválida" } },
+        },
+      },
+      "/secret-stores": {
+        get: { tags: ["SecretStores"], summary: "Listar cofres externos (sem credenciais)", security: bearer, parameters: [orgHeader], responses: { "200": { description: "OK" } } },
+        post: {
+          tags: ["SecretStores"],
+          summary: "Cadastrar cofre externo",
+          description:
+            "Provedores: `AWS_SECRETS_MANAGER` (region + access keys), `VAULT` (server, path, version + token) e `GCP_SECRET_MANAGER` (projectId + JSON da service account). Credenciais cifradas em repouso e nunca devolvidas. Exige ADMIN.",
+          security: bearer,
+          parameters: [orgHeader],
+          requestBody: body(createSecretStoreSchema),
+          responses: { "201": { description: "Criado" }, "409": { description: "Nome já usado na organização" } },
+        },
+      },
+      "/secret-stores/{id}": {
+        get: { tags: ["SecretStores"], summary: "Detalhe do cofre (sem credenciais)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } } },
+        delete: { tags: ["SecretStores"], summary: "Remover cofre (e os SecretStore materializados)", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
+      },
       "/applications/{id}/dependencies": {
         get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },
         post: { tags: ["Applications"], summary: "Conectar dependência (injeta URL)", security: bearer, responses: { "201": { description: "Conectado" } } },
@@ -339,6 +371,19 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "/environments": {
         get: { tags: ["Environments"], summary: "Listar ambientes", security: bearer, responses: { "200": { description: "OK" } } },
         post: { tags: ["Environments"], summary: "Criar ambiente", security: bearer, requestBody: body(createEnvironmentSchema), responses: { "201": { description: "Criado" } } },
+      },
+      "/environments/{id}": {
+        patch: {
+          tags: ["Environments"],
+          summary: "Editar ambiente",
+          description:
+            "Altera nome, tipo, cluster e `networkIsolation`. Com o isolamento ligado (padrão) o namespace recebe a NetworkPolicy padrão: deny-all de ingress, liberando o próprio namespace, o ingress controller, o monitoramento, os operators de banco e as dependências declaradas vindas de outros ambientes. Desligado, as policies padrão são removidas.",
+          security: bearer,
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader],
+          requestBody: body(updateEnvironmentSchema),
+          responses: { "200": { description: "Atualizado" }, "404": { description: "Fora da organização ativa" } },
+        },
+        delete: { tags: ["Environments"], summary: "Remover ambiente", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader], responses: { "204": { description: "Removido" } } },
       },
       "/clusters": {
         get: { tags: ["Clusters"], summary: "Listar clusters", security: bearer, responses: { "200": { description: "OK" } } },

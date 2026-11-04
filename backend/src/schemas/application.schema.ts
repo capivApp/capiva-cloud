@@ -125,6 +125,15 @@ export const envVarItemSchema = z.object({
     .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Chave inválida (use letras, números e _, sem iniciar com número)"),
   value: z.string().default(""),
   secret: z.boolean().default(false),
+  // Origem no cofre externo: o valor fica no cofre, aqui só a referência.
+  external: z
+    .object({
+      secretStoreId: z.string().min(1, "Escolha o cofre."),
+      remoteKey: z.string().trim().min(1, "Informe a chave no cofre."),
+      remoteProperty: z.string().trim().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export const replaceEnvVarsSchema = z.object({ vars: z.array(envVarItemSchema) });

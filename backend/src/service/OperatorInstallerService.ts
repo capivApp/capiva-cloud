@@ -1,7 +1,8 @@
 import { loadAllYaml } from "@kubernetes/client-node";
 import { Injectable } from "@di/index";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
-import type { KubeContext } from "@interface/integrations";
+import { externalSecretsOperatorManifest } from "@infra/kubernetes/externalSecretManifests";
+import type { K8sManifest, KubeContext } from "@interface/integrations";
 
 /**
  * Instalação automática dos operators de banco no cluster, usando as credenciais
@@ -16,6 +17,8 @@ interface OperatorSpec {
   crd: string;
   /** Bundle(s) YAML do operator, aplicados em ordem. */
   urls: string[];
+  /** Manifests gerados aqui (ex.: HelmChart do k3s), aplicados depois dos bundles. */
+  manifests?: () => K8sManifest[];
 }
 
 const OPERATORS: Record<string, OperatorSpec> = {
@@ -49,13 +52,19 @@ const OPERATORS: Record<string, OperatorSpec> = {
     crd: "clickhouseinstallations.clickhouse.altinity.com",
     urls: ["https://raw.githubusercontent.com/Altinity/clickhouse-operator/release-0.24.0/deploy/operator/clickhouse-operator-install-bundle.yaml"],
   },
+  // Cofre externo (variáveis de ambiente vindas de AWS/Vault/GCP).
+  EXTERNAL_SECRETS: {
+    crd: "externalsecrets.external-secrets.io",
+    urls: [],
+    manifests: () => [externalSecretsOperatorManifest()],
+  },
 };
 
 @Injectable()
 export class OperatorInstallerService {
   constructor(private readonly k8s: KubernetesAdapter) {}
 
-  /** Garante o operator do tipo de banco instalado no cluster (idempotente). */
+  /** Garante o operator (banco ou EXTERNAL_SECRETS) instalado no cluster (idempotente). */
   async ensure(ctx: KubeContext, kind: string): Promise<void> {
     const spec = OPERATORS[kind];
     if (!spec || !ctx.kubeconfig) return; // tipo sem operator mapeado ou modo dry-run
@@ -73,5 +82,6 @@ export class OperatorInstallerService {
         await this.k8s.applyRaw(ctx, doc as Parameters<KubernetesAdapter["applyRaw"]>[1]);
       }
     }
+    for (const manifest of spec.manifests?.() ?? []) await this.k8s.apply(ctx, manifest);
   }
 }
