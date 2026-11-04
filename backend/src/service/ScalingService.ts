@@ -47,28 +47,55 @@ export class ScalingService {
     tenant: { organizationId: string },
   ): Promise<void> {
     const atual = await withTransaction(() => this.policies.findByApplication(app.id), { tenant });
-    const base = { profile: app.profile, customResources: app.customResources, sourceConfig: app.sourceConfig, previewOfId: app.previewOfId };
-    await this.quotas.requireCabeNaAplicacao(app.environmentId, { atual: { ...base, scaling: atual }, novo: { ...base, scaling: next } }, path, tenant);
+    const base = {
+      profile: app.profile,
+      customResources: app.customResources,
+      sourceConfig: app.sourceConfig,
+      previewOfId: app.previewOfId,
+    };
+    await this.quotas.requireCabeNaAplicacao(
+      app.environmentId,
+      { atual: { ...base, scaling: atual }, novo: { ...base, scaling: next } },
+      path,
+      tenant,
+    );
   }
 
-  getPolicy(applicationId: string, tenant: { organizationId: string }): Promise<ScalingPolicy | null> {
+  getPolicy(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<ScalingPolicy | null> {
     return withTransaction(() => this.policies.findByApplication(applicationId), { tenant });
   }
 
   /** Define/atualiza a política e reconcilia (aplica o HPA). Só vale para ROLLING. */
-  async setPolicy(applicationId: string, input: SetScalingInput, tenant: { organizationId: string }): Promise<ScalingPolicy> {
+  async setPolicy(
+    applicationId: string,
+    input: SetScalingInput,
+    tenant: { organizationId: string },
+  ): Promise<ScalingPolicy> {
     const app = await this.apps.getById(applicationId, tenant);
     if (app.rolloutStrategy !== "ROLLING") {
       throw HttpError.badRequest("Autoscaling (HPA) disponível apenas para estratégia ROLLING.");
     }
-    if (input.maxReplicas < input.minReplicas) throw HttpError.badRequest("maxReplicas deve ser ≥ minReplicas.");
+    if (input.maxReplicas < input.minReplicas)
+      throw HttpError.badRequest("maxReplicas deve ser ≥ minReplicas.");
     await this.requireQuotaDeReplicas(app, input, "maxReplicas", tenant);
 
     const policy = await withTransaction(
-      () => this.policies.upsert({ applicationId, minReplicas: input.minReplicas, maxReplicas: input.maxReplicas, metric: input.metric, target: input.target }),
+      () =>
+        this.policies.upsert({
+          applicationId,
+          minReplicas: input.minReplicas,
+          maxReplicas: input.maxReplicas,
+          metric: input.metric,
+          target: input.target,
+        }),
       { tenant },
     );
-    await this.apps.reconcile(app, tenant).catch((e) => console.error("[scaling] reconcile:", (e as Error).message));
+    await this.apps
+      .reconcile(app, tenant)
+      .catch((e) => console.error("[scaling] reconcile:", (e as Error).message));
     return policy;
   }
 
@@ -78,17 +105,22 @@ export class ScalingService {
     await withTransaction(() => this.policies.deleteByApplication(applicationId), { tenant });
     try {
       const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-      if (ctx.kubeconfig) await this.k8s.remove(ctx, "autoscaling/v2", "HorizontalPodAutoscaler", app.name);
+      if (ctx.kubeconfig)
+        await this.k8s.remove(ctx, "autoscaling/v2", "HorizontalPodAutoscaler", app.name);
     } catch (e) {
       console.error("[scaling] remove hpa:", (e as Error).message);
     }
-    await this.apps.reconcile(app, tenant).catch((e) => console.error("[scaling] reconcile:", (e as Error).message));
+    await this.apps
+      .reconcile(app, tenant)
+      .catch((e) => console.error("[scaling] reconcile:", (e as Error).message));
   }
 
   /** Estado vivo do autoscaling (observabilidade). */
   async status(applicationId: string, tenant: { organizationId: string }): Promise<ScalingStatus> {
     const app = await this.apps.getById(applicationId, tenant);
-    const policy = await withTransaction(() => this.policies.findByApplication(applicationId), { tenant });
+    const policy = await withTransaction(() => this.policies.findByApplication(applicationId), {
+      tenant,
+    });
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     const hpa = ctx.kubeconfig ? await this.k8s.getHpaStatus(ctx, app.name) : { exists: false };
@@ -104,15 +136,27 @@ export class ScalingService {
    * Escala manualmente o Deployment. Se houver HPA ativo, ele pode sobrescrever
    * (o chamador deve avisar / oferecer desativar o autoscaling).
    */
-  async scaleManually(applicationId: string, replicas: number, tenant: { organizationId: string }): Promise<{ replicas: number; autoscalerActive: boolean }> {
-    if (!Number.isInteger(replicas) || replicas < 0 || replicas > 100) throw HttpError.badRequest("Número de réplicas inválido (0–100).");
+  async scaleManually(
+    applicationId: string,
+    replicas: number,
+    tenant: { organizationId: string },
+  ): Promise<{ replicas: number; autoscalerActive: boolean }> {
+    if (!Number.isInteger(replicas) || replicas < 0 || replicas > 100)
+      throw HttpError.badRequest("Número de réplicas inválido (0–100).");
     const app = await this.apps.getById(applicationId, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     if (!ctx.kubeconfig) throw HttpError.badRequest("Ambiente sem cluster configurado.");
-    await this.requireQuotaDeReplicas(app, { minReplicas: replicas, maxReplicas: replicas }, "replicas", tenant);
+    await this.requireQuotaDeReplicas(
+      app,
+      { minReplicas: replicas, maxReplicas: replicas },
+      "replicas",
+      tenant,
+    );
 
     await this.k8s.scaleDeployment(ctx, app.name, replicas);
-    const policy = await withTransaction(() => this.policies.findByApplication(applicationId), { tenant });
+    const policy = await withTransaction(() => this.policies.findByApplication(applicationId), {
+      tenant,
+    });
     return { replicas, autoscalerActive: Boolean(policy) };
   }
 }

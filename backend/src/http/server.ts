@@ -1,8 +1,8 @@
-import {GlobalRouter, RegistryRouter} from "@mateusseiboth/ts-decorators";
-import {errorHandler} from "@middleware/errorHandler";
-import {securityHeaders} from "@middleware/securityHeaders";
-import {apiRateLimit} from "@middleware/rateLimit";
-import {config} from "../config";
+import { GlobalRouter, RegistryRouter } from "@mateusseiboth/ts-decorators";
+import { errorHandler } from "@middleware/errorHandler";
+import { securityHeaders } from "@middleware/securityHeaders";
+import { apiRateLimit } from "@middleware/rateLimit";
+import { config } from "../config";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -82,8 +82,8 @@ class HttpServer {
       securityHeaders,
       cors(corsOptions),
       apiRateLimit,
-      express.json({limit: "10mb"}),
-      express.urlencoded({extended: true}),
+      express.json({ limit: "10mb" }),
+      express.urlencoded({ extended: true }),
       cookieParser(),
     ],
   })
@@ -100,7 +100,9 @@ class HttpServer {
 
     await new Promise<void>((resolve) => {
       const forced = setTimeout(() => {
-        console.warn(`[http] ${this.connections.size} conexão(ões) ainda aberta(s) após ${graceMs}ms — encerrando.`);
+        console.warn(
+          `[http] ${this.connections.size} conexão(ões) ainda aberta(s) após ${graceMs}ms — encerrando.`,
+        );
         for (const socket of this.connections) socket.destroy();
         resolve();
       }, graceMs);

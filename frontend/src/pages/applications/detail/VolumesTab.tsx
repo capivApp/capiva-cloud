@@ -12,32 +12,48 @@ import { useVolumeRestores } from "@/hooks/useBackupRestores";
 import { RestoreStatusList } from "@/components/backups/RestoreStatusList";
 import { RestoreVolumeDrawer } from "@/pages/applications/components/RestoreVolumeDrawer";
 
-const backupVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
+const backupVariant = (s: string) =>
+  s === "completed" ? "success" : s === "failed" ? "danger" : "warning";
 
 /** Painel de backups de um volume: criar snapshot→S3, listar e restaurar. */
 function VolumeBackups({ applicationId, volume }: { applicationId: string; volume: Volume }) {
   const { backups, isLoading, create, isCreating } = useVolumeBackups(applicationId, volume.id);
   const { restores, restore, isRestoring } = useVolumeRestores(applicationId, volume.id);
   const [restoreTarget, setRestoreTarget] = useState<VolumeBackup | null>(null);
-  const run = (fn: () => Promise<unknown>, ok: string) => () => fn().then(() => toast.success(ok)).catch((e) => toast.error((e as Error).message));
+  const run = (fn: () => Promise<unknown>, ok: string) => () =>
+    fn()
+      .then(() => toast.success(ok))
+      .catch((e) => toast.error((e as Error).message));
 
   return (
     <div className="mt-2 space-y-2 border-t border-border pt-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">Backups</span>
-        <Button variant="outline" size="sm" onClick={run(() => create(undefined), "Backup disparado")} disabled={isCreating}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={run(() => create(undefined), "Backup disparado")}
+          disabled={isCreating}
+        >
           <DatabaseBackup className="size-3.5" /> Fazer backup
         </Button>
       </div>
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-      {!isLoading && backups.length === 0 && <p className="text-xs text-muted-foreground">Nenhum backup.</p>}
+      {!isLoading && backups.length === 0 && (
+        <p className="text-xs text-muted-foreground">Nenhum backup.</p>
+      )}
       {backups.map((b) => (
-        <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+        <div
+          key={b.id}
+          className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+        >
           <span className="text-muted-foreground">{new Date(b.startedAt).toLocaleString()}</span>
           <div className="flex items-center gap-2">
             <Badge variant={backupVariant(b.status)}>{b.status}</Badge>
             {b.status === "completed" && (
-              <Button variant="ghost" size="sm" onClick={() => setRestoreTarget(b)}><RotateCcw className="size-3" /> Restaurar</Button>
+              <Button variant="ghost" size="sm" onClick={() => setRestoreTarget(b)}>
+                <RotateCcw className="size-3" /> Restaurar
+              </Button>
             )}
           </div>
         </div>
@@ -89,7 +105,9 @@ export function VolumesTab({ applicationId }: { applicationId: string }) {
       <Card>
         <CardContent className="space-y-3 pt-5">
           {isLoading && <p className="text-sm text-muted-foreground">Carregando volumes…</p>}
-          {!isLoading && volumes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum volume montado.</p>}
+          {!isLoading && volumes.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum volume montado.</p>
+          )}
           {volumes.map((v) => (
             <div key={v.id} className="rounded-lg border border-border px-3 py-2.5 text-sm">
               <div className="flex items-center justify-between">
@@ -101,11 +119,15 @@ export function VolumesTab({ applicationId }: { applicationId: string }) {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">{v.sizeGi} Gi</span>
                   {v.accessMode === "RWX" ? (
-                    <Badge variant="success"><Users className="mr-1 size-3" /> Compartilhado</Badge>
+                    <Badge variant="success">
+                      <Users className="mr-1 size-3" /> Compartilhado
+                    </Badge>
                   ) : (
                     <Badge variant="warning">Exclusivo</Badge>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => del(v.id)}><Trash2 className="size-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => del(v.id)}>
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
               </div>
               <VolumeBackups applicationId={applicationId} volume={v} />
@@ -119,7 +141,9 @@ export function VolumesTab({ applicationId }: { applicationId: string }) {
           <p className="text-sm font-medium">Adicionar volume</p>
           <VolumeEditor list={draft} setList={setDraft} />
           {draft.length > 0 && (
-            <Button variant="gradient" size="sm" onClick={add} disabled={isCreating}>Salvar e reconciliar</Button>
+            <Button variant="gradient" size="sm" onClick={add} disabled={isCreating}>
+              Salvar e reconciliar
+            </Button>
           )}
         </CardContent>
       </Card>

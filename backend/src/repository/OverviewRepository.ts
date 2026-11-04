@@ -39,7 +39,10 @@ export class OverviewRepository extends BaseRepository {
   }
 
   /** Deploys mais recentes da org (com o nome da aplicação). */
-  recentDeployments(organizationId: string, limit: number): Promise<(Deployment & { application: { name: string } })[]> {
+  recentDeployments(
+    organizationId: string,
+    limit: number,
+  ): Promise<(Deployment & { application: { name: string } })[]> {
     return this.tx.deployment.findMany({
       where: { application: { project: { organizationId } } },
       orderBy: { startedAt: "desc" },

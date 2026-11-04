@@ -44,12 +44,18 @@ export async function tryRefresh(): Promise<boolean> {
   const { serverUrl } = useAuthStore.getState();
   if (!serverUrl) return false;
   try {
-    const res = await fetch(`${serverUrl}/api/auth/refresh`, { method: "POST", credentials: "include" });
+    const res = await fetch(`${serverUrl}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
     if (!res.ok) {
       useAuthStore.getState().clear();
       return false;
     }
-    const data = (await res.json()) as { accessToken: string; user: { id: string; email: string; name: string } };
+    const data = (await res.json()) as {
+      accessToken: string;
+      user: { id: string; email: string; name: string };
+    };
     useAuthStore.getState().setAuth(data.accessToken, data.user);
     return true;
   } catch {

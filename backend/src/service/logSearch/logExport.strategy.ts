@@ -18,9 +18,11 @@ const txt: LogExportStrategy = {
 const ndjson: LogExportStrategy = {
   contentType: "application/x-ndjson; charset=utf-8",
   extension: "ndjson",
-  serialize: (l) => `${JSON.stringify({ time: isoOf(l.ts), ts: l.ts, pod: l.pod, level: l.level, line: l.line })}\n`,
+  serialize: (l) =>
+    `${JSON.stringify({ time: isoOf(l.ts), ts: l.ts, pod: l.pod, level: l.level, line: l.line })}\n`,
 };
 
 const FORMATS: Record<LogExportFormat, LogExportStrategy> = { txt, ndjson };
 
-export const createLogExportFormat = (format: LogExportFormat): LogExportStrategy => FORMATS[format];
+export const createLogExportFormat = (format: LogExportFormat): LogExportStrategy =>
+  FORMATS[format];

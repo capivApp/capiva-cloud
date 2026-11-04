@@ -12,7 +12,19 @@ import { VolumeRestoreService } from "@service/VolumeRestoreService";
 import { AuditService } from "@service/AuditService";
 import { UptimeService } from "@service/UptimeService";
 import { ReportService } from "@service/ReportService";
-import { addDomainSchema, createApplicationSchema, replaceBuildArgsSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema, updateStrategySchema, updateTagsSchema, updateTlsSchema, volumeSchema } from "@schemas/application.schema";
+import {
+  addDomainSchema,
+  createApplicationSchema,
+  replaceBuildArgsSchema,
+  replaceEnvVarsSchema,
+  scaleReplicasSchema,
+  setScalingSchema,
+  updateApplicationSchema,
+  updateStrategySchema,
+  updateTagsSchema,
+  updateTlsSchema,
+  volumeSchema,
+} from "@schemas/application.schema";
 import { HttpError } from "@functions/HttpError";
 
 function org(req: Request): { organizationId: string } {
@@ -45,7 +57,15 @@ export class ApplicationController {
   createUptimeCheck = async (req: Request, res: Response): Promise<void> => {
     const url = (req.body?.url as string)?.trim();
     if (!url) throw HttpError.badRequest("url é obrigatória.");
-    res.status(201).json(await this.uptime.createCheck(String(req.params.id), { url, intervalSec: req.body?.intervalSec, enabled: req.body?.enabled }, org(req)));
+    res
+      .status(201)
+      .json(
+        await this.uptime.createCheck(
+          String(req.params.id),
+          { url, intervalSec: req.body?.intervalSec, enabled: req.body?.enabled },
+          org(req),
+        ),
+      );
   };
 
   removeUptimeCheck = async (req: Request, res: Response): Promise<void> => {
@@ -71,12 +91,22 @@ export class ApplicationController {
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createApplicationSchema.parse(req.body);
     const app = await this.apps.create(dto, org(req));
-    this.audit.fromRequest(req, "application.create", { targetType: "application", targetId: app.id, detail: app.name });
+    this.audit.fromRequest(req, "application.create", {
+      targetType: "application",
+      targetId: app.id,
+      detail: app.name,
+    });
     // Primeiro deploy automático: build (origens por código) + publicação da
     // imagem real. Sem isto a app fica em "Implantando" com a imagem placeholder
     // até um deploy manual. Disparo assíncrono — não bloqueia a resposta.
-    await this.deployments.trigger(app.id, `initial-${Date.now()}`, org(req)).catch((e) => console.error("[app] primeiro deploy falhou:", (e as Error).message));
-    this.audit.fromRequest(req, "application.deploy", { targetType: "application", targetId: app.id, detail: "initial" });
+    await this.deployments
+      .trigger(app.id, `initial-${Date.now()}`, org(req))
+      .catch((e) => console.error("[app] primeiro deploy falhou:", (e as Error).message));
+    this.audit.fromRequest(req, "application.deploy", {
+      targetType: "application",
+      targetId: app.id,
+      detail: "initial",
+    });
     res.status(201).json(app);
   };
 
@@ -90,7 +120,11 @@ export class ApplicationController {
 
   deploy = async (req: Request, res: Response): Promise<void> => {
     const version = (req.body?.version as string) ?? `manual-${Date.now()}`;
-    this.audit.fromRequest(req, "application.deploy", { targetType: "application", targetId: String(req.params.id), detail: version });
+    this.audit.fromRequest(req, "application.deploy", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: version,
+    });
     res.status(202).json(await this.deployments.trigger(String(req.params.id), version, org(req)));
   };
 
@@ -102,7 +136,9 @@ export class ApplicationController {
     const targetId = req.body?.targetId as string;
     if (!targetId) throw HttpError.badRequest("targetId é obrigatório.");
     const mappings = req.body?.mappings as EnvMapping[] | undefined;
-    res.status(201).json(await this.dependencies.connect(String(req.params.id), targetId, mappings, org(req)));
+    res
+      .status(201)
+      .json(await this.dependencies.connect(String(req.params.id), targetId, mappings, org(req)));
   };
 
   disconnectDependency = async (req: Request, res: Response): Promise<void> => {
@@ -112,13 +148,17 @@ export class ApplicationController {
 
   updateStrategy = async (req: Request, res: Response): Promise<void> => {
     const dto = updateStrategySchema.parse(req.body);
-    res.json(await this.rollouts.updateStrategy(String(req.params.id), dto.strategy, dto.config, org(req)));
+    res.json(
+      await this.rollouts.updateStrategy(String(req.params.id), dto.strategy, dto.config, org(req)),
+    );
   };
 
   rollback = async (req: Request, res: Response): Promise<void> => {
     const deploymentId = req.body?.deploymentId as string;
     if (!deploymentId) throw HttpError.badRequest("deploymentId é obrigatório.");
-    res.status(202).json(await this.deployments.rollbackTo(String(req.params.id), deploymentId, org(req)));
+    res
+      .status(202)
+      .json(await this.deployments.rollbackTo(String(req.params.id), deploymentId, org(req)));
   };
 
   promote = async (req: Request, res: Response): Promise<void> => {
@@ -141,7 +181,10 @@ export class ApplicationController {
 
   remove = async (req: Request, res: Response): Promise<void> => {
     await this.apps.remove(String(req.params.id), org(req));
-    this.audit.fromRequest(req, "application.delete", { targetType: "application", targetId: String(req.params.id) });
+    this.audit.fromRequest(req, "application.delete", {
+      targetType: "application",
+      targetId: String(req.params.id),
+    });
     res.status(204).end();
   };
 
@@ -156,20 +199,31 @@ export class ApplicationController {
   setScaling = async (req: Request, res: Response): Promise<void> => {
     const dto = setScalingSchema.parse(req.body);
     const policy = await this.scaling.setPolicy(String(req.params.id), dto, org(req));
-    this.audit.fromRequest(req, "application.scaling.set", { targetType: "application", targetId: String(req.params.id), detail: `${dto.minReplicas}-${dto.maxReplicas} @ ${dto.metric}/${dto.target}` });
+    this.audit.fromRequest(req, "application.scaling.set", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: `${dto.minReplicas}-${dto.maxReplicas} @ ${dto.metric}/${dto.target}`,
+    });
     res.json(policy);
   };
 
   disableScaling = async (req: Request, res: Response): Promise<void> => {
     await this.scaling.disable(String(req.params.id), org(req));
-    this.audit.fromRequest(req, "application.scaling.disable", { targetType: "application", targetId: String(req.params.id) });
+    this.audit.fromRequest(req, "application.scaling.disable", {
+      targetType: "application",
+      targetId: String(req.params.id),
+    });
     res.status(204).end();
   };
 
   scaleReplicas = async (req: Request, res: Response): Promise<void> => {
     const { replicas } = scaleReplicasSchema.parse(req.body);
     const result = await this.scaling.scaleManually(String(req.params.id), replicas, org(req));
-    this.audit.fromRequest(req, "application.scaling.manual", { targetType: "application", targetId: String(req.params.id), detail: `${replicas} réplicas` });
+    this.audit.fromRequest(req, "application.scaling.manual", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: `${replicas} réplicas`,
+    });
     res.json(result);
   };
 
@@ -180,13 +234,21 @@ export class ApplicationController {
   addDomain = async (req: Request, res: Response): Promise<void> => {
     const dto = addDomainSchema.parse(req.body);
     const domain = await this.domainsSvc.add(String(req.params.id), dto, org(req));
-    this.audit.fromRequest(req, "application.domain.add", { targetType: "application", targetId: String(req.params.id), detail: dto.host });
+    this.audit.fromRequest(req, "application.domain.add", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: dto.host,
+    });
     res.status(201).json(domain);
   };
 
   removeDomain = async (req: Request, res: Response): Promise<void> => {
     await this.domainsSvc.remove(String(req.params.id), String(req.params.domainId), org(req));
-    this.audit.fromRequest(req, "application.domain.remove", { targetType: "application", targetId: String(req.params.id), detail: String(req.params.domainId) });
+    this.audit.fromRequest(req, "application.domain.remove", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: String(req.params.domainId),
+    });
     res.status(204).end();
   };
 
@@ -197,13 +259,21 @@ export class ApplicationController {
   replaceEnv = async (req: Request, res: Response): Promise<void> => {
     const { vars } = replaceEnvVarsSchema.parse(req.body);
     const result = await this.envVars.replace(String(req.params.id), vars, org(req));
-    this.audit.fromRequest(req, "application.env.update", { targetType: "application", targetId: String(req.params.id), detail: `${vars.length} variáveis` });
+    this.audit.fromRequest(req, "application.env.update", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: `${vars.length} variáveis`,
+    });
     res.json(result);
   };
 
   removeEnv = async (req: Request, res: Response): Promise<void> => {
     await this.envVars.removeKey(String(req.params.id), String(req.params.key), org(req));
-    this.audit.fromRequest(req, "application.env.delete", { targetType: "application", targetId: String(req.params.id), detail: String(req.params.key) });
+    this.audit.fromRequest(req, "application.env.delete", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: String(req.params.key),
+    });
     res.status(204).end();
   };
 
@@ -214,14 +284,22 @@ export class ApplicationController {
   replaceBuildArgs = async (req: Request, res: Response): Promise<void> => {
     const { buildArgs } = replaceBuildArgsSchema.parse(req.body);
     const result = await this.apps.replaceBuildArgs(String(req.params.id), buildArgs, org(req));
-    this.audit.fromRequest(req, "application.build-args.update", { targetType: "application", targetId: String(req.params.id), detail: `${buildArgs.length} build args` });
+    this.audit.fromRequest(req, "application.build-args.update", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: `${buildArgs.length} build args`,
+    });
     res.json(result);
   };
 
   patch = async (req: Request, res: Response): Promise<void> => {
     const dto = updateApplicationSchema.parse(req.body);
     const updated = await this.apps.patch(String(req.params.id), dto, org(req));
-    this.audit.fromRequest(req, "application.update", { targetType: "application", targetId: String(req.params.id), detail: Object.keys(dto).join(",") });
+    this.audit.fromRequest(req, "application.update", {
+      targetType: "application",
+      targetId: String(req.params.id),
+      detail: Object.keys(dto).join(","),
+    });
     res.json(updated);
   };
 
@@ -245,23 +323,46 @@ export class ApplicationController {
   };
 
   listVolumeBackups = async (req: Request, res: Response): Promise<void> => {
-    res.json(await this.volumeBackups.list(String(req.params.id), String(req.params.volId), org(req)));
+    res.json(
+      await this.volumeBackups.list(String(req.params.id), String(req.params.volId), org(req)),
+    );
   };
 
   createVolumeBackup = async (req: Request, res: Response): Promise<void> => {
     const storageProviderId = req.body?.storageProviderId as string | undefined;
-    res.status(201).json(await this.volumeBackups.create(String(req.params.id), String(req.params.volId), org(req), storageProviderId));
+    res
+      .status(201)
+      .json(
+        await this.volumeBackups.create(
+          String(req.params.id),
+          String(req.params.volId),
+          org(req),
+          storageProviderId,
+        ),
+      );
   };
 
   restoreVolumeBackup = async (req: Request, res: Response): Promise<void> => {
     const backupId = String(req.params.backupId);
-    const restore = await this.volumeRestores.requestRestore(String(req.params.id), String(req.params.volId), backupId, org(req), req.auth?.sub);
-    this.audit.fromRequest(req, "volume.restore", { targetType: "volume", targetId: String(req.params.volId), detail: `backup=${backupId} restore=${restore.id}` });
+    const restore = await this.volumeRestores.requestRestore(
+      String(req.params.id),
+      String(req.params.volId),
+      backupId,
+      org(req),
+      req.auth?.sub,
+    );
+    this.audit.fromRequest(req, "volume.restore", {
+      targetType: "volume",
+      targetId: String(req.params.volId),
+      detail: `backup=${backupId} restore=${restore.id}`,
+    });
     res.status(202).json(restore);
   };
 
   listVolumeRestores = async (req: Request, res: Response): Promise<void> => {
-    res.json(await this.volumeRestores.list(String(req.params.id), String(req.params.volId), org(req)));
+    res.json(
+      await this.volumeRestores.list(String(req.params.id), String(req.params.volId), org(req)),
+    );
   };
 
   removeVolume = async (req: Request, res: Response): Promise<void> => {

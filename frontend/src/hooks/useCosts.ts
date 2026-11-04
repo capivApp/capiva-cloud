@@ -50,8 +50,18 @@ export function useCustoEstimadoDoPerfil(profile: string) {
   const organizationId = useAuthStore((s) => s.organizationId);
   const query = useQuery({
     queryKey: ["costs", "estimate", organizationId, profile],
-    queryFn: () => api.get<{ currency: string; custo: FaixaDeCusto }>(`/costs/estimate/application?profile=${encodeURIComponent(profile)}`),
+    queryFn: () =>
+      api.get<{ currency: string; custo: FaixaDeCusto }>(
+        `/costs/estimate/application?profile=${encodeURIComponent(profile)}`,
+      ),
     enabled: Boolean(organizationId && profile),
   });
-  return { estimativa: query.data, data: query.data, isLoading: query.isLoading, isFetching: query.isFetching, error: query.error, refetch: query.refetch };
+  return {
+    estimativa: query.data,
+    data: query.data,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }

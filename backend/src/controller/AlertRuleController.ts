@@ -20,7 +20,14 @@ export class AlertRuleController {
 
   update = async (req: Request, res: Response): Promise<void> => {
     const dto = updateAlertRuleSchema.parse(req.body);
-    res.json(await this.alerts.update(String(req.params.id), String(req.params.ruleId), dto, tenantOf(req)));
+    res.json(
+      await this.alerts.update(
+        String(req.params.id),
+        String(req.params.ruleId),
+        dto,
+        tenantOf(req),
+      ),
+    );
   };
 
   remove = async (req: Request, res: Response): Promise<void> => {

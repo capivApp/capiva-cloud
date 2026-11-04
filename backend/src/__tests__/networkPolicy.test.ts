@@ -27,7 +27,9 @@ const PLATFORM: NetworkPolicyPlatform = {
 
 const spec = (m: K8sManifest) => m.spec as Record<string, any>;
 const namesOf = (ms: K8sManifest[]) => ms.map((m) => m.metadata.name);
-const namespaceMatch = (ns: string) => ({ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ns } } });
+const namespaceMatch = (ns: string) => ({
+  namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ns } },
+});
 
 describe("defaultDenyIngressManifest", () => {
   it("seleciona todos os pods e não libera nenhum ingress", () => {
@@ -53,12 +55,22 @@ describe("allowPlatformManifest", () => {
   it("libera ingress controller, monitoramento e operators por namespace", () => {
     const m = allowPlatformManifest("ns", PLATFORM);
     expect(spec(m).ingress).toEqual([
-      { from: [namespaceMatch("kube-system"), namespaceMatch("monitoring"), namespaceMatch("cnpg-system")] },
+      {
+        from: [
+          namespaceMatch("kube-system"),
+          namespaceMatch("monitoring"),
+          namespaceMatch("cnpg-system"),
+        ],
+      },
     ]);
   });
 
   it("sem namespace de plataforma não gera regra (from vazio liberaria qualquer origem)", () => {
-    const m = allowPlatformManifest("ns", { ingressNamespaces: [], monitoringNamespaces: [], operatorNamespaces: [] });
+    const m = allowPlatformManifest("ns", {
+      ingressNamespaces: [],
+      monitoringNamespaces: [],
+      operatorNamespaces: [],
+    });
     expect(spec(m).ingress).toEqual([]);
   });
 
@@ -73,7 +85,9 @@ describe("allowEgressManifest", () => {
     const m = allowEgressManifest("ns");
     expect(spec(m).policyTypes).toEqual(["Egress"]);
     const [dns, rest] = spec(m).egress;
-    expect(dns.to).toEqual([{ ...namespaceMatch("kube-system"), podSelector: { matchLabels: { "k8s-app": "kube-dns" } } }]);
+    expect(dns.to).toEqual([
+      { ...namespaceMatch("kube-system"), podSelector: { matchLabels: { "k8s-app": "kube-dns" } } },
+    ]);
     expect(dns.ports).toEqual([
       { protocol: "UDP", port: 53 },
       { protocol: "TCP", port: 53 },
@@ -84,11 +98,20 @@ describe("allowEgressManifest", () => {
 
 describe("dependencyNetworkPolicyManifest", () => {
   it("libera só o pod de origem no namespace de origem (AND de namespace e pod)", () => {
-    const m = dependencyNetworkPolicyManifest("ns-a", "api", [{ source: "web", sourceNamespace: "ns-b" }]);
+    const m = dependencyNetworkPolicyManifest("ns-a", "api", [
+      { source: "web", sourceNamespace: "ns-b" },
+    ]);
     expect(m.metadata.name).toBe("capiva-deps-api");
     expect(spec(m).podSelector).toEqual({ matchLabels: { "app.kubernetes.io/name": "api" } });
     expect(spec(m).ingress).toEqual([
-      { from: [{ ...namespaceMatch("ns-b"), podSelector: { matchLabels: { "app.kubernetes.io/name": "web" } } }] },
+      {
+        from: [
+          {
+            ...namespaceMatch("ns-b"),
+            podSelector: { matchLabels: { "app.kubernetes.io/name": "web" } },
+          },
+        ],
+      },
     ]);
   });
 
@@ -100,7 +123,12 @@ describe("dependencyNetworkPolicyManifest", () => {
 
 describe("buildTenantNetworkPolicies", () => {
   it("gera o conjunto padrão e uma policy de dependências por aplicação", () => {
-    const ms = buildTenantNetworkPolicies({ namespace: "ns-a", apps: ["api", "web"], peers: [], platform: PLATFORM });
+    const ms = buildTenantNetworkPolicies({
+      namespace: "ns-a",
+      apps: ["api", "web"],
+      peers: [],
+      platform: PLATFORM,
+    });
     expect(namesOf(ms)).toEqual([
       "capiva-default-deny-ingress",
       "capiva-allow-same-namespace",
@@ -123,11 +151,18 @@ describe("buildTenantNetworkPolicies", () => {
     });
     const deps = ms.find((m) => m.metadata.name === "capiva-deps-api")!;
     expect(spec(deps).ingress).toHaveLength(1);
-    expect(spec(deps).ingress[0].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]).toBe("ns-b");
+    expect(
+      spec(deps).ingress[0].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"],
+    ).toBe("ns-b");
   });
 
   it("marca todas as policies como geridas pela plataforma", () => {
-    const ms = buildTenantNetworkPolicies({ namespace: "ns-a", apps: [], peers: [], platform: PLATFORM });
+    const ms = buildTenantNetworkPolicies({
+      namespace: "ns-a",
+      apps: [],
+      peers: [],
+      platform: PLATFORM,
+    });
     for (const m of ms) expect(m.metadata.labels?.["capiva.io/network-policy"]).toBe("tenant");
   });
 });
@@ -173,6 +208,8 @@ describe("databaseExternalNetworkPolicyManifest", () => {
     const m = databaseExternalNetworkPolicyManifest("pg", "ns", { "cnpg.io/cluster": "pg" }, 5432);
     expect(m.metadata.name).toBe("pg-ext");
     expect(spec(m).podSelector).toEqual({ matchLabels: { "cnpg.io/cluster": "pg" } });
-    expect(spec(m).ingress).toEqual([{ from: [{ ipBlock: { cidr: "0.0.0.0/0" } }], ports: [{ protocol: "TCP", port: 5432 }] }]);
+    expect(spec(m).ingress).toEqual([
+      { from: [{ ipBlock: { cidr: "0.0.0.0/0" } }], ports: [{ protocol: "TCP", port: 5432 }] },
+    ]);
   });
 });

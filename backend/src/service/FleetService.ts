@@ -48,13 +48,16 @@ export class FleetService {
 
     const envByCluster = new Map<string, number>();
     for (const env of environments) {
-      if (env.clusterId) envByCluster.set(env.clusterId, (envByCluster.get(env.clusterId) ?? 0) + 1);
+      if (env.clusterId)
+        envByCluster.set(env.clusterId, (envByCluster.get(env.clusterId) ?? 0) + 1);
     }
 
     const result: FleetCluster[] = await Promise.all(
       clusters.map(async (c) => {
         const kubeconfig = c.kubeconfigCipher ? safeDecrypt(c.kubeconfigCipher) : "";
-        const probe = kubeconfig ? await this.k8s.testConnection(kubeconfig) : { ok: false, version: undefined };
+        const probe = kubeconfig
+          ? await this.k8s.testConnection(kubeconfig)
+          : { ok: false, version: undefined };
         const nodes = probe.ok ? await this.k8s.listNodes(kubeconfig) : [];
         return {
           id: c.id,

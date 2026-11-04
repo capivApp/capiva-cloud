@@ -23,7 +23,11 @@ export const nodeIdentity = (): string => IDENTITY;
  * Executa `task` apenas se esta réplica conseguir a lease de `name`.
  * Falha ao consultar o banco → não roda (melhor pular um ciclo do que duplicar).
  */
-export async function withLeadership<T>(name: string, intervalMs: number, task: () => Promise<T>): Promise<T | null> {
+export async function withLeadership<T>(
+  name: string,
+  intervalMs: number,
+  task: () => Promise<T>,
+): Promise<T | null> {
   const leader = await withTransaction(
     () => container.get(PlatformLockRepository).acquire(name, IDENTITY, leaseTtl(intervalMs)),
     {},
@@ -37,6 +41,8 @@ export async function withLeadership<T>(name: string, intervalMs: number, task: 
 export async function releaseLeadership(names: string[]): Promise<void> {
   const locks = container.get(PlatformLockRepository);
   await Promise.all(
-    names.map((name) => withTransaction(() => locks.release(name, IDENTITY), {}).catch(() => undefined)),
+    names.map((name) =>
+      withTransaction(() => locks.release(name, IDENTITY), {}).catch(() => undefined),
+    ),
   );
 }

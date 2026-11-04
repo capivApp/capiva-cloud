@@ -26,5 +26,6 @@ export function readPreviewInfo(preview: PreviewApplication): PreviewInfo {
 }
 
 /** Previews só existem para aplicações ligadas a uma conexão Git que não são, elas mesmas, preview. */
-export const isPreviewDisponivel = (app: Pick<Application, "gitConnectionId" | "previewOfId">): boolean =>
-  Boolean(app.gitConnectionId) && !app.previewOfId;
+export const isPreviewDisponivel = (
+  app: Pick<Application, "gitConnectionId" | "previewOfId">,
+): boolean => Boolean(app.gitConnectionId) && !app.previewOfId;

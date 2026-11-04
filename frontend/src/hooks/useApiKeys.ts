@@ -20,11 +20,21 @@ export function useApiKeys() {
   const queryClient = useQueryClient();
   const key = ["api-keys", organizationId];
 
-  const list = useQuery({ queryKey: key, queryFn: () => api.get<ApiKey[]>("/api-keys"), enabled: Boolean(organizationId) });
+  const list = useQuery({
+    queryKey: key,
+    queryFn: () => api.get<ApiKey[]>("/api-keys"),
+    enabled: Boolean(organizationId),
+  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: { name: string; role: Role }) => api.post<ApiKey>("/api-keys", input), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/api-keys/${id}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: { name: string; role: Role }) => api.post<ApiKey>("/api-keys", input),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/api-keys/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     keys: list.data ?? [],

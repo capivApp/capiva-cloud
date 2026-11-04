@@ -16,9 +16,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const data = await api.post<{ accessToken: string; user: any }>("/auth/refresh", undefined, {
-          auth: false,
-        });
+        const data = await api.post<{ accessToken: string; user: any }>(
+          "/auth/refresh",
+          undefined,
+          {
+            auth: false,
+          },
+        );
         setAuth(data.accessToken, data.user);
       } catch {
         // sem sessão válida — segue para login

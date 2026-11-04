@@ -42,14 +42,32 @@ type Container = {
 
 /** Atalhos de leitura do pod spec (o manifest é um objeto solto por design). */
 const podSpec = (m: unknown) =>
-  (m as { spec: { template: { spec: { initContainers?: Container[]; containers: Container[]; volumes?: { name: string }[] } } } }).spec.template.spec;
-const initNamed = (m: unknown, name: string) => podSpec(m).initContainers?.find((c) => c.name === name);
+  (
+    m as {
+      spec: {
+        template: {
+          spec: {
+            initContainers?: Container[];
+            containers: Container[];
+            volumes?: { name: string }[];
+          };
+        };
+      };
+    }
+  ).spec.template.spec;
+const initNamed = (m: unknown, name: string) =>
+  podSpec(m).initContainers?.find((c) => c.name === name);
 const mainContainer = (m: unknown) => podSpec(m).containers[0];
-const envOf = (c: Container | undefined, name: string) => c?.env?.find((e) => e.name === name)?.value;
+const envOf = (c: Container | undefined, name: string) =>
+  c?.env?.find((e) => e.name === name)?.value;
 
 describe("dockerfileJobManifest — Git com Dockerfile continua no Kaniko puro", () => {
   it("usa o contexto git:// sem initContainers", () => {
-    const job = dockerfileJobManifest({ ...baseInput, subPath: "apps/api", config: { dockerfile: "Dockerfile.prod" } });
+    const job = dockerfileJobManifest({
+      ...baseInput,
+      subPath: "apps/api",
+      config: { dockerfile: "Dockerfile.prod" },
+    });
     const kaniko = mainContainer(job);
     expect(podSpec(job).initContainers).toBeUndefined();
     expect(kaniko.args).toContain("--context=git://github.com/acme/api.git#refs/heads/main");
@@ -66,7 +84,11 @@ describe("dockerfileJobManifest — Git com Dockerfile continua no Kaniko puro",
 
 describe("clone do repositório (origens sem Dockerfile)", () => {
   it("clona pelo protocolo da tentativa e com as credenciais do secret", () => {
-    const job = nixpacksJobManifest({ ...baseInput, gitPullMethod: "http", gitCredentialsSecret: "build-abc-git" });
+    const job = nixpacksJobManifest({
+      ...baseInput,
+      gitPullMethod: "http",
+      gitCredentialsSecret: "build-abc-git",
+    });
     const clone = initNamed(job, "clone");
     expect(envOf(clone, "GIT_URL")).toBe("http://github.com/acme/api.git");
     expect(envOf(clone, "GIT_BRANCH")).toBe("main");
@@ -93,7 +115,10 @@ describe("nixpacksJobManifest", () => {
   });
 
   it("repassa os comandos de install, build e start configurados", () => {
-    const job = nixpacksJobManifest({ ...baseInput, config: { installCommand: "pnpm i", buildCommand: "pnpm build", startCommand: "node dist" } });
+    const job = nixpacksJobManifest({
+      ...baseInput,
+      config: { installCommand: "pnpm i", buildCommand: "pnpm build", startCommand: "node dist" },
+    });
     const nixpacks = initNamed(job, "nixpacks");
     expect(envOf(nixpacks, "NIXPACKS_INSTALL_CMD")).toBe("pnpm i");
     expect(envOf(nixpacks, "NIXPACKS_BUILD_CMD")).toBe("pnpm build");
@@ -101,7 +126,13 @@ describe("nixpacksJobManifest", () => {
   });
 
   it("passa os build args como variáveis do plano sem sobrescrever o ambiente do container", () => {
-    const job = nixpacksJobManifest({ ...baseInput, buildArgs: [{ key: "PATH", value: "x" }, { key: "NODE_ENV", value: "production" }] });
+    const job = nixpacksJobManifest({
+      ...baseInput,
+      buildArgs: [
+        { key: "PATH", value: "x" },
+        { key: "NODE_ENV", value: "production" },
+      ],
+    });
     const nixpacks = initNamed(job, "nixpacks");
     expect(envOf(nixpacks, "CAPIVA_ARG_NODE_ENV")).toBe("production");
     expect(envOf(nixpacks, "PATH")).toBeUndefined();
@@ -126,16 +157,25 @@ describe("staticJobManifest", () => {
   });
 
   it("com comando de build, roda o build antes e serve dist por padrão", () => {
-    const job = staticJobManifest({ ...baseInput, config: { buildCommand: "npm ci && npm run build", buildImage: "node:20-alpine" } });
+    const job = staticJobManifest({
+      ...baseInput,
+      config: { buildCommand: "npm ci && npm run build", buildImage: "node:20-alpine" },
+    });
     const build = initNamed(job, "static-build");
     expect(build?.image).toBe("node:20-alpine");
     expect(build?.command).toEqual(["sh", "-c", "npm ci && npm run build"]);
-    expect(envOf(initNamed(job, "static-dockerfile"), "STATIC_DOCKERFILE")).toContain("COPY dist/ ");
+    expect(envOf(initNamed(job, "static-dockerfile"), "STATIC_DOCKERFILE")).toContain(
+      "COPY dist/ ",
+    );
   });
 
   it("o build roda antes de escrever o Dockerfile", () => {
     const job = staticJobManifest({ ...baseInput, config: { buildCommand: "make" } });
-    expect(podSpec(job).initContainers?.map((c) => c.name)).toEqual(["clone", "static-build", "static-dockerfile"]);
+    expect(podSpec(job).initContainers?.map((c) => c.name)).toEqual([
+      "clone",
+      "static-build",
+      "static-dockerfile",
+    ]);
   });
 });
 
@@ -164,7 +204,11 @@ describe("staticDockerfile e staticNginxConf", () => {
 
 describe("composeJobManifest", () => {
   it("resolve o serviço do compose e constrói o contexto dele", () => {
-    const job = composeJobManifest({ ...baseInput, subPath: "deploy", config: { compose: "compose.prod.yml", composeService: "web" } });
+    const job = composeJobManifest({
+      ...baseInput,
+      subPath: "deploy",
+      config: { compose: "compose.prod.yml", composeService: "web" },
+    });
     const plan = initNamed(job, "compose-plan");
     expect(envOf(plan, "COMPOSE_FILE")).toBe("/workspace/src/deploy/compose.prod.yml");
     expect(envOf(plan, "COMPOSE_SERVICE")).toBe("web");
@@ -195,11 +239,16 @@ describe("railpackJobManifest", () => {
 
   it("registry sem TLS e build sem push refletem na saída da imagem", () => {
     const job = railpackJobManifest({ ...baseInput, push: false, insecure: true });
-    expect(mainContainer(job).args).toContain("type=image,name=registry.local/api:1.0.0,push=false,registry.insecure=true");
+    expect(mainContainer(job).args).toContain(
+      "type=image,name=registry.local/api:1.0.0,push=false,registry.insecure=true",
+    );
   });
 
   it("build args viram secrets do BuildKit, com hash para invalidar a camada", () => {
-    const job = railpackJobManifest({ ...baseInput, buildArgs: [{ key: "API_KEY", value: "s3cr3t" }] });
+    const job = railpackJobManifest({
+      ...baseInput,
+      buildArgs: [{ key: "API_KEY", value: "s3cr3t" }],
+    });
     const args = mainContainer(job).args ?? [];
     expect(args).toContain("id=API_KEY,env=CAPIVA_ARG_API_KEY");
     expect(args.some((a) => a.startsWith("build-arg:secrets-hash="))).toBe(true);
@@ -208,7 +257,10 @@ describe("railpackJobManifest", () => {
 
   it("monta as credenciais de push no docker config do usuário rootless", () => {
     const job = railpackJobManifest({ ...baseInput, pushSecret: "build-abc-push" });
-    expect(mainContainer(job).volumeMounts).toContainEqual({ name: "docker-config", mountPath: "/home/user/.docker" });
+    expect(mainContainer(job).volumeMounts).toContainEqual({
+      name: "docker-config",
+      mountPath: "/home/user/.docker",
+    });
   });
 });
 
@@ -236,14 +288,23 @@ describe("buildpacksJobManifest", () => {
   it("credenciais de push vão pelo DOCKER_CONFIG", () => {
     const job = buildpacksJobManifest({ ...baseInput, pushSecret: "build-abc-push" });
     expect(envOf(mainContainer(job), "DOCKER_CONFIG")).toBe("/cnb-docker");
-    expect(mainContainer(job).volumeMounts).toContainEqual({ name: "docker-config", mountPath: "/cnb-docker" });
+    expect(mainContainer(job).volumeMounts).toContainEqual({
+      name: "docker-config",
+      mountPath: "/cnb-docker",
+    });
   });
 
   it("build args viram o diretório de ambiente da plataforma", () => {
-    const job = buildpacksJobManifest({ ...baseInput, buildArgs: [{ key: "BP_NODE_VERSION", value: "22" }] });
+    const job = buildpacksJobManifest({
+      ...baseInput,
+      buildArgs: [{ key: "BP_NODE_VERSION", value: "22" }],
+    });
     const platformEnv = initNamed(job, "platform-env");
     expect(envOf(platformEnv, "CAPIVA_ARG_BP_NODE_VERSION")).toBe("22");
-    expect(mainContainer(job).volumeMounts).toContainEqual({ name: "platform", mountPath: "/platform" });
+    expect(mainContainer(job).volumeMounts).toContainEqual({
+      name: "platform",
+      mountPath: "/platform",
+    });
   });
 
   // O builder roda com o usuário do CNB, não root: o clone precisa ficar gravável por ele.

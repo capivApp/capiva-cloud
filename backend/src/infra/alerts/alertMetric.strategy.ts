@@ -1,4 +1,10 @@
-import { buildTraefikSelector, computeErrorRate5xx, computePercentile, parseTraefikAccessLog, type RequestEntry } from "@functions/requestStats";
+import {
+  buildTraefikSelector,
+  computeErrorRate5xx,
+  computePercentile,
+  parseTraefikAccessLog,
+  type RequestEntry,
+} from "@functions/requestStats";
 import type { AlertMetric } from "@interface/alerts";
 import type { PodMetricUsage } from "@interface/integrations";
 import type { LogLine } from "@infra/observability/LokiAdapter";
@@ -27,7 +33,8 @@ export interface AlertMetricStrategy {
   measure(target: AlertTarget, windowMinutes: number): Promise<number | null>;
 }
 
-const podSelector = (t: AlertTarget) => `namespace="${t.namespace}",pod=~"${t.app}-.*",container!=""`;
+const podSelector = (t: AlertTarget) =>
+  `namespace="${t.namespace}",pod=~"${t.app}-.*",container!=""`;
 
 /** Soma o uso dos pods da aplicação no metrics-server (leitura instantânea, sem janela). */
 const sumPodUsage = async (
@@ -35,31 +42,44 @@ const sumPodUsage = async (
   t: AlertTarget,
   pick: (p: PodMetricUsage) => number,
 ): Promise<number | null> => {
-  const pods = (await sources.kubernetes.topPods(t.kubeconfig, t.namespace)).filter((p) => p.name.startsWith(`${t.app}-`));
+  const pods = (await sources.kubernetes.topPods(t.kubeconfig, t.namespace)).filter((p) =>
+    p.name.startsWith(`${t.app}-`),
+  );
   if (pods.length === 0) return null;
   return pods.reduce((sum, p) => sum + pick(p), 0);
 };
 
 /** Requisições da janela no access log do Traefik. Sem domínio ou sem Loki: null. */
-const readRequests = async (sources: AlertMetricSources, t: AlertTarget, windowMinutes: number): Promise<RequestEntry[] | null> => {
+const readRequests = async (
+  sources: AlertMetricSources,
+  t: AlertTarget,
+  windowMinutes: number,
+): Promise<RequestEntry[] | null> => {
   if (!t.host) return null;
-  const lines = await sources.loki.queryWindow(buildTraefikSelector(t.host), windowMinutes * 60_000);
+  const lines = await sources.loki.queryWindow(
+    buildTraefikSelector(t.host),
+    windowMinutes * 60_000,
+  );
   if (!lines) return null;
-  return lines.map((l) => parseTraefikAccessLog(l.line)).filter((e): e is RequestEntry => e !== null);
+  return lines
+    .map((l) => parseTraefikAccessLog(l.line))
+    .filter((e): e is RequestEntry => e !== null);
 };
 
 /** CPU em % de um núcleo (100 = 1 vCPU), mesma unidade da tela de métricas. */
 const cpu = (sources: AlertMetricSources): AlertMetricStrategy => ({
   measure: async (t, w) =>
-    (await sources.prometheus.instant(`sum(rate(container_cpu_usage_seconds_total{${podSelector(t)}}[${w}m]))*100`)) ??
-    sumPodUsage(sources, t, (p) => p.cpuMillicores / 10),
+    (await sources.prometheus.instant(
+      `sum(rate(container_cpu_usage_seconds_total{${podSelector(t)}}[${w}m]))*100`,
+    )) ?? sumPodUsage(sources, t, (p) => p.cpuMillicores / 10),
 });
 
 /** Memória em MiB (working set, média da janela). */
 const memory = (sources: AlertMetricSources): AlertMetricStrategy => ({
   measure: async (t, w) =>
-    (await sources.prometheus.instant(`sum(avg_over_time(container_memory_working_set_bytes{${podSelector(t)}}[${w}m]))/1024/1024`)) ??
-    sumPodUsage(sources, t, (p) => p.memoryMib),
+    (await sources.prometheus.instant(
+      `sum(avg_over_time(container_memory_working_set_bytes{${podSelector(t)}}[${w}m]))/1024/1024`,
+    )) ?? sumPodUsage(sources, t, (p) => p.memoryMib),
 });
 
 /** % de respostas 5xx na janela. */
@@ -74,12 +94,19 @@ const errorRate5xx = (sources: AlertMetricSources): AlertMetricStrategy => ({
 const latencyP95 = (sources: AlertMetricSources): AlertMetricStrategy => ({
   measure: async (t, w) => {
     const requests = await readRequests(sources, t, w);
-    return requests ? computePercentile(requests.map((r) => r.durationMs), 0.95) : null;
+    return requests
+      ? computePercentile(
+          requests.map((r) => r.durationMs),
+          0.95,
+        )
+      : null;
   },
 });
 
 /** Strategy map por métrica: métrica nova = uma função nova + uma linha aqui. */
-export const createAlertMetricStrategies = (sources: AlertMetricSources): Record<AlertMetric, AlertMetricStrategy> => ({
+export const createAlertMetricStrategies = (
+  sources: AlertMetricSources,
+): Record<AlertMetric, AlertMetricStrategy> => ({
   CPU: cpu(sources),
   MEMORY: memory(sources),
   ERROR_RATE_5XX: errorRate5xx(sources),

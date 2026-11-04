@@ -1,10 +1,20 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
-import { createApplicationSchema, replaceEnvVarsSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema } from "@schemas/application.schema";
+import {
+  createApplicationSchema,
+  replaceEnvVarsSchema,
+  scaleReplicasSchema,
+  setScalingSchema,
+  updateApplicationSchema,
+} from "@schemas/application.schema";
 import { createAlertRuleSchema, updateAlertRuleSchema } from "@schemas/alert.schema";
 import { scanPolicySchema } from "@schemas/scan.schema";
 import { LOG_DIRECTIONS, LOG_EXPORT_FORMATS, LOG_LEVELS, LOG_SINCE } from "@interface/logs";
-import { LOG_DOWNLOAD_DEFAULT_LINES, LOG_DOWNLOAD_MAX_LINES, LOG_QUERY_MAX_LIMIT } from "@schemas/logs.schema";
+import {
+  LOG_DOWNLOAD_DEFAULT_LINES,
+  LOG_DOWNLOAD_MAX_LINES,
+  LOG_QUERY_MAX_LIMIT,
+} from "@schemas/logs.schema";
 import { createSecretStoreSchema } from "@schemas/secretStore.schema";
 import { capivaConfigSchema } from "@schemas/capivaConfig.schema";
 import {
@@ -48,16 +58,60 @@ export function buildOpenApiDocument(): Record<string, unknown> {
   const appId = { name: "id", in: "path", required: true, schema: { type: "string" } };
   const ruleId = { name: "ruleId", in: "path", required: true, schema: { type: "string" } };
   const logParams = [
-    { name: "q", in: "query", schema: { type: "string", maxLength: 500 }, description: "Linha contém (LogQL `|=`, diferencia maiúsculas)." },
-    { name: "exclude", in: "query", schema: { type: "string", maxLength: 500 }, description: "Linha não contém (`!=`)." },
-    { name: "regex", in: "query", schema: { type: "string", maxLength: 500 }, description: "Expressão regular RE2 (`|~`)." },
-    { name: "level", in: "query", schema: { type: "string" }, description: `Níveis separados por vírgula: ${LOG_LEVELS.join(", ")}.` },
-    { name: "pod", in: "query", schema: { type: "string" }, description: "Nome exato do pod (réplica)." },
-    { name: "since", in: "query", schema: { type: "string", enum: [...LOG_SINCE] }, description: "Últimos N. Padrão 1h. Ignorado quando há `start`." },
+    {
+      name: "q",
+      in: "query",
+      schema: { type: "string", maxLength: 500 },
+      description: "Linha contém (LogQL `|=`, diferencia maiúsculas).",
+    },
+    {
+      name: "exclude",
+      in: "query",
+      schema: { type: "string", maxLength: 500 },
+      description: "Linha não contém (`!=`).",
+    },
+    {
+      name: "regex",
+      in: "query",
+      schema: { type: "string", maxLength: 500 },
+      description: "Expressão regular RE2 (`|~`).",
+    },
+    {
+      name: "level",
+      in: "query",
+      schema: { type: "string" },
+      description: `Níveis separados por vírgula: ${LOG_LEVELS.join(", ")}.`,
+    },
+    {
+      name: "pod",
+      in: "query",
+      schema: { type: "string" },
+      description: "Nome exato do pod (réplica).",
+    },
+    {
+      name: "since",
+      in: "query",
+      schema: { type: "string", enum: [...LOG_SINCE] },
+      description: "Últimos N. Padrão 1h. Ignorado quando há `start`.",
+    },
     { name: "start", in: "query", schema: { type: "string", format: "date-time" } },
-    { name: "end", in: "query", schema: { type: "string", format: "date-time" }, description: "Padrão: agora." },
-    { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: LOG_QUERY_MAX_LIMIT, default: 200 } },
-    { name: "direction", in: "query", schema: { type: "string", enum: [...LOG_DIRECTIONS], default: "backward" }, description: "Qual ponta do intervalo vem quando passa do limite." },
+    {
+      name: "end",
+      in: "query",
+      schema: { type: "string", format: "date-time" },
+      description: "Padrão: agora.",
+    },
+    {
+      name: "limit",
+      in: "query",
+      schema: { type: "integer", minimum: 1, maximum: LOG_QUERY_MAX_LIMIT, default: 200 },
+    },
+    {
+      name: "direction",
+      in: "query",
+      schema: { type: "string", enum: [...LOG_DIRECTIONS], default: "backward" },
+      description: "Qual ponta do intervalo vem quando passa do limite.",
+    },
   ];
 
   /** Recusa antecipada por quota: cada violação volta para o campo do formulário. */
@@ -68,7 +122,12 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         example: {
           error: "QUOTA_EXCEEDED",
           message: "Memória acima da quota do ambiente. Pedido: 2 GiB. Disponível: 1 GiB.",
-          errors: [{ path: "profile", message: "Memória acima da quota do ambiente. Pedido: 2 GiB. Disponível: 1 GiB." }],
+          errors: [
+            {
+              path: "profile",
+              message: "Memória acima da quota do ambiente. Pedido: 2 GiB. Disponível: 1 GiB.",
+            },
+          ],
         },
       },
     },
@@ -109,26 +168,68 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     ],
     paths: {
       "/auth/register": {
-        post: { tags: ["Auth"], summary: "Registrar usuário + organização", requestBody: body(registerSchema), responses: { "201": { description: "Criado" } } },
+        post: {
+          tags: ["Auth"],
+          summary: "Registrar usuário + organização",
+          requestBody: body(registerSchema),
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/auth/login": {
-        post: { tags: ["Auth"], summary: "Login (seta cookie refresh HttpOnly)", requestBody: body(loginSchema), responses: { "200": { description: "OK" } } },
+        post: {
+          tags: ["Auth"],
+          summary: "Login (seta cookie refresh HttpOnly)",
+          requestBody: body(loginSchema),
+          responses: { "200": { description: "OK" } },
+        },
       },
       "/auth/refresh": {
-        post: { tags: ["Auth"], summary: "Rotaciona refresh token (cookie-only)", responses: { "200": { description: "Novo access token" }, "401": { description: "Reuso/expirado" } } },
+        post: {
+          tags: ["Auth"],
+          summary: "Rotaciona refresh token (cookie-only)",
+          responses: {
+            "200": { description: "Novo access token" },
+            "401": { description: "Reuso/expirado" },
+          },
+        },
       },
       "/auth/logout": {
-        post: { tags: ["Auth"], summary: "Logout (revoga sessão)", responses: { "204": { description: "Sem conteúdo" } } },
+        post: {
+          tags: ["Auth"],
+          summary: "Logout (revoga sessão)",
+          responses: { "204": { description: "Sem conteúdo" } },
+        },
       },
       "/auth/me": {
-        get: { tags: ["Auth"], summary: "Usuário atual", security: bearer, responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["Auth"],
+          summary: "Usuário atual",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
       },
       "/organizations": {
-        get: { tags: ["Organizations"], summary: "Listar organizações do usuário", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Organizations"], summary: "Criar organização", security: bearer, responses: { "201": { description: "Criado" } } },
+        get: {
+          tags: ["Organizations"],
+          summary: "Listar organizações do usuário",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Organizations"],
+          summary: "Criar organização",
+          security: bearer,
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/applications": {
-        get: { tags: ["Applications"], summary: "Listar aplicações por projeto", security: bearer, parameters: [orgHeader], responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["Applications"],
+          summary: "Listar aplicações por projeto",
+          security: bearer,
+          parameters: [orgHeader],
+          responses: { "200": { description: "OK" } },
+        },
         post: {
           tags: ["Applications"],
           summary: "Criar aplicação",
@@ -137,17 +238,26 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [orgHeader],
           requestBody: body(createApplicationSchema),
-          responses: { "201": { description: "Criado" }, "400": { description: "Caminho de build inválido" }, "403": { description: "Não é membro da organização" }, "422": quotaExceeded },
+          responses: {
+            "201": { description: "Criado" },
+            "400": { description: "Caminho de build inválido" },
+            "403": { description: "Não é membro da organização" },
+            "422": quotaExceeded,
+          },
         },
       },
       "/applications/{id}": {
         get: {
           tags: ["Applications"],
           summary: "Detalhe da aplicação",
-          description: "Registro completo. Inclui `previews` (preview deployments por PR, com `previewPrNumber`, `sourceConfig.preview` e `domains`) e, quando a aplicação é um preview, `previewOf`.",
+          description:
+            "Registro completo. Inclui `previews` (preview deployments por PR, com `previewPrNumber`, `sourceConfig.preview` e `domains`) e, quando a aplicação é um preview, `previewOf`.",
           security: bearer,
           parameters: [appId, orgHeader],
-          responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } },
+          responses: {
+            "200": { description: "OK" },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
         patch: {
           tags: ["Applications"],
@@ -157,39 +267,95 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(updateApplicationSchema),
-          responses: { "200": { description: "Atualizado" }, "400": { description: "Caminho de build inválido" }, "404": { description: "Fora da organização ativa" }, "422": quotaExceeded },
+          responses: {
+            "200": { description: "Atualizado" },
+            "400": { description: "Caminho de build inválido" },
+            "404": { description: "Fora da organização ativa" },
+            "422": quotaExceeded,
+          },
         },
-        delete: { tags: ["Applications"], summary: "Remover aplicação e seus recursos", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
+        delete: {
+          tags: ["Applications"],
+          summary: "Remover aplicação e seus recursos",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "204": { description: "Removido" } },
+        },
       },
       "/applications/{id}/previews/{previewId}": {
         delete: {
           tags: ["Applications"],
           summary: "Destruir preview de PR",
-          description: "Remove o preview (recursos no cluster e linhas no banco) antes do PR fechar. Um novo push no PR recria o preview.",
+          description:
+            "Remove o preview (recursos no cluster e linhas no banco) antes do PR fechar. Um novo push no PR recria o preview.",
           security: bearer,
-          parameters: [appId, { name: "previewId", in: "path", required: true, schema: { type: "string" } }, orgHeader],
-          responses: { "204": { description: "Removido" }, "404": { description: "Preview não pertence à aplicação" } },
+          parameters: [
+            appId,
+            { name: "previewId", in: "path", required: true, schema: { type: "string" } },
+            orgHeader,
+          ],
+          responses: {
+            "204": { description: "Removido" },
+            "404": { description: "Preview não pertence à aplicação" },
+          },
         },
       },
       "/applications/{id}/deploy": {
-        post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },
+        post: {
+          tags: ["Applications"],
+          summary: "Disparar deploy",
+          security: bearer,
+          responses: { "202": { description: "Deploy enfileirado" } },
+        },
       },
       "/applications/{id}/rollback": {
         post: {
           tags: ["Applications"],
           summary: "Rollback para um deploy anterior",
-          description: "Republica a imagem de um deploy saudável anterior, sem rebuild. Exige DEVELOPER ou superior.",
+          description:
+            "Republica a imagem de um deploy saudável anterior, sem rebuild. Exige DEVELOPER ou superior.",
           security: bearer,
           parameters: [appId, orgHeader],
-          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["deploymentId"], properties: { deploymentId: { type: "string" } } } } } },
-          responses: { "202": { description: "Deploy de rollback criado" }, "400": { description: "Deploy alvo sem imagem" }, "403": { description: "VIEWER não pode" } },
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["deploymentId"],
+                  properties: { deploymentId: { type: "string" } },
+                },
+              },
+            },
+          },
+          responses: {
+            "202": { description: "Deploy de rollback criado" },
+            "400": { description: "Deploy alvo sem imagem" },
+            "403": { description: "VIEWER não pode" },
+          },
         },
       },
       "/applications/{id}/restart": {
-        post: { tags: ["Applications"], summary: "Reiniciar pods (rollout restart)", description: "Exige DEVELOPER ou superior.", security: bearer, parameters: [appId, orgHeader], responses: { "202": { description: "Reinício solicitado" }, "403": { description: "VIEWER não pode" } } },
+        post: {
+          tags: ["Applications"],
+          summary: "Reiniciar pods (rollout restart)",
+          description: "Exige DEVELOPER ou superior.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: {
+            "202": { description: "Reinício solicitado" },
+            "403": { description: "VIEWER não pode" },
+          },
+        },
       },
       "/applications/{id}/scaling": {
-        get: { tags: ["Applications"], summary: "Política de autoscaling (HPA)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "Política ou null" } } },
+        get: {
+          tags: ["Applications"],
+          summary: "Política de autoscaling (HPA)",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "200": { description: "Política ou null" } },
+        },
         put: {
           tags: ["Applications"],
           summary: "Definir mínimo, máximo, métrica e alvo do HPA",
@@ -197,21 +363,36 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(setScalingSchema),
-          responses: { "200": { description: "Política salva" }, "400": { description: "Estratégia sem HPA ou máximo menor que o mínimo" }, "403": { description: "VIEWER não pode" } },
+          responses: {
+            "200": { description: "Política salva" },
+            "400": { description: "Estratégia sem HPA ou máximo menor que o mínimo" },
+            "403": { description: "VIEWER não pode" },
+          },
         },
       },
       "/applications/{id}/scaling/status": {
-        get: { tags: ["Applications"], summary: "Estado vivo da escala (HPA e réplicas atuais)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["Applications"],
+          summary: "Estado vivo da escala (HPA e réplicas atuais)",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "200": { description: "OK" } },
+        },
       },
       "/applications/{id}/scaling/replicas": {
         post: {
           tags: ["Applications"],
           summary: "Escalar réplicas manualmente (0 a 100)",
-          description: "Com HPA ativo, o autoscaler pode sobrescrever o valor. Exige DEVELOPER ou superior.",
+          description:
+            "Com HPA ativo, o autoscaler pode sobrescrever o valor. Exige DEVELOPER ou superior.",
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(scaleReplicasSchema),
-          responses: { "200": { description: "Réplicas aplicadas" }, "400": { description: "Ambiente sem cluster" }, "403": { description: "VIEWER não pode" } },
+          responses: {
+            "200": { description: "Réplicas aplicadas" },
+            "400": { description: "Ambiente sem cluster" },
+            "403": { description: "VIEWER não pode" },
+          },
         },
       },
       "/applications/{id}/security": {
@@ -223,7 +404,11 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(scanPolicySchema),
-          responses: { "200": { description: "Aplicação atualizada" }, "400": { description: "Política inválida" }, "404": { description: "Fora da organização ativa" } },
+          responses: {
+            "200": { description: "Aplicação atualizada" },
+            "400": { description: "Política inválida" },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
       },
       "/applications/{id}/env": {
@@ -235,11 +420,20 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(replaceEnvVarsSchema),
-          responses: { "200": { description: "Variáveis atualizadas" }, "400": { description: "Cofre de outra organização ou chave inválida" } },
+          responses: {
+            "200": { description: "Variáveis atualizadas" },
+            "400": { description: "Cofre de outra organização ou chave inválida" },
+          },
         },
       },
       "/secret-stores": {
-        get: { tags: ["SecretStores"], summary: "Listar cofres externos (sem credenciais)", security: bearer, parameters: [orgHeader], responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["SecretStores"],
+          summary: "Listar cofres externos (sem credenciais)",
+          security: bearer,
+          parameters: [orgHeader],
+          responses: { "200": { description: "OK" } },
+        },
         post: {
           tags: ["SecretStores"],
           summary: "Cadastrar cofre externo",
@@ -248,16 +442,44 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [orgHeader],
           requestBody: body(createSecretStoreSchema),
-          responses: { "201": { description: "Criado" }, "409": { description: "Nome já usado na organização" } },
+          responses: {
+            "201": { description: "Criado" },
+            "409": { description: "Nome já usado na organização" },
+          },
         },
       },
       "/secret-stores/{id}": {
-        get: { tags: ["SecretStores"], summary: "Detalhe do cofre (sem credenciais)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } } },
-        delete: { tags: ["SecretStores"], summary: "Remover cofre (e os SecretStore materializados)", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
+        get: {
+          tags: ["SecretStores"],
+          summary: "Detalhe do cofre (sem credenciais)",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: {
+            "200": { description: "OK" },
+            "404": { description: "Fora da organização ativa" },
+          },
+        },
+        delete: {
+          tags: ["SecretStores"],
+          summary: "Remover cofre (e os SecretStore materializados)",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "204": { description: "Removido" } },
+        },
       },
       "/applications/{id}/dependencies": {
-        get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Applications"], summary: "Conectar dependência (injeta URL)", security: bearer, responses: { "201": { description: "Conectado" } } },
+        get: {
+          tags: ["Applications"],
+          summary: "Listar dependências",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Applications"],
+          summary: "Conectar dependência (injeta URL)",
+          security: bearer,
+          responses: { "201": { description: "Conectado" } },
+        },
       },
       "/applications/{id}/logs": {
         get: {
@@ -268,7 +490,9 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader, ...logParams],
           responses: {
-            "200": { description: "`{ lines: [{ ts, line, pod?, level? }] }` (`ts` em nanossegundos)" },
+            "200": {
+              description: "`{ lines: [{ ts, line, pod?, level? }] }` (`ts` em nanossegundos)",
+            },
             "400": { description: "Filtro recusado pelo Loki (regex RE2 inválida)" },
             "404": { description: "Fora da organização ativa" },
             "422": { description: "Filtro inválido (mensagens em português)" },
@@ -280,8 +504,15 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           tags: ["Observability"],
           summary: "Pods com log no intervalo",
           security: bearer,
-          parameters: [appId, orgHeader, ...logParams.filter((p) => ["since", "start", "end"].includes(p.name))],
-          responses: { "200": { description: "`{ pods: string[] }` (vazio sem Loki)" }, "404": { description: "Fora da organização ativa" } },
+          parameters: [
+            appId,
+            orgHeader,
+            ...logParams.filter((p) => ["since", "start", "end"].includes(p.name)),
+          ],
+          responses: {
+            "200": { description: "`{ pods: string[] }` (vazio sem Loki)" },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
       },
       "/applications/{id}/logs/download": {
@@ -294,11 +525,30 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             appId,
             orgHeader,
             ...logParams.filter((p) => p.name !== "limit"),
-            { name: "format", in: "query", schema: { type: "string", enum: [...LOG_EXPORT_FORMATS], default: "txt" } },
-            { name: "maxLines", in: "query", schema: { type: "integer", minimum: 1, maximum: LOG_DOWNLOAD_MAX_LINES, default: LOG_DOWNLOAD_DEFAULT_LINES } },
+            {
+              name: "format",
+              in: "query",
+              schema: { type: "string", enum: [...LOG_EXPORT_FORMATS], default: "txt" },
+            },
+            {
+              name: "maxLines",
+              in: "query",
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: LOG_DOWNLOAD_MAX_LINES,
+                default: LOG_DOWNLOAD_DEFAULT_LINES,
+              },
+            },
           ],
           responses: {
-            "200": { description: "Arquivo", content: { "text/plain": { schema: { type: "string" } }, "application/x-ndjson": { schema: { type: "string" } } } },
+            "200": {
+              description: "Arquivo",
+              content: {
+                "text/plain": { schema: { type: "string" } },
+                "application/x-ndjson": { schema: { type: "string" } },
+              },
+            },
             "404": { description: "Fora da organização ativa" },
             "422": { description: "Filtro inválido" },
           },
@@ -310,21 +560,36 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           summary: "Live tail de logs (SSE)",
           description:
             "Evento `logs` a cada 2s com as linhas dos últimos 30 minutos (até 200). Aceita `q`, `exclude`, `regex`, `level` e `pod`; intervalo e limite não se aplicam. Autentica por `access_token` e `org` na query (EventSource não envia headers).",
-          parameters: [appId, ...logParams.filter((p) => ["q", "exclude", "regex", "level", "pod"].includes(p.name))],
-          responses: { "200": { description: "text/event-stream" }, "422": { description: "Filtro inválido" } },
+          parameters: [
+            appId,
+            ...logParams.filter((p) => ["q", "exclude", "regex", "level", "pod"].includes(p.name)),
+          ],
+          responses: {
+            "200": { description: "text/event-stream" },
+            "422": { description: "Filtro inválido" },
+          },
         },
       },
       "/applications/{id}/metrics": {
-        get: { tags: ["Observability"], summary: "Métricas simples (CPU/mem/req/lat/erros)", security: bearer, responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["Observability"],
+          summary: "Métricas simples (CPU/mem/req/lat/erros)",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
       },
       "/applications/{id}/alert-rules": {
         get: {
           tags: ["Observability"],
           summary: "Listar regras de alerta por métrica",
-          description: "Cada regra traz o estado atual (`OK`/`FIRING`), o último valor medido e quando foi avaliada.",
+          description:
+            "Cada regra traz o estado atual (`OK`/`FIRING`), o último valor medido e quando foi avaliada.",
           security: bearer,
           parameters: [appId, orgHeader],
-          responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } },
+          responses: {
+            "200": { description: "OK" },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
         post: {
           tags: ["Observability"],
@@ -334,25 +599,37 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(createAlertRuleSchema),
-          responses: { "201": { description: "Criado" }, "404": { description: "Aplicação fora da organização ativa" }, "422": { description: "Dados inválidos" } },
+          responses: {
+            "201": { description: "Criado" },
+            "404": { description: "Aplicação fora da organização ativa" },
+            "422": { description: "Dados inválidos" },
+          },
         },
       },
       "/applications/{id}/alert-rules/{ruleId}": {
         patch: {
           tags: ["Observability"],
           summary: "Alterar regra de alerta",
-          description: "Campos ausentes ficam como estão. Desligar a regra (`enabled: false`) volta o estado para `OK` sem notificar.",
+          description:
+            "Campos ausentes ficam como estão. Desligar a regra (`enabled: false`) volta o estado para `OK` sem notificar.",
           security: bearer,
           parameters: [appId, ruleId, orgHeader],
           requestBody: body(updateAlertRuleSchema),
-          responses: { "200": { description: "Atualizado" }, "404": { description: "Regra não encontrada" }, "422": { description: "Dados inválidos" } },
+          responses: {
+            "200": { description: "Atualizado" },
+            "404": { description: "Regra não encontrada" },
+            "422": { description: "Dados inválidos" },
+          },
         },
         delete: {
           tags: ["Observability"],
           summary: "Remover regra de alerta",
           security: bearer,
           parameters: [appId, ruleId, orgHeader],
-          responses: { "204": { description: "Removido" }, "404": { description: "Regra não encontrada" } },
+          responses: {
+            "204": { description: "Removido" },
+            "404": { description: "Regra não encontrada" },
+          },
         },
       },
       "/notifications/events": {
@@ -366,12 +643,33 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         },
       },
       "/projects": {
-        get: { tags: ["Projects"], summary: "Listar projetos", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Projects"], summary: "Criar projeto", security: bearer, responses: { "201": { description: "Criado" } } },
+        get: {
+          tags: ["Projects"],
+          summary: "Listar projetos",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Projects"],
+          summary: "Criar projeto",
+          security: bearer,
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/environments": {
-        get: { tags: ["Environments"], summary: "Listar ambientes", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Environments"], summary: "Criar ambiente", security: bearer, requestBody: body(createEnvironmentSchema), responses: { "201": { description: "Criado" } } },
+        get: {
+          tags: ["Environments"],
+          summary: "Listar ambientes",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Environments"],
+          summary: "Criar ambiente",
+          security: bearer,
+          requestBody: body(createEnvironmentSchema),
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/environments/{id}": {
         patch: {
@@ -380,22 +678,64 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           description:
             "Altera nome, tipo, cluster e `networkIsolation`. Com o isolamento ligado (padrão) o namespace recebe a NetworkPolicy padrão: deny-all de ingress, liberando o próprio namespace, o ingress controller, o monitoramento, os operators de banco e as dependências declaradas vindas de outros ambientes. Desligado, as policies padrão são removidas.",
           security: bearer,
-          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader],
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
+            orgHeader,
+          ],
           requestBody: body(updateEnvironmentSchema),
-          responses: { "200": { description: "Atualizado" }, "404": { description: "Fora da organização ativa" } },
+          responses: {
+            "200": { description: "Atualizado" },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
-        delete: { tags: ["Environments"], summary: "Remover ambiente", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader], responses: { "204": { description: "Removido" } } },
+        delete: {
+          tags: ["Environments"],
+          summary: "Remover ambiente",
+          security: bearer,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
+            orgHeader,
+          ],
+          responses: { "204": { description: "Removido" } },
+        },
       },
       "/clusters": {
-        get: { tags: ["Clusters"], summary: "Listar clusters", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Clusters"], summary: "Registrar cluster (kubeconfig cifrado)", security: bearer, requestBody: body(createClusterSchema), responses: { "201": { description: "Criado" } } },
+        get: {
+          tags: ["Clusters"],
+          summary: "Listar clusters",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Clusters"],
+          summary: "Registrar cluster (kubeconfig cifrado)",
+          security: bearer,
+          requestBody: body(createClusterSchema),
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/git-connections": {
-        get: { tags: ["Git"], summary: "Listar conexões Git", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Git"], summary: "Conectar provedor Git", security: bearer, requestBody: body(createGitConnectionSchema), responses: { "201": { description: "Criado" } } },
+        get: {
+          tags: ["Git"],
+          summary: "Listar conexões Git",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Git"],
+          summary: "Conectar provedor Git",
+          security: bearer,
+          requestBody: body(createGitConnectionSchema),
+          responses: { "201": { description: "Criado" } },
+        },
       },
       "/git-connections/{id}/repos": {
-        get: { tags: ["Git"], summary: "Listar repositórios", security: bearer, responses: { "200": { description: "OK" } } },
+        get: {
+          tags: ["Git"],
+          summary: "Listar repositórios",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
       },
       "/webhooks/git/{connectionId}": {
         post: {
@@ -404,12 +744,29 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           description:
             "Endpoint público, fora de `/api`, autenticado pela assinatura (`X-Hub-Signature-256` no GitHub/Gitea, `X-Gitlab-Token` no GitLab). O tipo vem de `X-GitHub-Event`, `X-Gitlab-Event` ou `X-Gitea-Event` (sem header, é deduzido do corpo). Push, tag e release disparam deploy nas aplicações cujo `sourceConfig.deployTrigger` (`branch`, `tag`, `release`) e `tagPattern` casam. PR/MR (opened, synchronized, reopened, closed, merged) não fazem deploy: são publicados no barramento interno `gitEvents`.",
           servers: [{ url: "/", description: "Raiz (fora de /api)" }],
-          parameters: [{ name: "connectionId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: { type: "object", description: "Payload original do provedor" } } } },
+          parameters: [
+            { name: "connectionId", in: "path", required: true, schema: { type: "string" } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object", description: "Payload original do provedor" },
+              },
+            },
+          },
           responses: {
             "200": {
               description: "Processado",
-              content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, triggered: { type: "integer" } } }, example: { ok: true, triggered: 1 } } },
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { ok: { type: "boolean" }, triggered: { type: "integer" } },
+                  },
+                  example: { ok: true, triggered: 1 },
+                },
+              },
             },
             "401": { description: "Assinatura inválida" },
             "404": { description: "Conexão Git não encontrada" },
@@ -423,30 +780,60 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           summary: "JSON Schema do capiva.json",
           description:
             "Schema do arquivo `capiva.json` (infra como código da aplicação), gerado do schema Zod que valida o arquivo no deploy. Aponte o campo `$schema` do arquivo para esta URL para ter autocompletar no editor. Público, sem autenticação.",
-          responses: { "200": { description: "JSON Schema", content: { "application/schema+json": { schema: json(capivaConfigSchema) } } } },
+          responses: {
+            "200": {
+              description: "JSON Schema",
+              content: { "application/schema+json": { schema: json(capivaConfigSchema) } },
+            },
+          },
         },
       },
       "/databases": {
-        get: { tags: ["Databases"], summary: "Listar bancos do projeto", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Databases"], summary: "Criar banco gerenciado", security: bearer, requestBody: body(createDatabaseSchema), responses: { "201": { description: "Criado" }, "422": quotaExceeded } },
+        get: {
+          tags: ["Databases"],
+          summary: "Listar bancos do projeto",
+          security: bearer,
+          responses: { "200": { description: "OK" } },
+        },
+        post: {
+          tags: ["Databases"],
+          summary: "Criar banco gerenciado",
+          security: bearer,
+          requestBody: body(createDatabaseSchema),
+          responses: { "201": { description: "Criado" }, "422": quotaExceeded },
+        },
       },
       "/environments/{id}/quota": {
         get: {
           tags: ["FinOps"],
           summary: "Quota do ambiente: limite, uso e disponível",
-          description: "Uso conta as réplicas MÁXIMAS do HPA, os volumes e os bancos gerenciados do ambiente. `null` no limite = sem limite.",
+          description:
+            "Uso conta as réplicas MÁXIMAS do HPA, os volumes e os bancos gerenciados do ambiente. `null` no limite = sem limite.",
           security: bearer,
           parameters: [appId, orgHeader],
-          responses: { "200": { description: "OK", content: { "application/json": { example: quotaExample } } }, "404": { description: "Fora da organização ativa" } },
+          responses: {
+            "200": {
+              description: "OK",
+              content: { "application/json": { example: quotaExample } },
+            },
+            "404": { description: "Fora da organização ativa" },
+          },
         },
         put: {
           tags: ["FinOps"],
           summary: "Definir quota do ambiente (ADMIN+)",
-          description: "Grava os limites e aplica `ResourceQuota` + `LimitRange` no namespace do ambiente. Todos os campos `null` removem a quota do cluster.",
+          description:
+            "Grava os limites e aplica `ResourceQuota` + `LimitRange` no namespace do ambiente. Todos os campos `null` removem a quota do cluster.",
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(setQuotaSchema),
-          responses: { "200": { description: "Atualizado", content: { "application/json": { example: quotaExample } } }, "422": { description: "Limite inválido" } },
+          responses: {
+            "200": {
+              description: "Atualizado",
+              content: { "application/json": { example: quotaExample } },
+            },
+            "422": { description: "Limite inválido" },
+          },
         },
       },
       "/costs": {
@@ -467,11 +854,35 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [
             orgHeader,
-            { name: "profile", in: "query", required: true, schema: { type: "string", enum: ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE"] } },
-            { name: "minReplicas", in: "query", required: false, schema: { type: "integer", minimum: 1 } },
-            { name: "maxReplicas", in: "query", required: false, schema: { type: "integer", minimum: 1 } },
+            {
+              name: "profile",
+              in: "query",
+              required: true,
+              schema: { type: "string", enum: ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE"] },
+            },
+            {
+              name: "minReplicas",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1 },
+            },
+            {
+              name: "maxReplicas",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1 },
+            },
           ],
-          responses: { "200": { description: "OK", content: { "application/json": { example: { currency: "BRL", custo: { min: 46.43, max: 46.43 } } } } } },
+          responses: {
+            "200": {
+              description: "OK",
+              content: {
+                "application/json": {
+                  example: { currency: "BRL", custo: { min: 46.43, max: 46.43 } },
+                },
+              },
+            },
+          },
         },
       },
       ...buildRestorePaths(bearer, orgHeader),

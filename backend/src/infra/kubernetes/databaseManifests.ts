@@ -1,15 +1,24 @@
 import type { K8sManifest } from "@interface/integrations";
 
-const dbLabels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
+const dbLabels = (name: string) => ({
+  "app.kubernetes.io/name": name,
+  "app.kubernetes.io/part-of": "capiva",
+});
 
 /** Secret Opaque genérico (string values → base64). Usado p/ credenciais de backup. */
-export function genericSecretManifest(name: string, namespace: string, data: Record<string, string>): K8sManifest {
+export function genericSecretManifest(
+  name: string,
+  namespace: string,
+  data: Record<string, string>,
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "Secret",
     type: "Opaque",
     metadata: { name, namespace, labels: dbLabels(name) },
-    data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, Buffer.from(v).toString("base64")])),
+    data: Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, Buffer.from(v).toString("base64")]),
+    ),
   };
 }
 
@@ -20,7 +29,11 @@ export type DbBackupKind = "POSTGRESQL" | "MYSQL";
  * Monta o comando do Job de backup (pg_dump/mysqldump → S3 via mc). `all` gera
  * UM arquivo por banco do servidor (loop). Credenciais vêm de env (Secret).
  */
-export function databaseBackupCommand(kind: DbBackupKind, scope: DbBackupScope, prefix: string): string {
+export function databaseBackupCommand(
+  kind: DbBackupKind,
+  scope: DbBackupScope,
+  prefix: string,
+): string {
   const upload = (key: string) => `gzip | mc pipe "s3/$S3_BUCKET/${prefix}/${key}"`;
   // Carimbo determinístico vindo do backend (BACKUP_STAMP) para que o objeto no
   // S3 seja conhecido/registrado e possa ser restaurado; cai no relógio do Job
@@ -51,7 +64,12 @@ export function databaseRetentionCommand(prefix: string, retentionDays: number):
 }
 
 /** Job de backup de banco: roda o dump e envia para o S3 (Secret com credenciais). */
-export function databaseBackupJobManifest(name: string, namespace: string, command: string, secretName: string): K8sManifest {
+export function databaseBackupJobManifest(
+  name: string,
+  namespace: string,
+  command: string,
+  secretName: string,
+): K8sManifest {
   return {
     apiVersion: "batch/v1",
     kind: "Job",
@@ -91,7 +109,10 @@ export function databaseBackupJobManifest(name: string, namespace: string, comma
  *  - Elastic  → ECK (elasticsearch.k8s.elastic.co/Elasticsearch)
  *  - ClickHouse → Altinity (clickhouse.altinity.com/ClickHouseInstallation)
  */
-const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
+const labels = (name: string) => ({
+  "app.kubernetes.io/name": name,
+  "app.kubernetes.io/part-of": "capiva",
+});
 /** Storage por tamanho, configurável por env (clusters com discos menores). */
 export const storageFor = (size: string): string => {
   const map: Record<string, string> = {
@@ -114,7 +135,12 @@ export interface DbManifestInput {
 }
 
 /** Secret basic-auth (username/password) — consumido pelo CNPG (bootstrap/superuser). */
-export function basicAuthSecretManifest(name: string, namespace: string, username: string, password: string): K8sManifest {
+export function basicAuthSecretManifest(
+  name: string,
+  namespace: string,
+  username: string,
+  password: string,
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "Secret",
@@ -149,8 +175,18 @@ export const CONNECTION_META: Record<string, ConnectionMeta> = {
   // O Service do MinIO Operator leva o nome do Tenant — `minio` fixo apontaria
   // para o tenant errado (ou nenhum) quando há mais de um na plataforma.
   MINIO: { envKey: "S3_ENDPOINT", scheme: "http", host: (n) => `minio-${n}-hl`, port: 9000 },
-  ELASTICSEARCH: { envKey: "ELASTICSEARCH_URL", scheme: "https", host: (n) => `${n}-es-http`, port: 9200 },
-  CLICKHOUSE: { envKey: "CLICKHOUSE_URL", scheme: "clickhouse", host: (n) => `clickhouse-${n}`, port: 9000 },
+  ELASTICSEARCH: {
+    envKey: "ELASTICSEARCH_URL",
+    scheme: "https",
+    host: (n) => `${n}-es-http`,
+    port: 9200,
+  },
+  CLICKHOUSE: {
+    envKey: "CLICKHOUSE_URL",
+    scheme: "clickhouse",
+    host: (n) => `clickhouse-${n}`,
+    port: 9000,
+  },
 };
 
 /** Host/porta do Sentinel (Redis em HA), para clientes que fazem failover. */
@@ -160,12 +196,33 @@ export const REDIS_SENTINEL = { host: (n: string) => `rfs-${n}`, port: 26379 };
  * Tipos que expomos externamente (NodePort) e como selecionar o pod primário.
  * Postgres (CNPG): pod primário tem `cnpg.io/cluster=<name>` + `cnpg.io/instanceRole=primary`.
  */
-export const EXTERNAL_DB: Record<string, { selector: (name: string) => Record<string, string>; port: number }> = {
-  POSTGRESQL: { selector: (n) => ({ "cnpg.io/cluster": n, "cnpg.io/instanceRole": "primary" }), port: 5432 },
-  MYSQL: { selector: (n) => ({ "mysql.oracle.com/cluster": n, "mysql.oracle.com/instance-type": "group-member" }), port: 3306 },
-  REDIS: { selector: (n) => ({ "app.kubernetes.io/component": "redis", "redisfailovers.databases.spotahome.com/name": n }), port: 6379 },
+export const EXTERNAL_DB: Record<
+  string,
+  { selector: (name: string) => Record<string, string>; port: number }
+> = {
+  POSTGRESQL: {
+    selector: (n) => ({ "cnpg.io/cluster": n, "cnpg.io/instanceRole": "primary" }),
+    port: 5432,
+  },
+  MYSQL: {
+    selector: (n) => ({
+      "mysql.oracle.com/cluster": n,
+      "mysql.oracle.com/instance-type": "group-member",
+    }),
+    port: 3306,
+  },
+  REDIS: {
+    selector: (n) => ({
+      "app.kubernetes.io/component": "redis",
+      "redisfailovers.databases.spotahome.com/name": n,
+    }),
+    port: 6379,
+  },
   RABBITMQ: { selector: (n) => ({ "app.kubernetes.io/name": n }), port: 5672 },
-  ELASTICSEARCH: { selector: (n) => ({ "elasticsearch.k8s.elastic.co/cluster-name": n }), port: 9200 },
+  ELASTICSEARCH: {
+    selector: (n) => ({ "elasticsearch.k8s.elastic.co/cluster-name": n }),
+    port: 9200,
+  },
   CLICKHOUSE: { selector: (n) => ({ "clickhouse.altinity.com/chi": n }), port: 9000 },
 };
 
@@ -173,7 +230,12 @@ export const EXTERNAL_DB: Record<string, { selector: (name: string) => Record<st
  * Service NodePort para acesso EXTERNO ao banco (via IP do nó + nodePort). Em
  * complemento ao Service interno (`-rw`) que o operator cria. Nome: `<name>-ext`.
  */
-export function databaseExternalServiceManifest(name: string, namespace: string, selector: Record<string, string>, targetPort: number): K8sManifest {
+export function databaseExternalServiceManifest(
+  name: string,
+  namespace: string,
+  selector: Record<string, string>,
+  targetPort: number,
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "Service",
@@ -203,7 +265,13 @@ export function databaseManifest(kind: string, input: DbManifestInput): K8sManif
           ...(ha ? { primaryUpdateStrategy: "unsupervised" } : {}),
           // Aplica as credenciais do usuário (owner/db via Secret) — sem isto o
           // CNPG cria um user `app` aleatório e o login do usuário falha.
-          bootstrap: { initdb: { database: input.database || "app", owner: input.username || "app", secret: { name: `${name}-app` } } },
+          bootstrap: {
+            initdb: {
+              database: input.database || "app",
+              owner: input.username || "app",
+              secret: { name: `${name}-app` },
+            },
+          },
           // Habilita o superusuário `postgres` (root) com senha do Secret dedicado.
           enableSuperuserAccess: true,
           superuserSecret: { name: `${name}-superuser` },
@@ -214,14 +282,26 @@ export function databaseManifest(kind: string, input: DbManifestInput): K8sManif
         apiVersion: "mysql.oracle.com/v2",
         kind: "InnoDBCluster",
         metadata: meta,
-        spec: { instances: ha ? 3 : 1, router: { instances: ha ? 2 : 1 }, secretName: `${name}-cluster-secret`, tlsUseSelfSigned: true, datadirVolumeClaimTemplate: { resources: { requests: { storage } } } },
+        spec: {
+          instances: ha ? 3 : 1,
+          router: { instances: ha ? 2 : 1 },
+          secretName: `${name}-cluster-secret`,
+          tlsUseSelfSigned: true,
+          datadirVolumeClaimTemplate: { resources: { requests: { storage } } },
+        },
       };
     case "REDIS":
       return {
         apiVersion: "databases.spotahome.com/v1",
         kind: "RedisFailover",
         metadata: meta,
-        spec: { sentinel: { replicas: ha ? 3 : 1 }, redis: { replicas: ha ? 3 : 1, storage: { persistentVolumeClaim: { spec: { resources: { requests: { storage } } } } } } },
+        spec: {
+          sentinel: { replicas: ha ? 3 : 1 },
+          redis: {
+            replicas: ha ? 3 : 1,
+            storage: { persistentVolumeClaim: { spec: { resources: { requests: { storage } } } } },
+          },
+        },
       };
     case "RABBITMQ":
       return {
@@ -234,29 +314,64 @@ export function databaseManifest(kind: string, input: DbManifestInput): K8sManif
       return {
         apiVersion: "kafka.strimzi.io/v1beta2",
         kind: "Kafka",
-        metadata: { ...meta, annotations: { "strimzi.io/node-pools": "enabled", "strimzi.io/kraft": "enabled" } },
-        spec: { kafka: { replicas: ha ? 3 : 1, listeners: [{ name: "plain", port: 9092, type: "internal", tls: false }] }, entityOperator: { topicOperator: {}, userOperator: {} } },
+        metadata: {
+          ...meta,
+          annotations: { "strimzi.io/node-pools": "enabled", "strimzi.io/kraft": "enabled" },
+        },
+        spec: {
+          kafka: {
+            replicas: ha ? 3 : 1,
+            listeners: [{ name: "plain", port: 9092, type: "internal", tls: false }],
+          },
+          entityOperator: { topicOperator: {}, userOperator: {} },
+        },
       };
     case "MINIO":
       return {
         apiVersion: "minio.min.io/v2",
         kind: "Tenant",
         metadata: meta,
-        spec: { pools: [{ servers: ha ? 4 : 1, volumesPerServer: ha ? 2 : 1, volumeClaimTemplate: { spec: { resources: { requests: { storage } } } } }] },
+        spec: {
+          pools: [
+            {
+              servers: ha ? 4 : 1,
+              volumesPerServer: ha ? 2 : 1,
+              volumeClaimTemplate: { spec: { resources: { requests: { storage } } } },
+            },
+          ],
+        },
       };
     case "ELASTICSEARCH":
       return {
         apiVersion: "elasticsearch.k8s.elastic.co/v1",
         kind: "Elasticsearch",
         metadata: meta,
-        spec: { version: "8.13.0", nodeSets: [{ name: "default", count: ha ? 3 : 1, volumeClaimTemplates: [{ metadata: { name: "elasticsearch-data" }, spec: { resources: { requests: { storage } } } }] }] },
+        spec: {
+          version: "8.13.0",
+          nodeSets: [
+            {
+              name: "default",
+              count: ha ? 3 : 1,
+              volumeClaimTemplates: [
+                {
+                  metadata: { name: "elasticsearch-data" },
+                  spec: { resources: { requests: { storage } } },
+                },
+              ],
+            },
+          ],
+        },
       };
     case "CLICKHOUSE":
       return {
         apiVersion: "clickhouse.altinity.com/v1",
         kind: "ClickHouseInstallation",
         metadata: meta,
-        spec: { configuration: { clusters: [{ name: "main", layout: { shardsCount: 1, replicasCount: ha ? 2 : 1 } }] } },
+        spec: {
+          configuration: {
+            clusters: [{ name: "main", layout: { shardsCount: 1, replicasCount: ha ? 2 : 1 } }],
+          },
+        },
       };
     default:
       return {

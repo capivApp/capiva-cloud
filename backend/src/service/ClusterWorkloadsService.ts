@@ -26,7 +26,14 @@ export interface DatabaseInstanceView {
   /** Tipo inferido pelo label do operator. */
   engine: string;
   /** Instâncias (pods) com nó, papel e fase. */
-  instances: { pod: string; node: string; phase: string; ready: boolean; role: string; ports: PodPort[] }[];
+  instances: {
+    pod: string;
+    node: string;
+    phase: string;
+    ready: boolean;
+    role: string;
+    ports: PodPort[];
+  }[];
 }
 
 export interface ClusterPodsView {
@@ -53,16 +60,29 @@ const DB_OPERATORS: { engine: string; clusterLabel: string; roleLabel?: string }
   { engine: "POSTGRESQL", clusterLabel: "cnpg.io/cluster", roleLabel: "cnpg.io/instanceRole" },
   { engine: "MYSQL", clusterLabel: "mysql.oracle.com/cluster" },
   { engine: "REDIS", clusterLabel: "redisfailovers.databases.spotahome.com/name" },
-  { engine: "RABBITMQ", clusterLabel: "app.kubernetes.io/component", roleLabel: "app.kubernetes.io/name" },
+  {
+    engine: "RABBITMQ",
+    clusterLabel: "app.kubernetes.io/component",
+    roleLabel: "app.kubernetes.io/name",
+  },
   { engine: "KAFKA", clusterLabel: "strimzi.io/cluster" },
   { engine: "ELASTICSEARCH", clusterLabel: "elasticsearch.k8s.elastic.co/cluster-name" },
   { engine: "CLICKHOUSE", clusterLabel: "clickhouse.altinity.com/chi" },
   { engine: "MINIO", clusterLabel: "v1.min.io/tenant" },
 ];
 
-const SYSTEM_NAMESPACES = new Set(["kube-system", "kube-public", "kube-node-lease", "longhorn-system", "cert-manager", "cnpg-system"]);
+const SYSTEM_NAMESPACES = new Set([
+  "kube-system",
+  "kube-public",
+  "kube-node-lease",
+  "longhorn-system",
+  "cert-manager",
+  "cnpg-system",
+]);
 
-function matchDatabase(labels: Record<string, string>): { engine: string; name: string; role: string } | null {
+function matchDatabase(
+  labels: Record<string, string>,
+): { engine: string; name: string; role: string } | null {
   for (const op of DB_OPERATORS) {
     const name = labels[op.clusterLabel];
     if (!name) continue;
@@ -77,7 +97,11 @@ function matchDatabase(labels: Record<string, string>): { engine: string; name: 
 function categorize(pod: ClusterPod): PodCategory {
   if (matchDatabase(pod.labels)) return "database";
   if (SYSTEM_NAMESPACES.has(pod.namespace)) return "system";
-  if (pod.labels["app.kubernetes.io/managed-by"] === "capiva" || pod.labels["app.kubernetes.io/part-of"] === "capiva") return "platform";
+  if (
+    pod.labels["app.kubernetes.io/managed-by"] === "capiva" ||
+    pod.labels["app.kubernetes.io/part-of"] === "capiva"
+  )
+    return "platform";
   return "app";
 }
 
@@ -93,10 +117,19 @@ export class ClusterWorkloadsService {
     private readonly k8s: KubernetesAdapter,
   ) {}
 
-  private async kubeconfigOf(organizationId: string, clusterId: string): Promise<{ name: string; kubeconfig: string }> {
-    const cluster = await withTransaction(() => this.clusters.findById(clusterId), { tenant: { organizationId } });
-    if (!cluster || cluster.organizationId !== organizationId) throw HttpError.notFound("Cluster não encontrado.");
-    return { name: cluster.name, kubeconfig: cluster.kubeconfigCipher ? safeDecrypt(cluster.kubeconfigCipher) : "" };
+  private async kubeconfigOf(
+    organizationId: string,
+    clusterId: string,
+  ): Promise<{ name: string; kubeconfig: string }> {
+    const cluster = await withTransaction(() => this.clusters.findById(clusterId), {
+      tenant: { organizationId },
+    });
+    if (!cluster || cluster.organizationId !== organizationId)
+      throw HttpError.notFound("Cluster não encontrado.");
+    return {
+      name: cluster.name,
+      kubeconfig: cluster.kubeconfigCipher ? safeDecrypt(cluster.kubeconfigCipher) : "",
+    };
   }
 
   async pods(organizationId: string, clusterId: string): Promise<ClusterPodsView> {
@@ -117,7 +150,13 @@ export class ClusterWorkloadsService {
       const db = matchDatabase(pod.labels);
       if (!db) continue;
       const key = `${pod.namespace}/${db.engine}/${db.name}`;
-      if (!byKey.has(key)) byKey.set(key, { name: db.name, namespace: pod.namespace, engine: db.engine, instances: [] });
+      if (!byKey.has(key))
+        byKey.set(key, {
+          name: db.name,
+          namespace: pod.namespace,
+          engine: db.engine,
+          instances: [],
+        });
       byKey.get(key)!.instances.push({
         pod: pod.name,
         node: pod.node,
@@ -128,7 +167,11 @@ export class ClusterWorkloadsService {
       });
     }
 
-    return { clusterId, clusterName: name, databases: [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name)) };
+    return {
+      clusterId,
+      clusterName: name,
+      databases: [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    };
   }
 }
 

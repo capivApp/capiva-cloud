@@ -35,7 +35,9 @@ export class NotificationService {
   constructor(private readonly channels: NotificationChannelRepository) {}
 
   list(organizationId: string): Promise<NotificationChannel[]> {
-    return withTransaction(() => this.channels.listByOrganization(organizationId), { tenant: { organizationId } });
+    return withTransaction(() => this.channels.listByOrganization(organizationId), {
+      tenant: { organizationId },
+    });
   }
 
   create(organizationId: string, input: CreateChannelInput): Promise<NotificationChannel> {
@@ -54,8 +56,11 @@ export class NotificationService {
   }
 
   async getById(organizationId: string, id: string): Promise<NotificationChannel> {
-    const channel = await withTransaction(() => this.channels.findById(id), { tenant: { organizationId } });
-    if (!channel || channel.organizationId !== organizationId) throw HttpError.notFound("Canal não encontrado.");
+    const channel = await withTransaction(() => this.channels.findById(id), {
+      tenant: { organizationId },
+    });
+    if (!channel || channel.organizationId !== organizationId)
+      throw HttpError.notFound("Canal não encontrado.");
     return channel;
   }
 
@@ -67,7 +72,11 @@ export class NotificationService {
   /** Envia uma mensagem de teste por um canal específico. */
   async test(organizationId: string, id: string): Promise<void> {
     const channel = await this.getById(organizationId, id);
-    await this.deliver(channel, { event: "test", title: "Capiva Cloud", body: `Canal "${channel.name}" configurado com sucesso. ✅` });
+    await this.deliver(channel, {
+      event: "test",
+      title: "Capiva Cloud",
+      body: `Canal "${channel.name}" configurado com sucesso. ✅`,
+    });
   }
 
   /**
@@ -75,9 +84,18 @@ export class NotificationService {
    * Best-effort e assíncrono — falhas de entrega não afetam o chamador.
    */
   async dispatch(organizationId: string, message: NotificationMessage): Promise<void> {
-    const channels = await withTransaction(() => this.channels.listEnabledForEvent(organizationId), { tenant: { organizationId } }).catch(() => []);
+    const channels = await withTransaction(
+      () => this.channels.listEnabledForEvent(organizationId),
+      { tenant: { organizationId } },
+    ).catch(() => []);
     const targets = channels.filter((c) => (c.events as string[]).includes(message.event));
-    await Promise.all(targets.map((c) => this.deliver(c, message).catch((e) => console.error(`[notify] ${c.type} falhou:`, (e as Error).message))));
+    await Promise.all(
+      targets.map((c) =>
+        this.deliver(c, message).catch((e) =>
+          console.error(`[notify] ${c.type} falhou:`, (e as Error).message),
+        ),
+      ),
+    );
   }
 
   private async deliver(channel: NotificationChannel, message: NotificationMessage): Promise<void> {

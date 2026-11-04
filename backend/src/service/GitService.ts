@@ -30,9 +30,13 @@ export class GitService {
     private readonly deployments: DeploymentService,
   ) {}
 
-  private async providerFor(connectionId: string, tenant: { organizationId: string }): Promise<IGitProvider> {
+  private async providerFor(
+    connectionId: string,
+    tenant: { organizationId: string },
+  ): Promise<IGitProvider> {
     const conn = await withTransaction(() => this.connections.findById(connectionId), { tenant });
-    if (!conn || conn.organizationId !== tenant.organizationId) throw HttpError.notFound("Conexão Git não encontrada.");
+    if (!conn || conn.organizationId !== tenant.organizationId)
+      throw HttpError.notFound("Conexão Git não encontrada.");
     return this.factory.fromConnection(conn);
   }
 
@@ -40,17 +44,34 @@ export class GitService {
     return this.providerFor(connectionId, tenant).then((p) => p.listRepos());
   }
 
-  listBranches(connectionId: string, repo: string, tenant: { organizationId: string }): Promise<string[]> {
+  listBranches(
+    connectionId: string,
+    repo: string,
+    tenant: { organizationId: string },
+  ): Promise<string[]> {
     return this.providerFor(connectionId, tenant).then((p) => p.listBranches(repo));
   }
 
-  detectStack(connectionId: string, repo: string, branch: string, tenant: { organizationId: string }): Promise<StackDetection> {
+  detectStack(
+    connectionId: string,
+    repo: string,
+    branch: string,
+    tenant: { organizationId: string },
+  ): Promise<StackDetection> {
     return this.providerFor(connectionId, tenant).then((p) => p.detectStack(repo, branch));
   }
 
   /** Cria ou atualiza o comentário da plataforma no PR/MR (upsert pelo marcador oculto). */
-  commentOnPullRequest(connectionId: string, repo: string, number: number, body: string, tenant: { organizationId: string }): Promise<void> {
-    return this.providerFor(connectionId, tenant).then((p) => p.commentOnPullRequest(repo, number, body, PREVIEW_COMMENT_MARKER));
+  commentOnPullRequest(
+    connectionId: string,
+    repo: string,
+    number: number,
+    body: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
+    return this.providerFor(connectionId, tenant).then((p) =>
+      p.commentOnPullRequest(repo, number, body, PREVIEW_COMMENT_MARKER),
+    );
   }
 
   /**
@@ -70,27 +91,45 @@ export class GitService {
     if (!conn) throw HttpError.notFound("Conexão Git não encontrada.");
 
     const provider = this.factory.fromConnection(conn);
-    if (!provider.verifyWebhook(signature, rawBody)) throw HttpError.unauthorized("Assinatura de webhook inválida.");
+    if (!provider.verifyWebhook(signature, rawBody))
+      throw HttpError.unauthorized("Assinatura de webhook inválida.");
 
     const event = parseGitWebhook(conn.provider, eventName, JSON.parse(rawBody.toString("utf8")));
     if (!event) return { triggered: 0 };
 
     const tenant = { organizationId: conn.organizationId };
     if (event.kind === "pull_request") {
-      gitEvents.emitPullRequest({ ...event.pullRequest, connectionId, organizationId: conn.organizationId, provider: conn.provider });
+      gitEvents.emitPullRequest({
+        ...event.pullRequest,
+        connectionId,
+        organizationId: conn.organizationId,
+        provider: conn.provider,
+      });
       return { triggered: 0 };
     }
     return { triggered: await this.triggerDeploys(connectionId, event, tenant) };
   }
 
   /** Deploy em cada aplicação da conexão cujo gatilho (branch/tag/release) aceita o evento. */
-  private async triggerDeploys(connectionId: string, event: GitWebhookEvent, tenant: { organizationId: string }): Promise<number> {
-    const apps = await withTransaction(() => this.apps.listByGitConnection(connectionId), { tenant });
+  private async triggerDeploys(
+    connectionId: string,
+    event: GitWebhookEvent,
+    tenant: { organizationId: string },
+  ): Promise<number> {
+    const apps = await withTransaction(() => this.apps.listByGitConnection(connectionId), {
+      tenant,
+    });
     let triggered = 0;
     for (const app of apps) {
-      const target = resolveDeployTarget((app.sourceConfig ?? {}) as Record<string, unknown>, event);
+      const target = resolveDeployTarget(
+        (app.sourceConfig ?? {}) as Record<string, unknown>,
+        event,
+      );
       if (!target) continue;
-      await this.deployments.trigger(app.id, target.version, tenant, undefined, { commitSha: target.commitSha, gitRef: target.gitRef });
+      await this.deployments.trigger(app.id, target.version, tenant, undefined, {
+        commitSha: target.commitSha,
+        gitRef: target.gitRef,
+      });
       triggered++;
     }
     return triggered;

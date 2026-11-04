@@ -19,13 +19,17 @@ export interface BackupRestore {
   finishedAt: string | null;
 }
 
-export type DatabaseRestoreInput = { mode: "IN_PLACE"; confirmName: string } | { mode: "AS_COPY"; newName: string };
+export type DatabaseRestoreInput =
+  | { mode: "IN_PLACE"; confirmName: string }
+  | { mode: "AS_COPY"; newName: string };
 
 const POLL_MS = 3000;
-const isInFlight = (restore: BackupRestore) => restore.status === "PENDING" || restore.status === "RUNNING";
+const isInFlight = (restore: BackupRestore) =>
+  restore.status === "PENDING" || restore.status === "RUNNING";
 
 /** Polling só enquanto houver restore em andamento: o backend lê o Job a cada consulta. */
-const pollWhileInFlight = (restores: BackupRestore[] | undefined) => ((restores ?? []).some(isInFlight) ? POLL_MS : false);
+const pollWhileInFlight = (restores: BackupRestore[] | undefined) =>
+  (restores ?? []).some(isInFlight) ? POLL_MS : false;
 
 /** Restores de um banco: listar (com andamento) e pedir um restore de um backup. */
 export function useDatabaseRestores(databaseId: string | null) {
@@ -74,7 +78,8 @@ export function useVolumeRestores(applicationId: string, volumeId: string) {
   });
 
   const restoreMut = useMutation({
-    mutationFn: (backupId: string) => api.post<BackupRestore>(`${base}/backups/${backupId}/restore`, {}),
+    mutationFn: (backupId: string) =>
+      api.post<BackupRestore>(`${base}/backups/${backupId}/restore`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 

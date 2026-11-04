@@ -29,7 +29,15 @@ import { confirmAndRun } from "@/lib/alerts";
 import { findDeploymentAtivo, type Deployment } from "@/lib/deployments";
 import { nativeTheme } from "@/lib/theme";
 
-function MetricTile({ label, value, icon: Icon }: { label: string; value: string; icon: LucideIcon }) {
+function MetricTile({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+}) {
   return (
     <View className="min-w-[30%] flex-1 gap-1 rounded-xl border border-border/60 bg-background p-3">
       <View className="flex-row items-center gap-1.5">
@@ -50,8 +58,10 @@ export default function ApplicationDetailScreen() {
   const ativo = findDeploymentAtivo(deployments);
 
   const rollbackTo = (deployment: Deployment) =>
-    confirmAndRun("Rollback", `Voltar ${app?.name ?? "a aplicação"} para a versão ${deployment.version}?`, () =>
-      ciclo.rollback(deployment.id),
+    confirmAndRun(
+      "Rollback",
+      `Voltar ${app?.name ?? "a aplicação"} para a versão ${deployment.version}?`,
+      () => ciclo.rollback(deployment.id),
     );
 
   if (isLoading || !app) {
@@ -68,7 +78,12 @@ export default function ApplicationDetailScreen() {
     <Screen>
       <Stack.Screen options={{ title: app.name }} />
 
-      <SectionCard icon={Info} tint="primary" title="Status" right={<StatusBadge status={app.observedStatus} />}>
+      <SectionCard
+        icon={Info}
+        tint="primary"
+        title="Status"
+        right={<StatusBadge status={app.observedStatus} />}
+      >
         <View className="gap-1">
           <Text variant="muted">
             Origem: <Text className="text-sm">{app.source}</Text>
@@ -88,10 +103,22 @@ export default function ApplicationDetailScreen() {
       <SectionCard icon={Activity} tint="success" title="Métricas ao vivo">
         <View className="flex-row flex-wrap gap-2">
           <MetricTile icon={Cpu} label="CPU" value={metrics ? `${metrics.cpu}%` : "—"} />
-          <MetricTile icon={MemoryStick} label="Memória" value={metrics ? `${metrics.memoryMb} MB` : "—"} />
-          <MetricTile icon={Gauge} label="Req/s" value={metrics ? String(metrics.requestsPerSec) : "—"} />
+          <MetricTile
+            icon={MemoryStick}
+            label="Memória"
+            value={metrics ? `${metrics.memoryMb} MB` : "—"}
+          />
+          <MetricTile
+            icon={Gauge}
+            label="Req/s"
+            value={metrics ? String(metrics.requestsPerSec) : "—"}
+          />
           <MetricTile icon={Zap} label="p95" value={metrics ? `${metrics.latencyP95Ms} ms` : "—"} />
-          <MetricTile icon={TriangleAlert} label="Erros" value={metrics ? `${metrics.errorRate}%` : "—"} />
+          <MetricTile
+            icon={TriangleAlert}
+            label="Erros"
+            value={metrics ? `${metrics.errorRate}%` : "—"}
+          />
         </View>
       </SectionCard>
 
@@ -113,7 +140,9 @@ export default function ApplicationDetailScreen() {
         <Button
           className="flex-1 rounded-xl"
           variant="outline"
-          onPress={() => router.push({ pathname: "/apps/[id]/terminal", params: { id: String(id) } })}
+          onPress={() =>
+            router.push({ pathname: "/apps/[id]/terminal", params: { id: String(id) } })
+          }
         >
           <TerminalSquare color={nativeTheme.foreground} size={16} />
           <Text>Terminal</Text>

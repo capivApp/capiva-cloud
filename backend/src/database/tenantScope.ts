@@ -17,7 +17,9 @@ type ScopeBuilder = (organizationId: string) => Record<string, unknown>;
 
 const byOrganization: ScopeBuilder = (organizationId) => ({ organizationId });
 const byProject: ScopeBuilder = (organizationId) => ({ project: { organizationId } });
-const byApplication: ScopeBuilder = (organizationId) => ({ application: { project: { organizationId } } });
+const byApplication: ScopeBuilder = (organizationId) => ({
+  application: { project: { organizationId } },
+});
 const byCluster: ScopeBuilder = (organizationId) => ({ cluster: { organizationId } });
 
 const SCOPES = {

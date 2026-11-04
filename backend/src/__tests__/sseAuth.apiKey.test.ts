@@ -9,14 +9,20 @@ import { ApiKeyService } from "@service/ApiKeyService";
 import { sseAuthMiddleware } from "@middleware/auth";
 import { HttpError } from "@functions/HttpError";
 
-const makeReq = (authorization: string) => ({ headers: { authorization }, query: {} }) as unknown as Request;
+const makeReq = (authorization: string) =>
+  ({ headers: { authorization }, query: {} }) as unknown as Request;
 
 let restore: (() => void) | undefined;
 afterEach(() => restore?.());
 
 describe("sseAuthMiddleware com chave de API", () => {
   it("autentica `cap_` e fixa a organização da chave", async () => {
-    const spy = spyOn(container.get(ApiKeyService), "verify").mockResolvedValue({ keyId: "k1", organizationId: "org1", role: "DEVELOPER", name: "cli" });
+    const spy = spyOn(container.get(ApiKeyService), "verify").mockResolvedValue({
+      keyId: "k1",
+      organizationId: "org1",
+      role: "DEVELOPER",
+      name: "cli",
+    });
     restore = () => spy.mockRestore();
     const req = makeReq("Bearer cap_abc_def");
     const next = mock((_error?: unknown) => undefined);

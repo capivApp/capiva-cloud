@@ -10,7 +10,10 @@ export class CronJobRepository extends BaseRepository {
   }
 
   listByProject(projectId: string): Promise<CronJob[]> {
-    return this.tx.cronJob.findMany({ where: { projectId, ...this.scope("cronJob") }, orderBy: { createdAt: "asc" } });
+    return this.tx.cronJob.findMany({
+      where: { projectId, ...this.scope("cronJob") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<CronJob | null> {

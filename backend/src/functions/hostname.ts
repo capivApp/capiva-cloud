@@ -6,6 +6,8 @@ export function isValidHostname(host: string): boolean {
 }
 
 /** Modo TLS do enum da app (UPPER) → valor armazenado no Domain (lower). */
-export function tlsModeToStored(mode: "LETS_ENCRYPT" | "UPLOADED" | "NONE"): "lets_encrypt" | "uploaded" | "none" {
+export function tlsModeToStored(
+  mode: "LETS_ENCRYPT" | "UPLOADED" | "NONE",
+): "lets_encrypt" | "uploaded" | "none" {
   return mode.toLowerCase() as "lets_encrypt" | "uploaded" | "none";
 }

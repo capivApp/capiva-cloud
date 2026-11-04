@@ -24,8 +24,12 @@ export function useAuth() {
 
   const registerMut = useMutation({
     mutationKey: ["auth", "register"],
-    mutationFn: (input: { email: string; name: string; password: string; organizationName?: string }) =>
-      api.post<AuthResponse>("/auth/register", input, { auth: false }),
+    mutationFn: (input: {
+      email: string;
+      name: string;
+      password: string;
+      organizationName?: string;
+    }) => api.post<AuthResponse>("/auth/register", input, { auth: false }),
     onSuccess: (data) => setAuth(data.accessToken, data.user),
   });
 

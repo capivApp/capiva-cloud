@@ -24,7 +24,10 @@ export class SimulatedLogSource implements LogSource {
       "INFO  GET /health 200 2ms",
       "WARN  slow query 812ms",
       "INFO  POST /orders 201 41ms",
-    ].map((line, i) => ({ ts: String((now.getTime() - i * 1000) * 1e6), line: `${now.toISOString()}  ${line}` }));
+    ].map((line, i) => ({
+      ts: String((now.getTime() - i * 1000) * 1e6),
+      line: `${now.toISOString()}  ${line}`,
+    }));
   }
 
   async range(request: LogRangeRequest): Promise<LogLine[]> {
@@ -54,10 +57,15 @@ export class LokiLogSource implements LogSource {
       end: request.end,
       direction: request.direction,
     });
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/query_range?${params.toString()}`).catch(() => null);
+    const res = await fetch(`${this.baseUrl}/loki/api/v1/query_range?${params.toString()}`).catch(
+      () => null,
+    );
     if (!res) return this.fallback.range(request);
     if (res.status >= 400 && res.status < 500) {
-      throw HttpError.badRequest("Não foi possível aplicar o filtro. Revise a busca e a expressão regular.", "LOG_FILTER");
+      throw HttpError.badRequest(
+        "Não foi possível aplicar o filtro. Revise a busca e a expressão regular.",
+        "LOG_FILTER",
+      );
     }
     const data = (await res.json().catch(() => null)) as LokiQueryResponse | null;
     if (!res.ok || !data) return this.fallback.range(request);
@@ -67,8 +75,14 @@ export class LokiLogSource implements LogSource {
   }
 
   async labelValues(label: string, request: LogRangeRequest): Promise<string[]> {
-    const params = new URLSearchParams({ query: request.query, start: request.start, end: request.end });
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/label/${encodeURIComponent(label)}/values?${params.toString()}`).catch(() => null);
+    const params = new URLSearchParams({
+      query: request.query,
+      start: request.start,
+      end: request.end,
+    });
+    const res = await fetch(
+      `${this.baseUrl}/loki/api/v1/label/${encodeURIComponent(label)}/values?${params.toString()}`,
+    ).catch(() => null);
     if (!res?.ok) return [];
     const data = (await res.json().catch(() => null)) as { data?: string[] } | null;
     return data?.data ?? [];

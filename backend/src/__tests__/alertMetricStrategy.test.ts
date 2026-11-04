@@ -4,7 +4,10 @@
  * Adapters mockados: sem cluster, sem Prometheus, sem Loki.
  */
 import { describe, expect, it, mock } from "bun:test";
-import { createAlertMetricStrategies, type AlertMetricSources } from "@infra/alerts/alertMetric.strategy";
+import {
+  createAlertMetricStrategies,
+  type AlertMetricSources,
+} from "@infra/alerts/alertMetric.strategy";
 
 const target = { app: "api", namespace: "prod", kubeconfig: "kc", host: "api.exemplo.com" };
 
@@ -45,7 +48,12 @@ describe("CPU", () => {
 });
 
 describe("5xx e latência", () => {
-  const lines = [accessLog(200, 10), accessLog(500, 20), accessLog(200, 30), accessLog(502, 400)].map((line) => ({ ts: "0", line }));
+  const lines = [
+    accessLog(200, 10),
+    accessLog(500, 20),
+    accessLog(200, 30),
+    accessLog(502, 400),
+  ].map((line) => ({ ts: "0", line }));
 
   it("calcula a taxa de 5xx a partir do access log da janela", async () => {
     const queryWindow = mock(async (_selector: string, _windowMs: number) => lines);
@@ -55,7 +63,9 @@ describe("5xx e latência", () => {
   });
 
   it("calcula o p95 da latência", async () => {
-    const strategies = createAlertMetricStrategies(makeSources({ loki: { queryWindow: mock(async () => lines) } }));
+    const strategies = createAlertMetricStrategies(
+      makeSources({ loki: { queryWindow: mock(async () => lines) } }),
+    );
     expect(await strategies.LATENCY_P95.measure(target, 5)).toBe(400);
   });
 

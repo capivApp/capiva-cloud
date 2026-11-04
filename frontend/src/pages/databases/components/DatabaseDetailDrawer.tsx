@@ -22,10 +22,19 @@ interface DbLiveStatus {
   healthy: boolean;
 }
 
-const bkVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
+const bkVariant = (s: string) =>
+  s === "completed" ? "success" : s === "failed" ? "danger" : "warning";
 
 /** Painel de backups manuais (dump → S3) de um banco PostgreSQL/MySQL. */
-function DatabaseBackupsPanel({ databaseId, databaseName, kind }: { databaseId: string; databaseName: string; kind: string }) {
+function DatabaseBackupsPanel({
+  databaseId,
+  databaseName,
+  kind,
+}: {
+  databaseId: string;
+  databaseName: string;
+  kind: string;
+}) {
   const { backups, isLoading, run, isRunning } = useDatabaseBackups(databaseId);
   const { restores, restore, isRestoring } = useDatabaseRestores(databaseId);
   const [restoreTarget, setRestoreTarget] = useState<DatabaseBackup | null>(null);
@@ -43,22 +52,33 @@ function DatabaseBackupsPanel({ databaseId, databaseName, kind }: { databaseId: 
       .catch((e) => toast.error((e as Error).message));
 
   // Restore só faz sentido para objetos exatos (escopo single → destino .sql.gz).
-  const restorable = (b: { status: string; destination: string | null }) => b.status === "completed" && Boolean(b.destination?.endsWith(".sql.gz"));
+  const restorable = (b: { status: string; destination: string | null }) =>
+    b.status === "completed" && Boolean(b.destination?.endsWith(".sql.gz"));
 
   return (
     <div className="space-y-3 rounded-lg border border-border p-3">
-      <p className="flex items-center gap-2 text-sm font-medium"><BackupIcon className="size-4" /> Backups sob demanda</p>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <BackupIcon className="size-4" /> Backups sob demanda
+      </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Escopo</Label>
-          <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={scope} onChange={(e) => setScope(e.target.value as "single" | "all")}>
+          <select
+            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            value={scope}
+            onChange={(e) => setScope(e.target.value as "single" | "all")}
+          >
             <option value="single">Este banco</option>
             <option value="all">Todos os bancos do servidor (1 arquivo cada)</option>
           </select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Tipo</Label>
-          <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={mode} onChange={(e) => setMode(e.target.value as "full" | "incremental")}>
+          <select
+            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "full" | "incremental")}
+          >
             <option value="full">Full</option>
             <option value="incremental">Incremental</option>
           </select>
@@ -66,16 +86,29 @@ function DatabaseBackupsPanel({ databaseId, databaseName, kind }: { databaseId: 
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Destino (S3)</Label>
-        <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={storageProviderId} onChange={(e) => setStorageProviderId(e.target.value)}>
+        <select
+          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+          value={storageProviderId}
+          onChange={(e) => setStorageProviderId(e.target.value)}
+        >
           <option value="">Provedor padrão da organização</option>
-          {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
         </select>
       </div>
-      <Button variant="outline" size="sm" onClick={trigger} disabled={isRunning}><BackupIcon className="size-3.5" /> Fazer backup agora</Button>
+      <Button variant="outline" size="sm" onClick={trigger} disabled={isRunning}>
+        <BackupIcon className="size-3.5" /> Fazer backup agora
+      </Button>
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
       <div className="space-y-1">
         {backups.map((b) => (
-          <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+          <div
+            key={b.id}
+            className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+          >
             <span className="text-muted-foreground">{new Date(b.startedAt).toLocaleString()}</span>
             <div className="flex items-center gap-2">
               <Badge variant={bkVariant(b.status)}>{b.status}</Badge>
@@ -102,11 +135,22 @@ function DatabaseBackupsPanel({ databaseId, databaseName, kind }: { databaseId: 
 }
 
 /** Drawer de configuração de um banco: URL de conexão + backups + senha. */
-export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onClose: () => void; id: string | null }) {
+export function DatabaseDetailDrawer({
+  open,
+  onClose,
+  id,
+}: {
+  open: boolean;
+  onClose: () => void;
+  id: string | null;
+}) {
   const { getDetail, update, remove, isRemoving, refetch } = useDatabases();
   const [detail, setDetail] = useState<DatabaseDetail | null>(null);
   // Estado vivo (fase/réplicas/saúde) via SSE — atualiza sem sair/voltar da tela.
-  const live = useEventSource<DbLiveStatus>(open && id ? `/streams/databases/${id}` : null, "database");
+  const live = useEventSource<DbLiveStatus>(
+    open && id ? `/streams/databases/${id}` : null,
+    "database",
+  );
   const [backupEnabled, setBackupEnabled] = useState(true);
   const [schedule, setSchedule] = useState("0 3 * * *");
   const [retentionDays, setRetentionDays] = useState(7);
@@ -114,18 +158,28 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
 
   useEffect(() => {
     if (!open || !id) return;
-    getDetail(id).then((d) => {
-      setDetail(d);
-      setBackupEnabled(d.backup?.enabled ?? true);
-      setSchedule(d.backup?.schedule ?? "0 3 * * *");
-      setRetentionDays(d.backup?.retentionDays ?? 7);
-    }).catch((e) => toast.error((e as Error).message));
+    getDetail(id)
+      .then((d) => {
+        setDetail(d);
+        setBackupEnabled(d.backup?.enabled ?? true);
+        setSchedule(d.backup?.schedule ?? "0 3 * * *");
+        setRetentionDays(d.backup?.retentionDays ?? 7);
+      })
+      .catch((e) => toast.error((e as Error).message));
   }, [open, id]);
 
   async function save() {
     if (!id) return;
     try {
-      await update({ id, patch: { backupEnabled, backupSchedule: schedule, retentionDays, password: password || undefined } });
+      await update({
+        id,
+        patch: {
+          backupEnabled,
+          backupSchedule: schedule,
+          retentionDays,
+          password: password || undefined,
+        },
+      });
       toast.success("Configuração salva");
       refetch();
       onClose();
@@ -141,7 +195,12 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
 
   async function removeDatabase() {
     if (!id || !detail) return;
-    if (!window.confirm(`Remover o banco "${detail.name}"? Os dados e volumes serão apagados — esta ação é irreversível.`)) return;
+    if (
+      !window.confirm(
+        `Remover o banco "${detail.name}"? Os dados e volumes serão apagados — esta ação é irreversível.`,
+      )
+    )
+      return;
     try {
       await remove(id);
       toast.success("Banco removido");
@@ -157,8 +216,31 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
       open={open}
       onClose={onClose}
       title={detail ? detail.name : "Banco"}
-      description={detail ? `${detail.kind} · ${detail.size}${detail.highAvailability ? " · HA" : ""}` : undefined}
-      footer={<div className="flex items-center justify-between gap-2"><Button variant="ghost" className="text-destructive hover:text-destructive" onClick={removeDatabase} disabled={isRemoving}><Trash2 className="size-4" /> Remover</Button><div className="flex gap-2"><Button variant="ghost" onClick={onClose}>Fechar</Button><Button variant="gradient" onClick={save}>Salvar</Button></div></div>}
+      description={
+        detail
+          ? `${detail.kind} · ${detail.size}${detail.highAvailability ? " · HA" : ""}`
+          : undefined
+      }
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={removeDatabase}
+            disabled={isRemoving}
+          >
+            <Trash2 className="size-4" /> Remover
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Fechar
+            </Button>
+            <Button variant="gradient" onClick={save}>
+              Salvar
+            </Button>
+          </div>
+        </div>
+      }
     >
       {!detail ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -173,18 +255,34 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
             return (
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-lg border border-border px-3 py-2">
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground"><span className={cn("inline-block size-1.5 rounded-full", healthy ? "bg-emerald-500" : "animate-pulse bg-amber-500")} /> Saúde</p>
-                  <Badge variant={healthy ? "success" : phase ? "warning" : "danger"} className="mt-1">
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "inline-block size-1.5 rounded-full",
+                        healthy ? "bg-emerald-500" : "animate-pulse bg-amber-500",
+                      )}
+                    />{" "}
+                    Saúde
+                  </p>
+                  <Badge
+                    variant={healthy ? "success" : phase ? "warning" : "danger"}
+                    className="mt-1"
+                  >
                     {healthy ? "Saudável" : phase ? "Provisionando" : "Indisponível"}
                   </Badge>
                 </div>
                 <div className="rounded-lg border border-border px-3 py-2">
                   <p className="text-xs text-muted-foreground">Réplicas prontas</p>
-                  <p className="mt-0.5 text-lg font-bold">{ready ?? "—"}<span className="text-sm text-muted-foreground"> / {total}</span></p>
+                  <p className="mt-0.5 text-lg font-bold">
+                    {ready ?? "—"}
+                    <span className="text-sm text-muted-foreground"> / {total}</span>
+                  </p>
                 </div>
                 <div className="rounded-lg border border-border px-3 py-2">
                   <p className="text-xs text-muted-foreground">Fase</p>
-                  <p className="mt-0.5 truncate text-sm font-medium" title={phase ?? ""}>{phase ?? "—"}</p>
+                  <p className="mt-0.5 truncate text-sm font-medium" title={phase ?? ""}>
+                    {phase ?? "—"}
+                  </p>
                 </div>
               </div>
             );
@@ -194,7 +292,9 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
             <Label>URL de conexão interna (entre pods do cluster)</Label>
             <div className="flex gap-2">
               <Input readOnly value={detail.connectionUrl} className="font-mono text-xs" />
-              <Button variant="outline" size="icon" onClick={() => copyText(detail.connectionUrl)}><Copy className="size-4" /></Button>
+              <Button variant="outline" size="icon" onClick={() => copyText(detail.connectionUrl)}>
+                <Copy className="size-4" />
+              </Button>
             </div>
           </div>
 
@@ -202,48 +302,118 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
             <div className="space-y-1.5">
               <Label>URL de conexão externa (IP do nó + NodePort)</Label>
               <div className="flex gap-2">
-                <Input readOnly value={detail.connectionUrlExternal} className="font-mono text-xs" />
-                <Button variant="outline" size="icon" onClick={() => copyText(detail.connectionUrlExternal!)}><Copy className="size-4" /></Button>
+                <Input
+                  readOnly
+                  value={detail.connectionUrlExternal}
+                  className="font-mono text-xs"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyText(detail.connectionUrlExternal!)}
+                >
+                  <Copy className="size-4" />
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Acesso de fora do cluster (ex.: seu micro). Garanta que a porta NodePort esteja liberada no firewall do nó.</p>
+              <p className="text-xs text-muted-foreground">
+                Acesso de fora do cluster (ex.: seu micro). Garanta que a porta NodePort esteja
+                liberada no firewall do nó.
+              </p>
             </div>
           )}
 
           {detail.superuserUrl && (
             <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-              <Label>Superusuário <code className="font-mono">postgres</code> (root) — senha aleatória</Label>
+              <Label>
+                Superusuário <code className="font-mono">postgres</code> (root) — senha aleatória
+              </Label>
               <div className="flex gap-2">
                 <Input readOnly value={detail.superuserUrl} className="font-mono text-xs" />
-                <Button variant="outline" size="icon" onClick={() => copyText(detail.superuserUrl!)}><Copy className="size-4" /></Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyText(detail.superuserUrl!)}
+                >
+                  <Copy className="size-4" />
+                </Button>
               </div>
               {detail.superuserUrlExternal && (
                 <div className="flex gap-2">
-                  <Input readOnly value={detail.superuserUrlExternal} className="font-mono text-xs" />
-                  <Button variant="outline" size="icon" onClick={() => copyText(detail.superuserUrlExternal!)}><Copy className="size-4" /></Button>
+                  <Input
+                    readOnly
+                    value={detail.superuserUrlExternal}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyText(detail.superuserUrlExternal!)}
+                  >
+                    <Copy className="size-4" />
+                  </Button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Acesso total ao servidor (interno e externo). Guarde com cuidado.</p>
+              <p className="text-xs text-muted-foreground">
+                Acesso total ao servidor (interno e externo). Guarde com cuidado.
+              </p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Usuário</Label><Input readOnly value={detail.username} /></div>
-            <div className="space-y-1.5"><Label>Database</Label><Input readOnly value={detail.database} /></div>
+            <div className="space-y-1.5">
+              <Label>Usuário</Label>
+              <Input readOnly value={detail.username} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Database</Label>
+              <Input readOnly value={detail.database} />
+            </div>
           </div>
-          <div className="space-y-1.5"><Label>Trocar senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="(deixe vazio para manter)" /></div>
+          <div className="space-y-1.5">
+            <Label>Trocar senha</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="(deixe vazio para manter)"
+            />
+          </div>
 
           <div className="rounded-lg border border-border p-3 space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={backupEnabled} onChange={(e) => setBackupEnabled(e.target.checked)} className="accent-primary" /> Backups automáticos (S3)</label>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={backupEnabled}
+                onChange={(e) => setBackupEnabled(e.target.checked)}
+                className="accent-primary"
+              />{" "}
+              Backups automáticos (S3)
+            </label>
             {backupEnabled && (
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Agendamento (cron)</Label><Input value={schedule} onChange={(e) => setSchedule(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>Retenção (dias)</Label><Input type="number" value={retentionDays} onChange={(e) => setRetentionDays(+e.target.value)} /></div>
+                <div className="space-y-1.5">
+                  <Label>Agendamento (cron)</Label>
+                  <Input value={schedule} onChange={(e) => setSchedule(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Retenção (dias)</Label>
+                  <Input
+                    type="number"
+                    value={retentionDays}
+                    onChange={(e) => setRetentionDays(+e.target.value)}
+                  />
+                </div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">O agendamento é executado pela plataforma (cron). Configure os destinos S3 em Organização → Storage.</p>
+            <p className="text-xs text-muted-foreground">
+              O agendamento é executado pela plataforma (cron). Configure os destinos S3 em
+              Organização → Storage.
+            </p>
           </div>
 
-          {id && <DatabaseBackupsPanel databaseId={id} databaseName={detail.name} kind={detail.kind} />}
+          {id && (
+            <DatabaseBackupsPanel databaseId={id} databaseName={detail.name} kind={detail.kind} />
+          )}
         </div>
       )}
     </Drawer>

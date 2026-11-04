@@ -1,9 +1,5 @@
 import prismaClient from "@database/prisma";
-import {
-  transactionStorage,
-  type TenantContext,
-  type TransactionContext,
-} from "@database/context";
+import { transactionStorage, type TenantContext, type TransactionContext } from "@database/context";
 
 /**
  * Abstração transacional própria da plataforma.

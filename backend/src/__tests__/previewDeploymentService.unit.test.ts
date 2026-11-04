@@ -8,7 +8,9 @@ import { beforeAll, describe, expect, mock, test } from "bun:test";
 import type { Application, EnvVar, ServiceDependency } from "@prisma-generated/client";
 import type { PullRequestEvent } from "@infra/realtime/GitEventBus";
 
-await mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
+await mock.module("@database/withTransaction", () => ({
+  withTransaction: (fn: () => unknown) => fn(),
+}));
 
 let PreviewDeploymentService: typeof import("@service/PreviewDeploymentService").PreviewDeploymentService;
 
@@ -33,7 +35,13 @@ const origem = {
   previewPrNumber: null,
 } as unknown as Application;
 
-const preview = { ...origem, id: "prev-1", name: "pr-42-api", previewOfId: "app-1", previewPrNumber: 42 } as unknown as Application;
+const preview = {
+  ...origem,
+  id: "prev-1",
+  name: "pr-42-api",
+  previewOfId: "app-1",
+  previewPrNumber: 42,
+} as unknown as Application;
 
 const event: PullRequestEvent = {
   connectionId: "conn-1",
@@ -57,7 +65,12 @@ const externa = {
   remoteProperty: "password",
 } as unknown as EnvVar;
 
-const dependencia = { id: "dep-1", sourceId: "app-1", targetId: "db-1", injectedKeys: [{ key: "DB_URL", form: "URL" }] } as unknown as ServiceDependency;
+const dependencia = {
+  id: "dep-1",
+  sourceId: "app-1",
+  targetId: "db-1",
+  injectedKeys: [{ key: "DB_URL", form: "URL" }],
+} as unknown as ServiceDependency;
 
 function makeService() {
   const apps = {
@@ -80,7 +93,10 @@ function makeService() {
     remove: mock(async () => undefined),
   };
   const deployments = { trigger: mock(async () => undefined) };
-  const notifier = { notify: mock(async () => undefined), notifyFailure: mock(async () => undefined) };
+  const notifier = {
+    notify: mock(async () => undefined),
+    notifyFailure: mock(async () => undefined),
+  };
   const service = new PreviewDeploymentService(
     apps as never,
     envVars as never,
@@ -114,7 +130,11 @@ describe("criação do preview", () => {
     const { service, deps, networkPolicies } = makeService();
     await service.handlePullRequest(event);
     expect(deps.listBySource).toHaveBeenCalledWith("app-1");
-    expect(deps.create).toHaveBeenCalledWith({ sourceId: "prev-1", targetId: "db-1", injectedKeys: [{ key: "DB_URL", form: "URL" }] });
+    expect(deps.create).toHaveBeenCalledWith({
+      sourceId: "prev-1",
+      targetId: "db-1",
+      injectedKeys: [{ key: "DB_URL", form: "URL" }],
+    });
     expect(deps.listTargetEnvironmentIds).toHaveBeenCalledWith("prev-1");
     expect(networkPolicies.syncEnvironmentQuietly).toHaveBeenCalledWith("env-dados", tenant);
   });
@@ -123,7 +143,9 @@ describe("criação do preview", () => {
   test("deploy do preview leva o commit do head do PR", async () => {
     const { service, deployments } = makeService();
     await service.handlePullRequest(event);
-    expect(deployments.trigger).toHaveBeenCalledWith("prev-1", "abcdef1", tenant, undefined, { commitSha: "abcdef1234567890" });
+    expect(deployments.trigger).toHaveBeenCalledWith("prev-1", "abcdef1", tenant, undefined, {
+      commitSha: "abcdef1234567890",
+    });
   });
 });
 

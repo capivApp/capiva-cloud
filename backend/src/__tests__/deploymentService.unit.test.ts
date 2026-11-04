@@ -9,7 +9,9 @@ import { CapivaConfigError } from "@schemas/capivaConfig.schema";
 import { ImageScanBlockedError } from "@service/ImageScanService";
 import { BuildConfigError } from "@infra/build/BuildConfigError";
 
-await mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
+await mock.module("@database/withTransaction", () => ({
+  withTransaction: (fn: () => unknown) => fn(),
+}));
 
 let DeploymentService: typeof import("@service/DeploymentService").DeploymentService;
 
@@ -33,7 +35,14 @@ const healthy = { id: "dep0", applicationId: "app1", version: "v0", imageRef: "r
 
 type Observed = { ready: boolean; replicas?: number; raw?: Record<string, unknown> };
 
-const makeService = (overrides: { observe?: Observed; podIssues?: string[]; guard?: () => Promise<void>; build?: () => Promise<unknown> } = {}) => {
+const makeService = (
+  overrides: {
+    observe?: Observed;
+    podIssues?: string[];
+    guard?: () => Promise<void>;
+    build?: () => Promise<unknown>;
+  } = {},
+) => {
   const rows = new Map<string, Record<string, unknown>>([[healthy.id, healthy]]);
   const deployments = {
     create: mock(async (data: Record<string, unknown>) => {
@@ -47,7 +56,9 @@ const makeService = (overrides: { observe?: Observed; podIssues?: string[]; guar
     lastHealthy: mock(async () => healthy),
   };
   const apps = { findById: mock(async () => app) };
-  const builds = { resolve: () => ({ build: overrides.build ?? (async () => ({ imageRef: "registry/api:v1" })) }) };
+  const builds = {
+    resolve: () => ({ build: overrides.build ?? (async () => ({ imageRef: "registry/api:v1" })) }),
+  };
   const kube = { forEnvironment: mock(async () => ({ kubeconfig: "cfg", namespace: "prod" })) };
   const k8s = {
     apply: mock(async () => undefined),
@@ -79,8 +90,18 @@ const makeService = (overrides: { observe?: Observed; podIssues?: string[]; guar
     capivaConfig as never,
   );
   const dispatched = (event: string) =>
-    notifications.dispatch.mock.calls.map((c) => (c as unknown as [string, { event: string; data?: unknown }])[1]).filter((n) => n.event === event);
-  return { service, deployments, appService, notifications, commitStatus, capivaConfig, dispatched };
+    notifications.dispatch.mock.calls
+      .map((c) => (c as unknown as [string, { event: string; data?: unknown }])[1])
+      .filter((n) => n.event === event);
+  return {
+    service,
+    deployments,
+    appService,
+    notifications,
+    commitStatus,
+    capivaConfig,
+    dispatched,
+  };
 };
 
 /** O `trigger` devolve na hora e roda o deploy em segundo plano. */
@@ -89,7 +110,8 @@ const waitFor = async (isDone: () => boolean): Promise<void> => {
   expect(isDone()).toBe(true);
 };
 
-const isFinished = (s: ReturnType<typeof makeService>) => () => s.dispatched("deploy.failed").length + s.dispatched("deploy.succeeded").length > 0;
+const isFinished = (s: ReturnType<typeof makeService>) => () =>
+  s.dispatched("deploy.failed").length + s.dispatched("deploy.succeeded").length > 0;
 
 describe("DeploymentService: ref de leitura do capiva.json", () => {
   const refOf = async (commitId?: string, origin?: { commitSha?: string; gitRef?: string }) => {
@@ -104,7 +126,9 @@ describe("DeploymentService: ref de leitura do capiva.json", () => {
   });
 
   it("o sha completo do commit vence a tag", async () => {
-    expect(await refOf("abc1234", { commitSha: "abc1234def", gitRef: "v1.2.0" })).toBe("abc1234def");
+    expect(await refOf("abc1234", { commitSha: "abc1234def", gitRef: "v1.2.0" })).toBe(
+      "abc1234def",
+    );
   });
 
   it("sem origem, usa o commit informado", async () => {
@@ -160,7 +184,12 @@ describe("DeploymentService: pods que não ficam prontos", () => {
     await s.service.trigger("app1", "v1", tenant, "abc", { commitSha: "abc" });
     await waitFor(() => s.dispatched("deploy.rollback").length > 0);
     expect(s.dispatched("deploy.failed")).toHaveLength(1);
-    expect(s.appService.reconcile).toHaveBeenLastCalledWith(app, tenant, undefined, healthy.imageRef);
+    expect(s.appService.reconcile).toHaveBeenLastCalledWith(
+      app,
+      tenant,
+      undefined,
+      healthy.imageRef,
+    );
     expect((s.commitStatus.report.mock.calls.at(-1) as unknown[])[2]).toBe("failed");
   });
 
@@ -169,7 +198,9 @@ describe("DeploymentService: pods que não ficam prontos", () => {
     const deployment = await s.service.trigger("app1", "v1", tenant, "abc", { commitSha: "abc" });
     await waitFor(isFinished(s));
     expect(s.deployments.lastHealthy).not.toHaveBeenCalled();
-    expect(s.dispatched("deploy.rollback")).toEqual([expect.objectContaining({ data: { applicationId: "app1", deploymentId: deployment.id } })]);
+    expect(s.dispatched("deploy.rollback")).toEqual([
+      expect.objectContaining({ data: { applicationId: "app1", deploymentId: deployment.id } }),
+    ]);
   });
 });
 
@@ -177,6 +208,8 @@ describe("DeploymentService: notificação de rollback", () => {
   it("leva aplicação e deploy para o deep link do push", async () => {
     const s = makeService();
     const rollback = await s.service.rollbackTo("app1", healthy.id, tenant);
-    expect(s.dispatched("deploy.rollback")).toEqual([expect.objectContaining({ data: { applicationId: "app1", deploymentId: rollback.id } })]);
+    expect(s.dispatched("deploy.rollback")).toEqual([
+      expect.objectContaining({ data: { applicationId: "app1", deploymentId: rollback.id } }),
+    ]);
   });
 });

@@ -31,15 +31,27 @@ describe("isRuleBreached", () => {
 
 describe("evaluateAlertRule", () => {
   it("OK que passa do limite vira FIRING e dispara alert.triggered", () => {
-    expect(evaluateAlertRule(rule(), 95)).toEqual({ state: "FIRING", event: "alert.triggered", value: 95 });
+    expect(evaluateAlertRule(rule(), 95)).toEqual({
+      state: "FIRING",
+      event: "alert.triggered",
+      value: 95,
+    });
   });
 
   it("FIRING que continua acima do limite não dispara de novo", () => {
-    expect(evaluateAlertRule(rule({ state: "FIRING" }), 99)).toEqual({ state: "FIRING", event: null, value: 99 });
+    expect(evaluateAlertRule(rule({ state: "FIRING" }), 99)).toEqual({
+      state: "FIRING",
+      event: null,
+      value: 99,
+    });
   });
 
   it("FIRING que volta para dentro do limite vira OK e dispara alert.resolved", () => {
-    expect(evaluateAlertRule(rule({ state: "FIRING" }), 40)).toEqual({ state: "OK", event: "alert.resolved", value: 40 });
+    expect(evaluateAlertRule(rule({ state: "FIRING" }), 40)).toEqual({
+      state: "OK",
+      event: "alert.resolved",
+      value: 40,
+    });
   });
 
   it("OK dentro do limite continua OK em silêncio", () => {
@@ -47,7 +59,11 @@ describe("evaluateAlertRule", () => {
   });
 
   it("sem dado mantém o estado atual e não dispara", () => {
-    expect(evaluateAlertRule(rule({ state: "FIRING" }), null)).toEqual({ state: "FIRING", event: null, value: null });
+    expect(evaluateAlertRule(rule({ state: "FIRING" }), null)).toEqual({
+      state: "FIRING",
+      event: null,
+      value: null,
+    });
     expect(evaluateAlertRule(rule(), null)).toEqual({ state: "OK", event: null, value: null });
   });
 });

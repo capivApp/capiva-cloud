@@ -26,7 +26,12 @@ describe("adapter PUSH", () => {
   it("envia o applicationId no data junto com o evento", async () => {
     await notificationAdapterFor("PUSH").send(
       { expoTokens: ["ExponentPushToken[a]", "ExponentPushToken[b]"] },
-      { event: "deploy.succeeded", title: "t", body: "b", data: { applicationId: "app-1", deploymentId: "dep-1" } },
+      {
+        event: "deploy.succeeded",
+        title: "t",
+        body: "b",
+        data: { applicationId: "app-1", deploymentId: "dep-1" },
+      },
     );
 
     expect(sentBody()).toHaveLength(2);
@@ -37,12 +42,18 @@ describe("adapter PUSH", () => {
   });
 
   it("sem data mantém só o evento", async () => {
-    await notificationAdapterFor("PUSH").send({ expoTokens: ["ExponentPushToken[a]"] }, { event: "test", title: "t", body: "b" });
+    await notificationAdapterFor("PUSH").send(
+      { expoTokens: ["ExponentPushToken[a]"] },
+      { event: "test", title: "t", body: "b" },
+    );
     expect(sentBody()[0]?.data).toEqual({ event: "test" });
   });
 
   it("o evento da mensagem não é sobrescrito pelo data", async () => {
-    await notificationAdapterFor("PUSH").send({ expoTokens: ["ExponentPushToken[a]"] }, { event: "deploy.failed", title: "t", body: "b", data: { event: "outro" } });
+    await notificationAdapterFor("PUSH").send(
+      { expoTokens: ["ExponentPushToken[a]"] },
+      { event: "deploy.failed", title: "t", body: "b", data: { event: "outro" } },
+    );
     expect(sentBody()[0]?.data.event).toBe("deploy.failed");
   });
 

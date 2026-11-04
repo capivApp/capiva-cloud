@@ -54,9 +54,13 @@ export function startTerminalGateway(port: number): void {
       // nós de qualquer outra organização.
       try {
         const payload = verifyAccessToken(token);
-        const active = await withTransaction(() => container.get(SessionService).isActive(payload.sid));
+        const active = await withTransaction(() =>
+          container.get(SessionService).isActive(payload.sid),
+        );
         if (!active) return new Response("session revoked", { status: 401 });
-        await container.get(OrganizationService).assertRole(payload.sub, organizationId, "DEVELOPER");
+        await container
+          .get(OrganizationService)
+          .assertRole(payload.sub, organizationId, "DEVELOPER");
       } catch (error) {
         const status = (error as { status?: number }).status === 403 ? 403 : 401;
         return new Response(status === 403 ? "forbidden" : "invalid token", { status });
@@ -65,7 +69,9 @@ export function startTerminalGateway(port: number): void {
       const data: TerminalConnection = pod
         ? { kind: "pod", targetId: pod[1], organizationId }
         : { kind: "node", targetId: node![1], organizationId };
-      return server.upgrade(req, { data }) ? undefined : new Response("upgrade failed", { status: 400 });
+      return server.upgrade(req, { data })
+        ? undefined
+        : new Response("upgrade failed", { status: 400 });
     },
     websocket: {
       async open(ws) {
@@ -82,7 +88,10 @@ export function startTerminalGateway(port: number): void {
         try {
           if (kind === "pod") {
             const target = await pods.resolveTarget(targetId, { organizationId });
-            ws.data.shell = await pods.k8sExec(target, { onData: (c) => ws.send(c.toString("utf8")), onClose });
+            ws.data.shell = await pods.k8sExec(target, {
+              onData: (c) => ws.send(c.toString("utf8")),
+              onClose,
+            });
             ws.send(`\x1b[32mConectado a ${target.pod} (${target.container}).\x1b[0m\r\n`);
           } else {
             const target = await nodes.resolveTarget(targetId, { organizationId });

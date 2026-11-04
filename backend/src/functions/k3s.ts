@@ -26,18 +26,22 @@ export function nodePrerequisitesScript(): string {
 }
 
 /** Comando do CONTROL PLANE (server). Reporta de volta para auto-registro. */
-export function k3sServerScript(opts: { callbackUrl?: string; registrationToken?: string }): string {
-  const callback = opts.callbackUrl && opts.registrationToken
-    ? [
-        "",
-        "# Reporta credenciais para o Capiva Cloud (auto-registro):",
-        "CAPIVA_TOKEN=$(cat /var/lib/rancher/k3s/server/node-token)",
-        "CAPIVA_KUBECONFIG=$(cat /etc/rancher/k3s/k3s.yaml | base64 -w0)",
-        "CAPIVA_IP=$(hostname -I | awk '{print $1}')",
-        `curl -sS -X POST "${opts.callbackUrl}" -H 'Content-Type: application/json' \\`,
-        `  -d "{\\"registrationToken\\":\\"${opts.registrationToken}\\",\\"serverUrl\\":\\"https://$CAPIVA_IP:6443\\",\\"nodeToken\\":\\"$CAPIVA_TOKEN\\",\\"kubeconfig\\":\\"$CAPIVA_KUBECONFIG\\"}"`,
-      ].join("\n")
-    : "";
+export function k3sServerScript(opts: {
+  callbackUrl?: string;
+  registrationToken?: string;
+}): string {
+  const callback =
+    opts.callbackUrl && opts.registrationToken
+      ? [
+          "",
+          "# Reporta credenciais para o Capiva Cloud (auto-registro):",
+          "CAPIVA_TOKEN=$(cat /var/lib/rancher/k3s/server/node-token)",
+          "CAPIVA_KUBECONFIG=$(cat /etc/rancher/k3s/k3s.yaml | base64 -w0)",
+          "CAPIVA_IP=$(hostname -I | awk '{print $1}')",
+          `curl -sS -X POST "${opts.callbackUrl}" -H 'Content-Type: application/json' \\`,
+          `  -d "{\\"registrationToken\\":\\"${opts.registrationToken}\\",\\"serverUrl\\":\\"https://$CAPIVA_IP:6443\\",\\"nodeToken\\":\\"$CAPIVA_TOKEN\\",\\"kubeconfig\\":\\"$CAPIVA_KUBECONFIG\\"}"`,
+        ].join("\n")
+      : "";
 
   return [
     nodePrerequisitesScript(),

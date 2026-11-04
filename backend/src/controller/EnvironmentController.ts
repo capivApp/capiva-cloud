@@ -19,7 +19,9 @@ export class EnvironmentController {
 
   update = async (req: Request, res: Response): Promise<void> => {
     const dto = updateEnvironmentSchema.parse(req.body ?? {});
-    res.json(await this.environments.update(tenantOf(req).organizationId, String(req.params.id), dto));
+    res.json(
+      await this.environments.update(tenantOf(req).organizationId, String(req.params.id), dto),
+    );
   };
 
   remove = async (req: Request, res: Response): Promise<void> => {

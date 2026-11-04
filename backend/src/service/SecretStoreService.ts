@@ -42,23 +42,29 @@ export class SecretStoreService {
   ) {}
 
   async list(tenant: Tenant): Promise<SecretStoreView[]> {
-    const rows = await withTransaction(() => this.stores.listByOrganization(tenant.organizationId), { tenant });
+    const rows = await withTransaction(
+      () => this.stores.listByOrganization(tenant.organizationId),
+      { tenant },
+    );
     return rows.map(toSecretStoreView);
   }
 
   async create(input: CreateSecretStoreDTO, tenant: Tenant): Promise<SecretStoreView> {
-    const created = await withTransaction(async () => {
-      if (await this.stores.findByName(tenant.organizationId, input.name)) {
-        throw HttpError.conflict("Já existe um cofre com esse nome.");
-      }
-      return this.stores.create({
-        organizationId: tenant.organizationId,
-        name: input.name,
-        provider: input.provider,
-        config: input.config,
-        credentialsCipher: encrypt(JSON.stringify(input.credentials)),
-      });
-    }, { tenant });
+    const created = await withTransaction(
+      async () => {
+        if (await this.stores.findByName(tenant.organizationId, input.name)) {
+          throw HttpError.conflict("Já existe um cofre com esse nome.");
+        }
+        return this.stores.create({
+          organizationId: tenant.organizationId,
+          name: input.name,
+          provider: input.provider,
+          config: input.config,
+          credentialsCipher: encrypt(JSON.stringify(input.credentials)),
+        });
+      },
+      { tenant },
+    );
     return toSecretStoreView(created);
   }
 
@@ -79,14 +85,19 @@ export class SecretStoreService {
 
   /** Remove o cofre e o SecretStore dos namespaces onde ele foi materializado. */
   async remove(id: string, tenant: Tenant): Promise<void> {
-    const environmentIds = await withTransaction(async () => {
-      const inUse = await this.stores.listEnvironmentIdsInUse(id);
-      await this.stores.delete(id);
-      return inUse;
-    }, { tenant });
+    const environmentIds = await withTransaction(
+      async () => {
+        const inUse = await this.stores.listEnvironmentIdsInUse(id);
+        await this.stores.delete(id);
+        return inUse;
+      },
+      { tenant },
+    );
     for (const environmentId of environmentIds) {
       const ctx = await this.kube.forEnvironment(environmentId, tenant);
-      await this.removeStoreResources(id, ctx).catch((e) => console.error("[secret-store] remoção:", (e as Error).message));
+      await this.removeStoreResources(id, ctx).catch((e) =>
+        console.error("[secret-store] remoção:", (e as Error).message),
+      );
     }
   }
 
@@ -95,16 +106,27 @@ export class SecretStoreService {
    * das variáveis externas. Sem variável externa, remove o ExternalSecret (o
    * Secret sincronizado vai junto, por ser `Owner`).
    */
-  async syncApplication(appName: string, rows: StoredEnvVar[], ctx: KubeContext, tenant: Tenant): Promise<void> {
+  async syncApplication(
+    appName: string,
+    rows: StoredEnvVar[],
+    ctx: KubeContext,
+    tenant: Tenant,
+  ): Promise<void> {
     const entries = buildExternalEnvEntries(rows);
     if (!entries.length) {
-      await this.k8s.remove(ctx, "external-secrets.io/v1", "ExternalSecret", externalSecretName(appName)).catch(() => undefined);
+      await this.k8s
+        .remove(ctx, "external-secrets.io/v1", "ExternalSecret", externalSecretName(appName))
+        .catch(() => undefined);
       return;
     }
     await this.operators.ensure(ctx, "EXTERNAL_SECRETS");
-    const stores = await withTransaction(() => this.stores.findManyByIds([...new Set(entries.map((e) => e.storeId))]), { tenant });
+    const stores = await withTransaction(
+      () => this.stores.findManyByIds([...new Set(entries.map((e) => e.storeId))]),
+      { tenant },
+    );
     for (const store of stores) {
-      for (const manifest of secretStoreManifests(this.toManifestInput(store, ctx.namespace))) await this.k8s.apply(ctx, manifest);
+      for (const manifest of secretStoreManifests(this.toManifestInput(store, ctx.namespace)))
+        await this.k8s.apply(ctx, manifest);
     }
     await this.k8s.apply(ctx, externalSecretManifest(appName, ctx.namespace, entries));
   }

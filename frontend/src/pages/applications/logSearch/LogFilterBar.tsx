@@ -1,7 +1,12 @@
 import { Download, Search } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useSyncedDraft } from "@/hooks/useSyncedDraft";
@@ -28,7 +33,14 @@ interface DebouncedInputProps {
 }
 
 /** Campo de texto que só grava na URL depois de uma pausa na digitação. */
-function DebouncedInput({ value, onCommit, placeholder, className, invalid, icon }: DebouncedInputProps) {
+function DebouncedInput({
+  value,
+  onCommit,
+  placeholder,
+  className,
+  invalid,
+  icon,
+}: DebouncedInputProps) {
   const [draft, setDraft] = useSyncedDraft(value, () => value);
   const debounced = useDebouncedValue(draft);
 
@@ -38,13 +50,18 @@ function DebouncedInput({ value, onCommit, placeholder, className, invalid, icon
 
   return (
     <div className={cn("relative", className)}>
-      {icon && <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />}
+      {icon && (
+        <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+      )}
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
         aria-invalid={invalid}
-        className={cn(icon && "pl-8", invalid && "border-destructive focus-visible:ring-destructive")}
+        className={cn(
+          icon && "pl-8",
+          invalid && "border-destructive focus-visible:ring-destructive",
+        )}
       />
     </div>
   );
@@ -66,21 +83,47 @@ interface LogFilterBarProps {
   isDownloading: boolean;
 }
 
-export function LogFilterBar({ filters, onChange, pods, onDownload, isDownloading }: LogFilterBarProps) {
+export function LogFilterBar({
+  filters,
+  onChange,
+  pods,
+  onDownload,
+  isDownloading,
+}: LogFilterBarProps) {
   const isRegexValid = isValidRegex(filters.regex);
   const podOptions = filters.pod && !pods.includes(filters.pod) ? [filters.pod, ...pods] : pods;
 
   const toggleLevel = (level: LogLevel) =>
-    onChange({ levels: filters.levels.includes(level) ? filters.levels.filter((l) => l !== level) : [...filters.levels, level] });
+    onChange({
+      levels: filters.levels.includes(level)
+        ? filters.levels.filter((l) => l !== level)
+        : [...filters.levels, level],
+    });
 
   return (
     <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-3">
-        <DebouncedInput icon value={filters.q} onCommit={(q) => onChange({ q })} placeholder="Buscar nos logs" />
-        <DebouncedInput value={filters.exclude} onCommit={(exclude) => onChange({ exclude })} placeholder="Não contém" />
+        <DebouncedInput
+          icon
+          value={filters.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Buscar nos logs"
+        />
+        <DebouncedInput
+          value={filters.exclude}
+          onCommit={(exclude) => onChange({ exclude })}
+          placeholder="Não contém"
+        />
         <div>
-          <DebouncedInput value={filters.regex} onCommit={(regex) => onChange({ regex })} placeholder="Expressão regular" invalid={!isRegexValid} />
-          {!isRegexValid && <p className="mt-1 text-xs text-destructive">Expressão regular inválida.</p>}
+          <DebouncedInput
+            value={filters.regex}
+            onCommit={(regex) => onChange({ regex })}
+            placeholder="Expressão regular"
+            invalid={!isRegexValid}
+          />
+          {!isRegexValid && (
+            <p className="mt-1 text-xs text-destructive">Expressão regular inválida.</p>
+          )}
         </div>
       </div>
 
@@ -99,16 +142,32 @@ export function LogFilterBar({ filters, onChange, pods, onDownload, isDownloadin
           ))}
         </div>
 
-        <select className={selectClass} aria-label="Intervalo" value={filters.interval} onChange={(e) => onChange({ interval: e.target.value as LogInterval, start: "", end: "" })}>
+        <select
+          className={selectClass}
+          aria-label="Intervalo"
+          value={filters.interval}
+          onChange={(e) =>
+            onChange({ interval: e.target.value as LogInterval, start: "", end: "" })
+          }
+        >
           {LOG_INTERVAL_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
 
-        <select className={selectClass} aria-label="Pod" value={filters.pod} onChange={(e) => onChange({ pod: e.target.value })}>
+        <select
+          className={selectClass}
+          aria-label="Pod"
+          value={filters.pod}
+          onChange={(e) => onChange({ pod: e.target.value })}
+        >
           <option value="">Todos os pods</option>
           {podOptions.map((pod) => (
-            <option key={pod} value={pod}>{pod}</option>
+            <option key={pod} value={pod}>
+              {pod}
+            </option>
           ))}
         </select>
 
@@ -120,7 +179,9 @@ export function LogFilterBar({ filters, onChange, pods, onDownload, isDownloadin
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => onDownload("txt")}>Texto (.txt)</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onDownload("ndjson")}>NDJSON (.ndjson)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onDownload("ndjson")}>
+              NDJSON (.ndjson)
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -128,9 +189,19 @@ export function LogFilterBar({ filters, onChange, pods, onDownload, isDownloadin
       {filters.interval === "custom" && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>De</span>
-          <Input type="datetime-local" className="w-auto" value={toLocalInput(filters.start)} onChange={(e) => onChange({ start: fromLocalInput(e.target.value) })} />
+          <Input
+            type="datetime-local"
+            className="w-auto"
+            value={toLocalInput(filters.start)}
+            onChange={(e) => onChange({ start: fromLocalInput(e.target.value) })}
+          />
           <span>até</span>
-          <Input type="datetime-local" className="w-auto" value={toLocalInput(filters.end)} onChange={(e) => onChange({ end: fromLocalInput(e.target.value) })} />
+          <Input
+            type="datetime-local"
+            className="w-auto"
+            value={toLocalInput(filters.end)}
+            onChange={(e) => onChange({ end: fromLocalInput(e.target.value) })}
+          />
         </div>
       )}
     </div>

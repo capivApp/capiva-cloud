@@ -16,7 +16,10 @@ export class TlsCertificateController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createTlsCertificateSchema.parse(req.body);
-    const { certCipher, keyCipher, ...rest } = await this.certs.create(tenantOf(req).organizationId, dto);
+    const { certCipher, keyCipher, ...rest } = await this.certs.create(
+      tenantOf(req).organizationId,
+      dto,
+    );
     res.status(201).json(rest);
   };
 

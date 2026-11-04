@@ -1,4 +1,9 @@
-import { estimateCustoDoRecurso, sumFaixasDeCusto, type FaixaDeCusto, type TabelaDePrecos } from "@functions/finops/custo";
+import {
+  estimateCustoDoRecurso,
+  sumFaixasDeCusto,
+  type FaixaDeCusto,
+  type TabelaDePrecos,
+} from "@functions/finops/custo";
 import {
   toRecursoDaAplicacao,
   toRecursoDoBanco,
@@ -39,11 +44,17 @@ const estimateCustoDaAplicacao = (app: AplicacaoInventario, precos: TabelaDePrec
     ...app.volumes.map((volume) => estimateCustoDoRecurso(toRecursoDoVolume(volume), precos)),
   ]);
 
-const groupCusto = (itens: ItemDeCusto[], grupos: { id: string; name: string }[], chave: "projectId" | "environmentId"): GrupoDeCusto[] =>
+const groupCusto = (
+  itens: ItemDeCusto[],
+  grupos: { id: string; name: string }[],
+  chave: "projectId" | "environmentId",
+): GrupoDeCusto[] =>
   grupos.map((grupo) => ({
     id: grupo.id,
     name: grupo.name,
-    custo: sumFaixasDeCusto(itens.filter((item) => item[chave] === grupo.id).map((item) => item.custo)),
+    custo: sumFaixasDeCusto(
+      itens.filter((item) => item[chave] === grupo.id).map((item) => item.custo),
+    ),
   }));
 
 /** Custo estimado do inventário, agregado por aplicação, banco, projeto e ambiente. */
@@ -59,8 +70,12 @@ export const buildRelatorioDeCusto = (
     environmentId: recurso.environmentId,
     custo,
   });
-  const aplicacoes = inventario.aplicacoes.map((app) => toItem(app, estimateCustoDaAplicacao(app, precos)));
-  const bancos = inventario.bancos.map((banco) => toItem(banco, estimateCustoDoRecurso(toRecursoDoBanco(banco), precos)));
+  const aplicacoes = inventario.aplicacoes.map((app) =>
+    toItem(app, estimateCustoDaAplicacao(app, precos)),
+  );
+  const bancos = inventario.bancos.map((banco) =>
+    toItem(banco, estimateCustoDoRecurso(toRecursoDoBanco(banco), precos)),
+  );
   const itens = [...aplicacoes, ...bancos];
 
   return {

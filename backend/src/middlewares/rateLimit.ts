@@ -27,7 +27,12 @@ interface Bucket {
 const clientIp = (req: Request): string => req.ip ?? req.socket.remoteAddress ?? "unknown";
 
 export function rateLimit(options: RateLimitOptions) {
-  const { windowMs, max, keyBy = clientIp, message = "Muitas requisições. Tente novamente em instantes." } = options;
+  const {
+    windowMs,
+    max,
+    keyBy = clientIp,
+    message = "Muitas requisições. Tente novamente em instantes.",
+  } = options;
   const buckets = new Map<string, Bucket>();
 
   /** Remove janelas expiradas para o mapa não crescer sem limite. */

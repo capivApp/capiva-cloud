@@ -34,7 +34,8 @@ class PostgresRestore implements RestoreKindStrategy {
   command({ resetTarget }: RestoreCommandOptions): string {
     return steps(
       waitFor('pg_isready -d "$SRC_URL"'),
-      resetTarget && `psql -v ON_ERROR_STOP=1 "$SRC_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"`,
+      resetTarget &&
+        `psql -v ON_ERROR_STOP=1 "$SRC_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"`,
       `${FETCH_DUMP} | psql -v ON_ERROR_STOP=1 "$SRC_URL"`,
     );
   }
@@ -66,5 +67,8 @@ const RESTORE_KINDS: Record<string, RestoreKindStrategy> = {
 export const createRestoreKindStrategy = (kind: string): RestoreKindStrategy => {
   const strategy = RESTORE_KINDS[kind];
   if (strategy) return strategy;
-  throw HttpError.badRequest(`Restore de backup não é suportado para ${kind}. Use PostgreSQL ou MySQL.`, "RESTORE_NOT_SUPPORTED");
+  throw HttpError.badRequest(
+    `Restore de backup não é suportado para ${kind}. Use PostgreSQL ou MySQL.`,
+    "RESTORE_NOT_SUPPORTED",
+  );
 };

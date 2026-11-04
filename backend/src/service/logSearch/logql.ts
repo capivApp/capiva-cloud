@@ -28,7 +28,8 @@ const ESCAPES: Record<string, string> = {
 };
 
 /** String literal do LogQL (aspas duplas, escape estilo Go). */
-export const quoteLogQL = (value: string): string => `"${value.replace(/[\\"\n\r\t]/g, (c) => ESCAPES[c])}"`;
+export const quoteLogQL = (value: string): string =>
+  `"${value.replace(/[\\"\n\r\t]/g, (c) => ESCAPES[c])}"`;
 
 const matcher = (label: string, value: string) => `${label}=${quoteLogQL(value)}`;
 
@@ -40,7 +41,8 @@ export const buildLogSelector = (scope: LogScope, pod?: string): string => {
 
 type LineFilter = (filtros: LogFiltros) => string | undefined;
 
-const textFilter = (operator: string, value?: string) => (value ? `${operator} ${quoteLogQL(value)}` : undefined);
+const textFilter = (operator: string, value?: string) =>
+  value ? `${operator} ${quoteLogQL(value)}` : undefined;
 
 /** Ordem dos estágios: os filtros literais (baratos) antes dos de regex. */
 const LINE_FILTERS: LineFilter[] = [
@@ -51,18 +53,27 @@ const LINE_FILTERS: LineFilter[] = [
 ];
 
 export const buildLogQL = (scope: LogScope, filtros: LogFiltros): string =>
-  [buildLogSelector(scope, filtros.pod), ...LINE_FILTERS.map((build) => build(filtros))].filter(Boolean).join(" ");
+  [buildLogSelector(scope, filtros.pod), ...LINE_FILTERS.map((build) => build(filtros))]
+    .filter(Boolean)
+    .join(" ");
 
 const toNs = (ms: number): string => String(BigInt(ms) * 1_000_000n);
 
 /** Início/fim explícitos vencem o "últimos N"; sem nada, a última hora. */
-export const resolveIntervalo = (filtros: Pick<LogFiltros, "since" | "start" | "end">, now: number) => {
+export const resolveIntervalo = (
+  filtros: Pick<LogFiltros, "since" | "start" | "end">,
+  now: number,
+) => {
   const end = filtros.end ? Date.parse(filtros.end) : now;
   if (filtros.start) return { start: toNs(Date.parse(filtros.start)), end: toNs(end) };
   return { start: toNs(now - SINCE_MS[filtros.since ?? DEFAULT_SINCE]), end: toNs(end) };
 };
 
-export const buildLokiRangeRequest = (scope: LogScope, filtros: LogFiltros, now: number): LogRangeRequest => ({
+export const buildLokiRangeRequest = (
+  scope: LogScope,
+  filtros: LogFiltros,
+  now: number,
+): LogRangeRequest => ({
   query: buildLogQL(scope, filtros),
   ...resolveIntervalo(filtros, now),
   limit: filtros.limit ?? DEFAULT_LOG_LIMIT,

@@ -32,21 +32,32 @@ export class ClusterProvisioningController {
   copyPaste = async (req: Request, res: Response): Promise<void> => {
     const name = (req.body?.name as string)?.trim();
     if (!name) throw HttpError.badRequest("Nome é obrigatório.");
-    const { cluster, serverScript } = await this.provisioner.createCopyPaste(tenantOf(req).organizationId, name);
+    const { cluster, serverScript } = await this.provisioner.createCopyPaste(
+      tenantOf(req).organizationId,
+      name,
+    );
     const { kubeconfigCipher, nodeTokenCipher, registrationToken, ...rest } = cluster;
     res.status(201).json({ cluster: rest, serverScript });
   };
 
   ssh = async (req: Request, res: Response): Promise<void> => {
     const dto = sshSchema.parse(req.body);
-    const cluster = await this.provisioner.provisionViaSsh(tenantOf(req).organizationId, dto.name, dto.nodes);
+    const cluster = await this.provisioner.provisionViaSsh(
+      tenantOf(req).organizationId,
+      dto.name,
+      dto.nodes,
+    );
     const { kubeconfigCipher, nodeTokenCipher, ...rest } = cluster;
     res.status(202).json(rest);
   };
 
   joinCommand = async (req: Request, res: Response): Promise<void> => {
     const role = (req.query.role as "CONTROL_PLANE" | "WORKER") ?? "WORKER";
-    const command = await this.provisioner.joinCommand(tenantOf(req).organizationId, String(req.params.id), role);
+    const command = await this.provisioner.joinCommand(
+      tenantOf(req).organizationId,
+      String(req.params.id),
+      role,
+    );
     res.json({ command });
   };
 
@@ -56,12 +67,21 @@ export class ClusterProvisioningController {
 
   cordon = async (req: Request, res: Response): Promise<void> => {
     const schedulable = req.body?.schedulable !== false;
-    await this.nodes.setSchedulable(tenantOf(req).organizationId, String(req.params.id), String(req.params.node), schedulable);
+    await this.nodes.setSchedulable(
+      tenantOf(req).organizationId,
+      String(req.params.id),
+      String(req.params.node),
+      schedulable,
+    );
     res.json({ ok: true });
   };
 
   removeNode = async (req: Request, res: Response): Promise<void> => {
-    await this.nodes.removeNode(tenantOf(req).organizationId, String(req.params.id), String(req.params.nodeId));
+    await this.nodes.removeNode(
+      tenantOf(req).organizationId,
+      String(req.params.id),
+      String(req.params.nodeId),
+    );
     res.status(204).end();
   };
 }

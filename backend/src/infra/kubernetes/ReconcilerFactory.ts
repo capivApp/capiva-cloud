@@ -1,7 +1,10 @@
 import { Injectable, container } from "@di/index";
 import { ApplicationReconciler } from "@infra/kubernetes/reconcilers/ApplicationReconciler";
 import { DatabaseReconciler } from "@infra/kubernetes/reconcilers/DatabaseReconciler";
-import { CronJobReconciler, WorkerReconciler } from "@infra/kubernetes/reconcilers/WorkloadReconcilers";
+import {
+  CronJobReconciler,
+  WorkerReconciler,
+} from "@infra/kubernetes/reconcilers/WorkloadReconcilers";
 import { QuotaReconciler } from "@infra/kubernetes/reconcilers/QuotaReconciler";
 
 /**

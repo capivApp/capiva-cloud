@@ -15,7 +15,10 @@ export class OrganizationService {
 
   create(userId: string, name: string): Promise<Organization> {
     return withTransaction(async () => {
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
       if (await this.orgs.findBySlug(slug)) throw HttpError.conflict("Slug já existe.");
       const org = await this.orgs.create({ name, slug });
       await this.orgs.addMember({ userId, organizationId: org.id, role: "OWNER" });

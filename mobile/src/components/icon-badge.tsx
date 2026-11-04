@@ -31,7 +31,9 @@ interface IconBadgeProps {
 /** Quadradinho arredondado com ícone tintado — assinatura visual dos cards. */
 export function IconBadge({ icon: Icon, tint = "primary", size = 18, className }: IconBadgeProps) {
   return (
-    <View className={cn("h-10 w-10 items-center justify-center rounded-xl", TINT_BG[tint], className)}>
+    <View
+      className={cn("h-10 w-10 items-center justify-center rounded-xl", TINT_BG[tint], className)}
+    >
       <Icon color={TINT_COLOR[tint]} size={size} />
     </View>
   );

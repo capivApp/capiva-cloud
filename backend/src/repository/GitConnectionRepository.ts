@@ -9,7 +9,10 @@ export class GitConnectionRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<GitConnection[]> {
-    return this.tx.gitConnection.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.gitConnection.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<GitConnection | null> {

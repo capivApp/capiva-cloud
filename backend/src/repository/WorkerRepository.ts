@@ -10,7 +10,10 @@ export class WorkerRepository extends BaseRepository {
   }
 
   listByProject(projectId: string): Promise<Worker[]> {
-    return this.tx.worker.findMany({ where: { projectId, ...this.scope("worker") }, orderBy: { createdAt: "asc" } });
+    return this.tx.worker.findMany({
+      where: { projectId, ...this.scope("worker") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<Worker | null> {

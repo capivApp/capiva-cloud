@@ -7,5 +7,8 @@ export interface LogLine {
 
 /** Logs ao vivo da aplicação via SSE. */
 export function useLogsStream(applicationId: string | null) {
-  return useEventSource<LogLine[]>(applicationId ? `/streams/applications/${applicationId}/logs` : null, "logs");
+  return useEventSource<LogLine[]>(
+    applicationId ? `/streams/applications/${applicationId}/logs` : null,
+    "logs",
+  );
 }

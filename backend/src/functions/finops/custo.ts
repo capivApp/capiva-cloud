@@ -28,11 +28,14 @@ export const DEFAULT_TABELA_DE_PRECOS: TabelaDePrecos = {
 
 const readPreco = (raw: string | undefined, fallback: number): number => {
   const valor = Number(raw);
-  if (raw === undefined || raw.trim() === "" || !Number.isFinite(valor) || valor < 0) return fallback;
+  if (raw === undefined || raw.trim() === "" || !Number.isFinite(valor) || valor < 0)
+    return fallback;
   return valor;
 };
 
-export const readTabelaDePrecos = (env: Record<string, string | undefined> = process.env): TabelaDePrecos => ({
+export const readTabelaDePrecos = (
+  env: Record<string, string | undefined> = process.env,
+): TabelaDePrecos => ({
   currency: env.CAPIVA_PRICE_CURRENCY?.trim() || DEFAULT_TABELA_DE_PRECOS.currency,
   vcpuHour: readPreco(env.CAPIVA_PRICE_VCPU_HOUR, DEFAULT_TABELA_DE_PRECOS.vcpuHour),
   ramGbHour: readPreco(env.CAPIVA_PRICE_RAM_GB_HOUR, DEFAULT_TABELA_DE_PRECOS.ramGbHour),
@@ -49,12 +52,21 @@ export const calculateCustoMensal = (consumo: Consumo, precos: TabelaDePrecos): 
 };
 
 /** Custo mensal estimado de um recurso: a strategy do tipo dá a faixa de consumo. */
-export const estimateCustoDoRecurso = (recurso: RecursoMedido, precos: TabelaDePrecos): FaixaDeCusto => {
+export const estimateCustoDoRecurso = (
+  recurso: RecursoMedido,
+  precos: TabelaDePrecos,
+): FaixaDeCusto => {
   const faixa = buildFaixaDeConsumo(recurso);
-  return { min: calculateCustoMensal(faixa.min, precos), max: calculateCustoMensal(faixa.max, precos) };
+  return {
+    min: calculateCustoMensal(faixa.min, precos),
+    max: calculateCustoMensal(faixa.max, precos),
+  };
 };
 
 export const sumFaixasDeCusto = (faixas: FaixaDeCusto[]): FaixaDeCusto => {
-  const total = faixas.reduce((acc, f) => ({ min: acc.min + f.min, max: acc.max + f.max }), { min: 0, max: 0 });
+  const total = faixas.reduce((acc, f) => ({ min: acc.min + f.min, max: acc.max + f.max }), {
+    min: 0,
+    max: 0,
+  });
   return { min: roundCentavos(total.min), max: roundCentavos(total.max) };
 };

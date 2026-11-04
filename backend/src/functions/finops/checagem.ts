@@ -1,7 +1,20 @@
 import { HttpError } from "@functions/HttpError";
-import { subtractConsumo, type RecursoDeConsumo, type RecursoMedido } from "@functions/finops/consumo";
-import { buildConsumoMaximo, buildUsoDoInventario, type Inventario } from "@functions/finops/inventario";
-import { findViolacoesDeQuota, isQuotaDefinida, type QuotaLimite, type QuotaViolacao } from "@functions/finops/quota";
+import {
+  subtractConsumo,
+  type RecursoDeConsumo,
+  type RecursoMedido,
+} from "@functions/finops/consumo";
+import {
+  buildConsumoMaximo,
+  buildUsoDoInventario,
+  type Inventario,
+} from "@functions/finops/inventario";
+import {
+  findViolacoesDeQuota,
+  isQuotaDefinida,
+  type QuotaLimite,
+  type QuotaViolacao,
+} from "@functions/finops/quota";
 
 /** Colunas de quota do ambiente (schema Prisma). */
 export interface ColunasDeQuota {
@@ -38,7 +51,13 @@ export interface PedidoDeQuota {
 }
 
 /** O que o pedido estoura na quota do ambiente; vazio quando cabe ou não há quota. */
-export const findViolacoesDoPedido = ({ limite, inventario, pedido, substitui = [], paths }: PedidoDeQuota): QuotaViolacao[] => {
+export const findViolacoesDoPedido = ({
+  limite,
+  inventario,
+  pedido,
+  substitui = [],
+  paths,
+}: PedidoDeQuota): QuotaViolacao[] => {
   if (!isQuotaDefinida(limite)) return [];
   const uso = subtractConsumo(buildUsoDoInventario(inventario), buildConsumoMaximo(substitui));
   return findViolacoesDeQuota(limite, uso, buildConsumoMaximo(pedido), paths);

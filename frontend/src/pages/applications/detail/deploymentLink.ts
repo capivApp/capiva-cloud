@@ -4,7 +4,8 @@
  */
 const ABA_PADRAO = "deploys";
 
-export const readDeploymentDestacado = (params: URLSearchParams): string | null => params.get("deployment") || null;
+export const readDeploymentDestacado = (params: URLSearchParams): string | null =>
+  params.get("deployment") || null;
 
 /** O link de um deploy sempre abre em Deploys, que é onde o deploy aparece. */
 export const readApplicationTab = (params: URLSearchParams): string => {
@@ -12,7 +13,8 @@ export const readApplicationTab = (params: URLSearchParams): string => {
   return params.get("tab") ?? ABA_PADRAO;
 };
 
-export const isDeploymentDestacado = (deploymentId: string, destacado: string | null): boolean => deploymentId === destacado;
+export const isDeploymentDestacado = (deploymentId: string, destacado: string | null): boolean =>
+  deploymentId === destacado;
 
 /** Trocar de aba solta o deploy do link: senão ele puxaria a tela de volta para Deploys. */
 export const writeApplicationTab = (current: URLSearchParams, tab: string): URLSearchParams => {

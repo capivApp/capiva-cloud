@@ -30,7 +30,8 @@ export function useDatabaseBackups(databaseId: string | null) {
   });
 
   const runMut = useMutation({
-    mutationFn: (input: RunBackupInput) => api.post<DatabaseBackup>(`/databases/${databaseId}/backups`, input),
+    mutationFn: (input: RunBackupInput) =>
+      api.post<DatabaseBackup>(`/databases/${databaseId}/backups`, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 

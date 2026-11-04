@@ -16,12 +16,15 @@ const repoOf = (app: Application): string | undefined => {
   return (cfg.repo as string | undefined) ?? (cfg.fullName as string | undefined);
 };
 
-const branchOf = (app: Application): string => (sourceConfigOf(app).branch as string | undefined) ?? "main";
+const branchOf = (app: Application): string =>
+  (sourceConfigOf(app).branch as string | undefined) ?? "main";
 
-export const isPreview = (app: Pick<Application, "previewOfId">): boolean => Boolean(app.previewOfId);
+export const isPreview = (app: Pick<Application, "previewOfId">): boolean =>
+  Boolean(app.previewOfId);
 
 /** Toggle "Ambientes de preview por PR" (`sourceConfig.previews.enabled`, default false). */
-export const isPreviewsHabilitados = (app: Application): boolean => sourceConfigOf(app).previews?.enabled === true;
+export const isPreviewsHabilitados = (app: Application): boolean =>
+  sourceConfigOf(app).previews?.enabled === true;
 
 /**
  * A aplicação é deste repositório nesta conexão. Mesma regra do push: sem repo
@@ -36,7 +39,9 @@ export const isOrigemDoRepositorio = (app: Application, event: PullRequestEvent)
 
 /** Cria/redeploya preview: previews ligados e a branch de deploy é o alvo do PR. */
 export const isOrigemElegivelParaPreview = (app: Application, event: PullRequestEvent): boolean =>
-  isOrigemDoRepositorio(app, event) && isPreviewsHabilitados(app) && branchOf(app) === event.targetBranch;
+  isOrigemDoRepositorio(app, event) &&
+  isPreviewsHabilitados(app) &&
+  branchOf(app) === event.targetBranch;
 
 /**
  * Preview parado há mais de `ttlDays`. A atividade é o `updatedAt`: todo evento

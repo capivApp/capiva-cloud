@@ -9,13 +9,27 @@ import { updateApplicationSchema } from "@schemas/application.schema";
 
 const SHA = "0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c";
 
-const push: GitWebhookEvent = { kind: "push", branch: "main", sha: SHA, repo: "acme/api", changedPaths: ["apps/api/a.ts"] };
+const push: GitWebhookEvent = {
+  kind: "push",
+  branch: "main",
+  sha: SHA,
+  repo: "acme/api",
+  changedPaths: ["apps/api/a.ts"],
+};
 const tag: GitWebhookEvent = { kind: "tag", tag: "v1.4.0", sha: SHA, repo: "acme/api" };
-const release: GitWebhookEvent = { kind: "release", tag: "v1.4.0", name: "v1.4.0", repo: "acme/api" };
+const release: GitWebhookEvent = {
+  kind: "release",
+  tag: "v1.4.0",
+  name: "v1.4.0",
+  repo: "acme/api",
+};
 
 describe("resolveDeployTarget: branch (padrão)", () => {
   it("push na branch configurada dispara com o sha curto no rótulo e o sha completo à parte", () => {
-    expect(resolveDeployTarget({ branch: "main", repo: "acme/api" }, push)).toEqual({ version: "0d1a26e", commitSha: SHA });
+    expect(resolveDeployTarget({ branch: "main", repo: "acme/api" }, push)).toEqual({
+      version: "0d1a26e",
+      commitSha: SHA,
+    });
   });
 
   it("sem branch configurada, assume main", () => {
@@ -42,7 +56,11 @@ describe("resolveDeployTarget: branch (padrão)", () => {
 
 describe("resolveDeployTarget: tag", () => {
   it("tag dispara deploy daquela tag", () => {
-    expect(resolveDeployTarget({ deployTrigger: "tag" }, tag)).toEqual({ version: "v1.4.0", commitSha: SHA, gitRef: "refs/tags/v1.4.0" });
+    expect(resolveDeployTarget({ deployTrigger: "tag" }, tag)).toEqual({
+      version: "v1.4.0",
+      commitSha: SHA,
+      gitRef: "refs/tags/v1.4.0",
+    });
   });
 
   it("respeita o tagPattern", () => {
@@ -63,16 +81,26 @@ describe("resolveDeployTarget: tag", () => {
 
 describe("resolveDeployTarget: release", () => {
   it("release publicada dispara deploy da tag; sem sha quando o provedor não informa", () => {
-    expect(resolveDeployTarget({ deployTrigger: "release" }, release)).toEqual({ version: "v1.4.0", commitSha: undefined, gitRef: "refs/tags/v1.4.0" });
+    expect(resolveDeployTarget({ deployTrigger: "release" }, release)).toEqual({
+      version: "v1.4.0",
+      commitSha: undefined,
+      gitRef: "refs/tags/v1.4.0",
+    });
   });
 
   it("repassa o sha quando o provedor informa (GitLab)", () => {
-    expect(resolveDeployTarget({ deployTrigger: "release" }, { ...release, sha: SHA })?.commitSha).toBe(SHA);
+    expect(
+      resolveDeployTarget({ deployTrigger: "release" }, { ...release, sha: SHA })?.commitSha,
+    ).toBe(SHA);
   });
 
   it("respeita o tagPattern e ignora tag avulsa", () => {
-    expect(resolveDeployTarget({ deployTrigger: "release", tagPattern: "v1.*" }, release)).not.toBeNull();
-    expect(resolveDeployTarget({ deployTrigger: "release", tagPattern: "v2.*" }, release)).toBeNull();
+    expect(
+      resolveDeployTarget({ deployTrigger: "release", tagPattern: "v1.*" }, release),
+    ).not.toBeNull();
+    expect(
+      resolveDeployTarget({ deployTrigger: "release", tagPattern: "v2.*" }, release),
+    ).toBeNull();
     expect(resolveDeployTarget({ deployTrigger: "release" }, tag)).toBeNull();
   });
 });
@@ -81,7 +109,15 @@ describe("resolveDeployTarget: PR/MR nunca dispara deploy", () => {
   it("pull request é publicado no barramento, não vira deploy", () => {
     const pr: GitWebhookEvent = {
       kind: "pull_request",
-      pullRequest: { action: "opened", number: 1, title: "x", repo: "acme/api", sourceBranch: "main", targetBranch: "main", headSha: SHA },
+      pullRequest: {
+        action: "opened",
+        number: 1,
+        title: "x",
+        repo: "acme/api",
+        sourceBranch: "main",
+        targetBranch: "main",
+        headSha: SHA,
+      },
     };
     expect(resolveDeployTarget({}, pr)).toBeNull();
   });
@@ -94,7 +130,9 @@ describe("resolveDeployTarget: PR/MR nunca dispara deploy", () => {
 
 describe("updateApplicationSchema: gatilho de deploy", () => {
   it("aceita deployTrigger e tagPattern", () => {
-    expect(updateApplicationSchema.safeParse({ deployTrigger: "tag", tagPattern: "v*" }).success).toBe(true);
+    expect(
+      updateApplicationSchema.safeParse({ deployTrigger: "tag", tagPattern: "v*" }).success,
+    ).toBe(true);
     expect(updateApplicationSchema.safeParse({ deployTrigger: "release" }).success).toBe(true);
     expect(updateApplicationSchema.safeParse({ deployTrigger: "branch" }).success).toBe(true);
   });

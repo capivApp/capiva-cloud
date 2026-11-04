@@ -48,17 +48,27 @@ export function WebTerminal({ wsPath, className }: { wsPath: string; className?:
     const ws = new WebSocket(url);
 
     const sendResize = () => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(new TextEncoder().encode(JSON.stringify({ cols: term.cols, rows: term.rows })));
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(new TextEncoder().encode(JSON.stringify({ cols: term.cols, rows: term.rows })));
     };
 
-    ws.onopen = () => { setStatus("open"); sendResize(); };
+    ws.onopen = () => {
+      setStatus("open");
+      sendResize();
+    };
     ws.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : "");
     ws.onclose = () => setStatus("closed");
     ws.onerror = () => setStatus("closed");
 
     const inputSub = term.onData((data) => ws.readyState === WebSocket.OPEN && ws.send(data));
     const resizeSub = term.onResize(() => sendResize());
-    const observer = new ResizeObserver(() => { try { fit.fit(); } catch { /* sem layout ainda */ } });
+    const observer = new ResizeObserver(() => {
+      try {
+        fit.fit();
+      } catch {
+        /* sem layout ainda */
+      }
+    });
     observer.observe(containerRef.current);
 
     return () => {
@@ -73,12 +83,17 @@ export function WebTerminal({ wsPath, className }: { wsPath: string; className?:
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className={`inline-flex items-center gap-1 ${status === "open" ? "text-success" : status === "closed" ? "text-destructive" : ""}`}>
+        <span
+          className={`inline-flex items-center gap-1 ${status === "open" ? "text-success" : status === "closed" ? "text-destructive" : ""}`}
+        >
           <span className="size-1.5 animate-pulse rounded-full bg-current" />
           {status === "open" ? "Conectado" : status === "closed" ? "Desconectado" : "Conectando…"}
         </span>
       </div>
-      <div ref={containerRef} className={className ?? "h-96 overflow-hidden rounded-lg bg-[#0a0a0a] p-2"} />
+      <div
+        ref={containerRef}
+        className={className ?? "h-96 overflow-hidden rounded-lg bg-[#0a0a0a] p-2"}
+      />
     </div>
   );
 }

@@ -54,7 +54,11 @@ export const buildLimitesHpa = (
 });
 
 /** O PUT da política exige métrica e alvo: preserva os da política atual. */
-export const buildScalingPayload = (policy: ScalingPolicy, minReplicas: number, maxReplicas: number): SetScalingInput => ({
+export const buildScalingPayload = (
+  policy: ScalingPolicy,
+  minReplicas: number,
+  maxReplicas: number,
+): SetScalingInput => ({
   minReplicas,
   maxReplicas,
   metric: policy.metric,
@@ -62,4 +66,5 @@ export const buildScalingPayload = (policy: ScalingPolicy, minReplicas: number, 
 });
 
 /** Com política de autoscaling a escala é pelo HPA (mínimo e máximo); sem ela, réplicas fixas. */
-export const resolveModoEscala = (status: ScalingStatus | null | undefined): ModoEscala => (status?.policy ? "hpa" : "manual");
+export const resolveModoEscala = (status: ScalingStatus | null | undefined): ModoEscala =>
+  status?.policy ? "hpa" : "manual";

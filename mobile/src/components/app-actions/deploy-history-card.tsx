@@ -20,7 +20,13 @@ interface DeployHistoryCardProps {
 }
 
 /** Últimos deploys com status; os saudáveis anteriores podem ser restaurados (rollback). */
-export function DeployHistoryCard({ deployments, canRollback, rollbackTargetId, isRollingBack, onRollback }: DeployHistoryCardProps) {
+export function DeployHistoryCard({
+  deployments,
+  canRollback,
+  rollbackTargetId,
+  isRollingBack,
+  onRollback,
+}: DeployHistoryCardProps) {
   const restauraveis = new Set(findRollbackTargets(deployments).map((d) => d.id));
 
   return (
@@ -33,14 +39,24 @@ export function DeployHistoryCard({ deployments, canRollback, rollbackTargetId, 
               <Text className="font-medium" numberOfLines={1}>
                 {deployment.version}
               </Text>
-              <Text className="text-xs text-muted-foreground">{formatShortDateTime(deployment.startedAt)}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {formatShortDateTime(deployment.startedAt)}
+              </Text>
             </View>
             <StatusBadge status={deployment.status} />
           </View>
           {canRollback && restauraveis.has(deployment.id) && (
-            <Button size="sm" variant="outline" className="self-start rounded-xl" disabled={isRollingBack} onPress={() => onRollback(deployment)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start rounded-xl"
+              disabled={isRollingBack}
+              onPress={() => onRollback(deployment)}
+            >
               <RotateCcw color={nativeTheme.foreground} size={14} />
-              <Text>{rollbackTargetId === deployment.id ? "Restaurando…" : "Voltar para esta versão"}</Text>
+              <Text>
+                {rollbackTargetId === deployment.id ? "Restaurando…" : "Voltar para esta versão"}
+              </Text>
             </Button>
           )}
         </View>

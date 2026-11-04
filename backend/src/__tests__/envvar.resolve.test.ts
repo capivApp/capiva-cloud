@@ -4,7 +4,9 @@ import { decrypt } from "@functions/crypto";
 
 describe("EnvVarService.resolveStoredValue", () => {
   it("mantém valor não-secreto em texto puro", () => {
-    expect(resolveStoredValue({ key: "URL", value: "http://x", secret: false }, undefined)).toBe("http://x");
+    expect(resolveStoredValue({ key: "URL", value: "http://x", secret: false }, undefined)).toBe(
+      "http://x",
+    );
   });
 
   it("cifra valor secreto informado (não fica em texto puro)", () => {

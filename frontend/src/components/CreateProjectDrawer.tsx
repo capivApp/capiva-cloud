@@ -34,14 +34,24 @@ export function CreateProjectDrawer({ open, onClose }: { open: boolean; onClose:
       description="Projetos agrupam aplicações, bancos e workers relacionados."
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant="gradient" onClick={submit} disabled={isCreating}>Criar projeto</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="gradient" onClick={submit} disabled={isCreating}>
+            Criar projeto
+          </Button>
         </div>
       }
     >
       <div className="space-y-1.5">
         <Label>Nome do projeto</Label>
-        <Input autoFocus placeholder="vendas-online" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        <Input
+          autoFocus
+          placeholder="vendas-online"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
       </div>
     </Drawer>
   );

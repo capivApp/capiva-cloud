@@ -31,8 +31,15 @@ export function useTlsCertificates() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: CreateTlsCertificateInput) => api.post<TlsCertificate>("/tls-certificates", input), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/tls-certificates/${id}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: CreateTlsCertificateInput) =>
+      api.post<TlsCertificate>("/tls-certificates", input),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/tls-certificates/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     certificates: list.data ?? [],

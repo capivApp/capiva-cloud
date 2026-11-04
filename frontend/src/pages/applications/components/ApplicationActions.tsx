@@ -11,7 +11,15 @@ import {
 import { useApplications } from "@/pages/applications/hooks/useApplications";
 
 /** Menu de ações de uma aplicação: parar / iniciar / reiniciar / remover. */
-export function ApplicationActions({ id, stopped, onRemoved }: { id: string; stopped?: boolean; onRemoved?: () => void }) {
+export function ApplicationActions({
+  id,
+  stopped,
+  onRemoved,
+}: {
+  id: string;
+  stopped?: boolean;
+  onRemoved?: () => void;
+}) {
   const { stop, start, restart, remove } = useApplications();
 
   const run = (fn: () => Promise<unknown>, ok: string) => async () => {

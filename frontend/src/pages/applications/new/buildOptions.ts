@@ -55,7 +55,10 @@ export function buildOptionsConfig(source: string, options: BuildOptions): Recor
 }
 
 /** Erro por campo de caminho, para mostrar no próprio campo. */
-export function validateBuildOptions(source: string, options: BuildOptions): Partial<Record<BuildTextField, string>> {
+export function validateBuildOptions(
+  source: string,
+  options: BuildOptions,
+): Partial<Record<BuildTextField, string>> {
   const errors = fieldsOf(source)
     .filter((field) => PATH_FIELDS.has(field))
     .map((field) => [field, validateRepoPath(options[field])] as const)

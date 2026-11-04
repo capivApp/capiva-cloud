@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { COMPOSE_PLAN_SCRIPT } from "@infra/build/composePlanScript";
-import { buildJobEnvelope, buildResources, dockerConfigVolume, kanikoJobManifest } from "@infra/kubernetes/manifests";
+import {
+  buildJobEnvelope,
+  buildResources,
+  dockerConfigVolume,
+  kanikoJobManifest,
+} from "@infra/kubernetes/manifests";
 import type { K8sManifest } from "@interface/integrations";
 
 /**
@@ -47,7 +52,8 @@ const gitImage = () => process.env.CAPIVA_GIT_IMAGE || "alpine/git:latest";
 const sourceDir = (input: BuildJobInput) => [REPO_DIR, input.subPath].filter(Boolean).join("/");
 const configString = (input: BuildJobInput, key: string) => input.config[key] as string | undefined;
 const isEnvName = (key: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
-const validBuildArgs = (input: BuildJobInput) => input.buildArgs.filter((arg) => isEnvName(arg.key));
+const validBuildArgs = (input: BuildJobInput) =>
+  input.buildArgs.filter((arg) => isEnvName(arg.key));
 
 /**
  * Build args para scripts de shell. Os valores vão com prefixo (`CAPIVA_ARG_PATH`, não
@@ -68,7 +74,8 @@ const APPEND_ENV_ARGS = `for k in $CAPIVA_BUILD_ARG_NAMES; do set -- "$@" --env 
  * O helper lê usuário/senha do ambiente (secret efêmero) na hora do pedido de
  * autenticação. Credencial na URL ou no argumento apareceria no `kubectl describe`.
  */
-const GIT_CREDENTIAL_HELPER = '!f() { echo "username=${GIT_USERNAME:-}"; echo "password=${GIT_PASSWORD:-}"; }; f';
+const GIT_CREDENTIAL_HELPER =
+  '!f() { echo "username=${GIT_USERNAME:-}"; echo "password=${GIT_PASSWORD:-}"; }; f';
 
 /** initContainer que clona o repositório em `/workspace/src`. */
 function cloneInitContainer(input: BuildJobInput, isWorkspaceShared = false) {
@@ -87,7 +94,9 @@ function cloneInitContainer(input: BuildJobInput, isWorkspaceShared = false) {
       { name: "GIT_BRANCH", value: input.branch },
       { name: "GIT_TERMINAL_PROMPT", value: "0" },
     ],
-    ...(input.gitCredentialsSecret ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] } : {}),
+    ...(input.gitCredentialsSecret
+      ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] }
+      : {}),
     volumeMounts: [WORKSPACE_MOUNT],
   };
 }
@@ -105,8 +114,18 @@ const kanikoBase = (input: BuildJobInput) => ({
 });
 
 /** Kaniko a partir do workspace preparado pelos initContainers (sem clonar de novo). */
-function kanikoFromWorkspace(input: BuildJobInput, context: string, dockerfile: string, initContainers: Record<string, unknown>[]): K8sManifest {
-  return kanikoJobManifest({ ...kanikoBase(input), context: `dir://${context}`, dockerfile, workspace: { initContainers } });
+function kanikoFromWorkspace(
+  input: BuildJobInput,
+  context: string,
+  dockerfile: string,
+  initContainers: Record<string, unknown>[],
+): K8sManifest {
+  return kanikoJobManifest({
+    ...kanikoBase(input),
+    context: `dir://${context}`,
+    dockerfile,
+    workspace: { initContainers },
+  });
 }
 
 /** Git com Dockerfile: Kaniko puro, que clona o contexto `git://` sozinho. */
@@ -148,7 +167,10 @@ export function nixpacksJobManifest(input: BuildJobInput): K8sManifest {
     ],
     volumeMounts: [WORKSPACE_MOUNT],
   };
-  return kanikoFromWorkspace(input, dir, `${dir}/.nixpacks/Dockerfile`, [cloneInitContainer(input), nixpacks]);
+  return kanikoFromWorkspace(input, dir, `${dir}/.nixpacks/Dockerfile`, [
+    cloneInitContainer(input),
+    nixpacks,
+  ]);
 }
 
 const trimSlashes = (path: string) => path.replace(/\/+$/, "") || ".";
@@ -186,7 +208,10 @@ export function staticJobManifest(input: BuildJobInput): K8sManifest {
   // O comando do usuário enxerga os build args como variáveis comuns, como num RUN.
   const build = {
     name: "static-build",
-    image: configString(input, "buildImage") || process.env.CAPIVA_STATIC_BUILD_IMAGE || "node:22-alpine",
+    image:
+      configString(input, "buildImage") ||
+      process.env.CAPIVA_STATIC_BUILD_IMAGE ||
+      "node:22-alpine",
     command: ["sh", "-c", buildCommand ?? ""],
     workingDir: dir,
     env: validBuildArgs(input).map((arg) => ({ name: arg.key, value: arg.value })),
@@ -195,11 +220,18 @@ export function staticJobManifest(input: BuildJobInput): K8sManifest {
   const writer = {
     name: "static-dockerfile",
     image: gitImage(),
-    command: ["sh", "-c", `mkdir -p .capiva && printf '%s' "$STATIC_DOCKERFILE" > .capiva/Dockerfile && printf '%s' "$STATIC_NGINX_CONF" > .capiva/nginx.conf`],
+    command: [
+      "sh",
+      "-c",
+      `mkdir -p .capiva && printf '%s' "$STATIC_DOCKERFILE" > .capiva/Dockerfile && printf '%s' "$STATIC_NGINX_CONF" > .capiva/nginx.conf`,
+    ],
     workingDir: dir,
     env: [
       { name: "STATIC_DOCKERFILE", value: staticDockerfile({ outputDir }) },
-      { name: "STATIC_NGINX_CONF", value: staticNginxConf({ port: input.port, spa: input.config.spa === true }) },
+      {
+        name: "STATIC_NGINX_CONF",
+        value: staticNginxConf({ port: input.port, spa: input.config.spa === true }),
+      },
     ],
     volumeMounts: [WORKSPACE_MOUNT],
   };
@@ -221,14 +253,20 @@ export function composeJobManifest(input: BuildJobInput): K8sManifest {
     command: ["bun", "-e", COMPOSE_PLAN_SCRIPT],
     env: [
       { name: "REPO_DIR", value: REPO_DIR },
-      { name: "COMPOSE_FILE", value: `${sourceDir(input)}/${configString(input, "compose") ?? "docker-compose.yml"}` },
+      {
+        name: "COMPOSE_FILE",
+        value: `${sourceDir(input)}/${configString(input, "compose") ?? "docker-compose.yml"}`,
+      },
       { name: "COMPOSE_SERVICE", value: configString(input, "composeService") ?? "" },
       { name: "OUT_CONTEXT", value: COMPOSE_CONTEXT },
       { name: "OUT_DOCKERFILE", value: COMPOSE_DOCKERFILE },
     ],
     volumeMounts: [WORKSPACE_MOUNT],
   };
-  return kanikoFromWorkspace(input, COMPOSE_CONTEXT, COMPOSE_DOCKERFILE, [cloneInitContainer(input), plan]);
+  return kanikoFromWorkspace(input, COMPOSE_CONTEXT, COMPOSE_DOCKERFILE, [
+    cloneInitContainer(input),
+    plan,
+  ]);
 }
 
 const RAILPACK_PLAN_DIR = `${WORKSPACE}/plan`;
@@ -296,7 +334,10 @@ export function railpackJobManifest(input: BuildJobInput): K8sManifest {
       imageOutput(input),
       ...railpackSecretArgs(input),
     ],
-    env: [{ name: "BUILDKITD_FLAGS", value: "--oci-worker-no-process-sandbox" }, ...buildArgEnv(input)],
+    env: [
+      { name: "BUILDKITD_FLAGS", value: "--oci-worker-no-process-sandbox" },
+      ...buildArgEnv(input),
+    ],
     // Rootless: o BuildKit precisa de seccomp/AppArmor sem confinamento, mas não de privileged.
     securityContext: {
       runAsUser: 1000,
@@ -346,7 +387,10 @@ export function buildpacksJobManifest(input: BuildJobInput): K8sManifest {
   };
   const creator = {
     name: "creator",
-    image: configString(input, "builder") || process.env.CAPIVA_BUILDPACKS_BUILDER || "paketobuildpacks/builder-jammy-base",
+    image:
+      configString(input, "builder") ||
+      process.env.CAPIVA_BUILDPACKS_BUILDER ||
+      "paketobuildpacks/builder-jammy-base",
     command: ["/cnb/lifecycle/creator"],
     args: [
       `-app=${sourceDir(input)}`,
@@ -371,7 +415,10 @@ export function buildpacksJobManifest(input: BuildJobInput): K8sManifest {
     ],
   };
   return buildJobEnvelope(input, {
-    initContainers: [cloneInitContainer(input, true), ...(validBuildArgs(input).length ? [platformEnv] : [])],
+    initContainers: [
+      cloneInitContainer(input, true),
+      ...(validBuildArgs(input).length ? [platformEnv] : []),
+    ],
     containers: [creator],
     volumes: [
       { name: "workspace", emptyDir: {} },

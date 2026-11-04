@@ -1,7 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-export function PlaceholderPage({ title, description, icon: Icon }: { title: string; description: string; icon: LucideIcon }) {
+export function PlaceholderPage({
+  title,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
@@ -15,7 +23,8 @@ export function PlaceholderPage({ title, description, icon: Icon }: { title: str
           </div>
           <p className="font-medium">Em construção</p>
           <p className="max-w-md text-sm text-muted-foreground">
-            Esta área faz parte do roadmap da plataforma. A arquitetura e os fluxos já estão definidos em <code>/docs</code>.
+            Esta área faz parte do roadmap da plataforma. A arquitetura e os fluxos já estão
+            definidos em <code>/docs</code>.
           </p>
         </CardContent>
       </Card>

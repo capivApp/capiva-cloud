@@ -33,8 +33,20 @@ function NodeCard({ node }: { node: NodeMetric }) {
         <StatusBadge status={node.ready ? "READY" : "DEGRADED"} />
       </CardHeader>
       <CardContent className="gap-3">
-        <MetricBar icon={Cpu} label="CPU" used={node.cpuUsedM} capacity={node.cpuCapacityM} unit="m" />
-        <MetricBar icon={MemoryStick} label="Memória" used={node.memUsedMib} capacity={node.memCapacityMib} unit="MiB" />
+        <MetricBar
+          icon={Cpu}
+          label="CPU"
+          used={node.cpuUsedM}
+          capacity={node.cpuCapacityM}
+          unit="m"
+        />
+        <MetricBar
+          icon={MemoryStick}
+          label="Memória"
+          used={node.memUsedMib}
+          capacity={node.memCapacityMib}
+          unit="MiB"
+        />
         <Text className="text-xs text-muted-foreground">{node.pods.length} pods neste nó</Text>
         {node.warnings.map((warning) => (
           <Text key={warning} className="text-xs text-destructive">
@@ -88,7 +100,13 @@ export default function MonitorScreen() {
             <CardTitle className="text-base">Capacidade total</CardTitle>
           </CardHeader>
           <CardContent className="gap-3">
-            <MetricBar icon={Cpu} label="CPU" used={data.totals.cpuUsedM} capacity={data.totals.cpuCapacityM} unit="m" />
+            <MetricBar
+              icon={Cpu}
+              label="CPU"
+              used={data.totals.cpuUsedM}
+              capacity={data.totals.cpuCapacityM}
+              unit="m"
+            />
             <MetricBar
               icon={MemoryStick}
               label="Memória"
@@ -113,7 +131,9 @@ export default function MonitorScreen() {
         </Card>
       )}
 
-      {data?.nodes.map((node) => <NodeCard key={node.name} node={node} />)}
+      {data?.nodes.map((node) => (
+        <NodeCard key={node.name} node={node} />
+      ))}
 
       {Boolean(sshNodes.length) && (
         <Card className="rounded-2xl border-border/60 py-5">
@@ -126,7 +146,10 @@ export default function MonitorScreen() {
               <Pressable
                 key={node.id}
                 onPress={() =>
-                  router.push({ pathname: "/nodes/[id]/terminal", params: { id: node.id, label: node.host } })
+                  router.push({
+                    pathname: "/nodes/[id]/terminal",
+                    params: { id: node.id, label: node.host },
+                  })
                 }
                 className="flex-row items-center gap-3 rounded-xl border border-border/60 bg-background p-3 active:bg-accent"
               >
@@ -144,7 +167,9 @@ export default function MonitorScreen() {
         </Card>
       )}
 
-      {!clusters.length && <Text variant="muted">Nenhum cluster cadastrado nesta organização.</Text>}
+      {!clusters.length && (
+        <Text variant="muted">Nenhum cluster cadastrado nesta organização.</Text>
+      )}
     </Screen>
   );
 }

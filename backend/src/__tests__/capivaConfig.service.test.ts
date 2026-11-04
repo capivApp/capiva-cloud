@@ -35,7 +35,11 @@ const makeService = (files: Record<string, string> = {}, app = makeApp()) => {
     saveCapivaMarker: mock(async () => app),
   };
   const envVars = { list: mock(async () => []), replace: mock(async () => []) };
-  const domains = { list: mock(async () => []), add: mock(async () => ({})), remove: mock(async () => undefined) };
+  const domains = {
+    list: mock(async () => []),
+    add: mock(async () => ({})),
+    remove: mock(async () => undefined),
+  };
   const scaling = { getPolicy: mock(async () => null), setPolicy: mock(async () => ({})) };
   const gitConnections = {
     getById: mock(async () => ({ provider: "GITHUB", webhookSecret: "s", baseUrl: null })),
@@ -59,8 +63,16 @@ const makeService = (files: Record<string, string> = {}, app = makeApp()) => {
 
 describe("CapivaConfigService.applyForDeploy", () => {
   it("aplicação sem Git não lê arquivo nenhum", async () => {
-    const { service, readFile, onEvent } = makeService({}, makeApp({ source: "DOCKER_IMAGE", gitConnectionId: null }));
-    const result = await service.applyForDeploy(makeApp({ source: "DOCKER_IMAGE", gitConnectionId: null }), "abc", tenant, onEvent);
+    const { service, readFile, onEvent } = makeService(
+      {},
+      makeApp({ source: "DOCKER_IMAGE", gitConnectionId: null }),
+    );
+    const result = await service.applyForDeploy(
+      makeApp({ source: "DOCKER_IMAGE", gitConnectionId: null }),
+      "abc",
+      tenant,
+      onEvent,
+    );
     expect(result.source).toBe("DOCKER_IMAGE");
     expect(readFile).not.toHaveBeenCalled();
   });
@@ -82,7 +94,9 @@ describe("CapivaConfigService.applyForDeploy", () => {
 
   it("sem arquivo, limpa a marcação e não aplica nada", async () => {
     const { service, apps, onEvent } = makeService();
-    const marcada = makeApp({ sourceConfig: { repo: "org/repo", branch: "main", capivaJson: { fields: ["port"] } } });
+    const marcada = makeApp({
+      sourceConfig: { repo: "org/repo", branch: "main", capivaJson: { fields: ["port"] } },
+    });
     await service.applyForDeploy(marcada, "abc", tenant, onEvent);
     expect(apps.saveCapivaMarker).toHaveBeenCalledWith("app1", null, tenant);
     expect(apps.patch).not.toHaveBeenCalled();
@@ -90,8 +104,12 @@ describe("CapivaConfigService.applyForDeploy", () => {
   });
 
   it("arquivo inválido registra a mensagem na timeline e falha sem tocar em nada", async () => {
-    const { service, apps, envVars, events, onEvent } = makeService({ "capiva.json": JSON.stringify({ port: -1 }) });
-    expect(service.applyForDeploy(makeApp(), "abc", tenant, onEvent)).rejects.toBeInstanceOf(CapivaConfigError);
+    const { service, apps, envVars, events, onEvent } = makeService({
+      "capiva.json": JSON.stringify({ port: -1 }),
+    });
+    expect(service.applyForDeploy(makeApp(), "abc", tenant, onEvent)).rejects.toBeInstanceOf(
+      CapivaConfigError,
+    );
     await Bun.sleep(0);
     expect(events[0]).toMatch(/^capiva\.json inválido: port/);
     expect(apps.patch).not.toHaveBeenCalled();
@@ -104,7 +122,9 @@ describe("CapivaConfigService.applyForDeploy", () => {
     readFile.mockImplementation(async () => {
       throw new Error("Git API 500");
     });
-    expect(service.applyForDeploy(makeApp(), "abc", tenant, onEvent)).rejects.toBeInstanceOf(CapivaConfigError);
+    expect(service.applyForDeploy(makeApp(), "abc", tenant, onEvent)).rejects.toBeInstanceOf(
+      CapivaConfigError,
+    );
     await Bun.sleep(0);
     expect(events[0]).toContain("Não foi possível ler o capiva.json");
     expect(apps.patch).not.toHaveBeenCalled();
@@ -117,16 +137,31 @@ describe("CapivaConfigService.applyForDeploy", () => {
       domains: ["api.exemplo.com"],
       autoscaling: { min: 2, max: 4, target: 70 },
     };
-    const { service, apps, envVars, domains, scaling, events, onEvent } = makeService({ "apps/api/capiva.json": JSON.stringify(config) });
+    const { service, apps, envVars, domains, scaling, events, onEvent } = makeService({
+      "apps/api/capiva.json": JSON.stringify(config),
+    });
     await service.applyForDeploy(makeApp(), "abc", tenant, onEvent);
 
     expect(apps.patch).toHaveBeenCalledWith("app1", { port: 8080 }, tenant);
-    expect(envVars.replace).toHaveBeenCalledWith("app1", [{ key: "LOG_LEVEL", value: "info", secret: false }], tenant);
+    expect(envVars.replace).toHaveBeenCalledWith(
+      "app1",
+      [{ key: "LOG_LEVEL", value: "info", secret: false }],
+      tenant,
+    );
     expect(domains.add).toHaveBeenCalledWith("app1", { host: "api.exemplo.com" }, tenant);
-    expect(scaling.setPolicy).toHaveBeenCalledWith("app1", { minReplicas: 2, maxReplicas: 4, metric: "CPU", target: 70 }, tenant);
+    expect(scaling.setPolicy).toHaveBeenCalledWith(
+      "app1",
+      { minReplicas: 2, maxReplicas: 4, metric: "CPU", target: 70 },
+      tenant,
+    );
     expect(apps.saveCapivaMarker).toHaveBeenCalledWith(
       "app1",
-      { path: "apps/api/capiva.json", ref: "abc", fields: ["port", "env", "scaling", "domains"], envKeys: ["LOG_LEVEL"] },
+      {
+        path: "apps/api/capiva.json",
+        ref: "abc",
+        fields: ["port", "env", "scaling", "domains"],
+        envKeys: ["LOG_LEVEL"],
+      },
       tenant,
     );
     expect(events).toEqual(["capiva.json aplicado (apps/api/capiva.json)"]);
@@ -134,7 +169,10 @@ describe("CapivaConfigService.applyForDeploy", () => {
 
   it("origem por build do Git (NIXPACKS) com conexão e repositório também lê o arquivo", async () => {
     const nixpacks = makeApp({ source: "NIXPACKS" });
-    const { service, readFile, apps, onEvent } = makeService({ "capiva.json": JSON.stringify({ build: { startCommand: "bun start" } }) }, nixpacks);
+    const { service, readFile, apps, onEvent } = makeService(
+      { "capiva.json": JSON.stringify({ build: { startCommand: "bun start" } }) },
+      nixpacks,
+    );
     await service.applyForDeploy(nixpacks, "abc", tenant, onEvent);
     expect(readFile).toHaveBeenCalled();
     expect(apps.patch).toHaveBeenCalledWith("app1", { startCommand: "bun start" }, tenant);
@@ -163,11 +201,15 @@ describe("CapivaConfigService.applyForDeploy", () => {
   });
 
   it("erro do service da tela vai para a timeline como erro do capiva.json, com a mensagem original", async () => {
-    const { service, domains, apps, events, onEvent } = makeService({ "capiva.json": JSON.stringify({ domains: ["api.exemplo.com"] }) });
+    const { service, domains, apps, events, onEvent } = makeService({
+      "capiva.json": JSON.stringify({ domains: ["api.exemplo.com"] }),
+    });
     domains.add.mockImplementation(async () => {
       throw HttpError.conflict("Este domínio já está em uso.");
     });
-    const error = await service.applyForDeploy(makeApp(), "abc", tenant, onEvent).catch((e: unknown) => e);
+    const error = await service
+      .applyForDeploy(makeApp(), "abc", tenant, onEvent)
+      .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(CapivaConfigError);
     expect((error as Error).message).toContain("Este domínio já está em uso.");
     expect(events).toEqual([(error as Error).message]);

@@ -60,7 +60,10 @@ export function databaseRestoreJobManifest(input: DatabaseRestoreJobInput): K8sM
   };
 }
 
-type ProgressRule = { matches: (observed: ObservedStatus) => boolean; progress: (observed: ObservedStatus) => RestoreProgress };
+type ProgressRule = {
+  matches: (observed: ObservedStatus) => boolean;
+  progress: (observed: ObservedStatus) => RestoreProgress;
+};
 
 const isDryRun = (observed: ObservedStatus) => observed.message === "dry-run";
 const rawOf = (observed: ObservedStatus) => observed.raw ?? {};
@@ -78,27 +81,37 @@ const JOB_RULES: ProgressRule[] = [
   { matches: (o) => numberOf(rawOf(o).succeeded) > 0, progress: () => ({ status: "COMPLETED" }) },
   {
     matches: (o) => numberOf(rawOf(o).failed) > 0 || hasFailedCondition(o),
-    progress: () => ({ status: "FAILED", message: "O restore falhou. Confira os logs do Job no cluster." }),
+    progress: () => ({
+      status: "FAILED",
+      message: "O restore falhou. Confira os logs do Job no cluster.",
+    }),
   },
 ];
 
 /** Andamento do restore lido do status do Job. Ilegível = ainda executando. */
-export const interpretRestoreJob = (observed: ObservedStatus): RestoreProgress => firstMatch(JOB_RULES, observed);
+export const interpretRestoreJob = (observed: ObservedStatus): RestoreProgress =>
+  firstMatch(JOB_RULES, observed);
 
 const LONGHORN_RULES: ProgressRule[] = [
   { matches: isDryRun, progress: () => ({ status: "COMPLETED" }) },
   {
     matches: (o) => rawOf(o).robustness === "faulted",
-    progress: () => ({ status: "FAILED", message: "O volume restaurado ficou indisponível no Longhorn." }),
+    progress: () => ({
+      status: "FAILED",
+      message: "O volume restaurado ficou indisponível no Longhorn.",
+    }),
   },
   {
-    matches: (o) => rawOf(o).restoreRequired === false && ["attached", "detached"].includes(String(rawOf(o).state)),
+    matches: (o) =>
+      rawOf(o).restoreRequired === false &&
+      ["attached", "detached"].includes(String(rawOf(o).state)),
     progress: () => ({ status: "COMPLETED" }),
   },
 ];
 
 /** Andamento do Volume Longhorn criado a partir do backup. */
-export const interpretLonghornRestore = (observed: ObservedStatus): RestoreProgress => firstMatch(LONGHORN_RULES, observed);
+export const interpretLonghornRestore = (observed: ObservedStatus): RestoreProgress =>
+  firstMatch(LONGHORN_RULES, observed);
 
 export interface VolumeRestoreInput {
   /** Nome do Volume Longhorn, do PV e do PVC restaurados (o mesmo nos três). */
@@ -116,7 +129,8 @@ const ACCESS_MODES: Record<VolumeRestoreInput["accessMode"], { k8s: string; long
   RWX: { k8s: "ReadWriteMany", longhorn: "rwx" },
 };
 
-const volumeLabels = (input: VolumeRestoreInput) => restoreLabels(input.name, input.restoreId ?? input.name);
+const volumeLabels = (input: VolumeRestoreInput) =>
+  restoreLabels(input.name, input.restoreId ?? input.name);
 
 /** Volume Longhorn NOVO restaurado do backup. O volume original não é tocado. */
 export function longhornRestoreVolumeManifest(input: VolumeRestoreInput): K8sManifest {

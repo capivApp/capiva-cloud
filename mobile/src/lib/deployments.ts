@@ -20,9 +20,11 @@ export const DEPLOY_STATUS_ATIVOS = ["QUEUED", "BUILDING", "PUSHING", "DEPLOYING
 
 const ROLLBACK_LIMITE_PADRAO = 10;
 
-export const isDeploymentAtivo = (status: string): boolean => (DEPLOY_STATUS_ATIVOS as readonly string[]).includes(status);
+export const isDeploymentAtivo = (status: string): boolean =>
+  (DEPLOY_STATUS_ATIVOS as readonly string[]).includes(status);
 
-const isRestauravel = (deployment: Deployment): boolean => deployment.status === "HEALTHY" && Boolean(deployment.imageRef);
+const isRestauravel = (deployment: Deployment): boolean =>
+  deployment.status === "HEALTHY" && Boolean(deployment.imageRef);
 
 /**
  * Deploy a seguir pelo SSE. A lista vem do mais recente para o mais antigo; só o
@@ -38,5 +40,7 @@ export const findDeploymentAtivo = (deployments: Deployment[]): Deployment | nul
  * Alvos de rollback: deploys saudáveis com imagem, menos o primeiro deles (é a
  * versão que está no ar). O backend recusa deploy sem imagem.
  */
-export const findRollbackTargets = (deployments: Deployment[], limite = ROLLBACK_LIMITE_PADRAO): Deployment[] =>
-  deployments.filter(isRestauravel).slice(1, limite + 1);
+export const findRollbackTargets = (
+  deployments: Deployment[],
+  limite = ROLLBACK_LIMITE_PADRAO,
+): Deployment[] => deployments.filter(isRestauravel).slice(1, limite + 1);

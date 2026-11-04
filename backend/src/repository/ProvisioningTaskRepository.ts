@@ -15,11 +15,17 @@ export class ProvisioningTaskRepository extends BaseRepository {
    */
   async appendLog(id: string, line: string): Promise<ProvisioningTask> {
     const t = await this.tx.provisioningTask.findUnique({ where: { id } });
-    return this.tx.provisioningTask.update({ where: { id }, data: { log: `${t?.log ?? ""}${line}\n` } });
+    return this.tx.provisioningTask.update({
+      where: { id },
+      data: { log: `${t?.log ?? ""}${line}\n` },
+    });
   }
 
   finish(id: string, status: "success" | "failed"): Promise<ProvisioningTask> {
-    return this.tx.provisioningTask.update({ where: { id }, data: { status, finishedAt: new Date() } });
+    return this.tx.provisioningTask.update({
+      where: { id },
+      data: { status, finishedAt: new Date() },
+    });
   }
 
   listByCluster(clusterId: string): Promise<ProvisioningTask[]> {

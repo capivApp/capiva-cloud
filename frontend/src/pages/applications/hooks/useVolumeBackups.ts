@@ -28,7 +28,10 @@ export function useVolumeBackups(applicationId: string, volumeId: string) {
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (storageProviderId?: string) => api.post<VolumeBackup>(base, { storageProviderId }), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (storageProviderId?: string) => api.post<VolumeBackup>(base, { storageProviderId }),
+    onSuccess: invalidate,
+  });
 
   return {
     backups: list.data ?? [],

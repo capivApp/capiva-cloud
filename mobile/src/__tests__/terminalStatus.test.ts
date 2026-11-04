@@ -17,7 +17,9 @@ describe("resolveTerminalStatus", () => {
     const antiga = buildConnectionKey("/terminal/nodes/1", 0, 80);
     const reconectada = buildConnectionKey("/terminal/nodes/1", 1, 80);
     const girada = buildConnectionKey("/terminal/nodes/1", 0, 120);
-    expect(resolveTerminalStatus({ key: antiga, status: "closed" }, reconectada)).toBe("connecting");
+    expect(resolveTerminalStatus({ key: antiga, status: "closed" }, reconectada)).toBe(
+      "connecting",
+    );
     expect(resolveTerminalStatus({ key: antiga, status: "open" }, girada)).toBe("connecting");
   });
 });

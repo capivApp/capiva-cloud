@@ -13,7 +13,10 @@ export type UptimeCheckWithOwner = Prisma.UptimeCheckGetPayload<{ include: typeo
 export class UptimeRepository extends BaseRepository {
   async createCheck(data: Prisma.UptimeCheckUncheckedCreateInput): Promise<UptimeCheck> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: data.applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
     return this.tx.uptimeCheck.create({ data });
@@ -27,7 +30,10 @@ export class UptimeRepository extends BaseRepository {
   }
 
   findCheck(id: string): Promise<UptimeCheckWithOwner | null> {
-    return this.tx.uptimeCheck.findFirst({ where: { id, ...this.scope("uptimeCheck") }, include: INCLUDE_OWNER });
+    return this.tx.uptimeCheck.findFirst({
+      where: { id, ...this.scope("uptimeCheck") },
+      include: INCLUDE_OWNER,
+    });
   }
 
   async deleteCheck(id: string): Promise<UptimeCheck> {
@@ -48,6 +54,10 @@ export class UptimeRepository extends BaseRepository {
   }
 
   recentResults(uptimeCheckId: string, take = 200): Promise<UptimeResult[]> {
-    return this.tx.uptimeResult.findMany({ where: { uptimeCheckId }, orderBy: { at: "desc" }, take });
+    return this.tx.uptimeResult.findMany({
+      where: { uptimeCheckId },
+      orderBy: { at: "desc" },
+      take,
+    });
   }
 }

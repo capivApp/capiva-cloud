@@ -18,7 +18,11 @@ const PHASE_STATUS: Record<DeployPhase, { state: CommitStatusState; description:
 };
 
 /** Link do deploy no painel (o painel é servido na mesma origem pública da API). */
-export function buildDeploymentUrl(publicUrl: string, applicationId: string, deploymentId: string): string {
+export function buildDeploymentUrl(
+  publicUrl: string,
+  applicationId: string,
+  deploymentId: string,
+): string {
   return `${publicUrl.replace(/\/+$/, "")}/applications/${applicationId}?deployment=${deploymentId}`;
 }
 
@@ -46,7 +50,12 @@ export class CommitStatusService {
     private readonly factory: GitProviderFactory,
   ) {}
 
-  async report(app: CommitStatusApp, commit: DeployCommit, phase: DeployPhase, tenant: { organizationId: string }): Promise<void> {
+  async report(
+    app: CommitStatusApp,
+    commit: DeployCommit,
+    phase: DeployPhase,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const repo = repoOf(app.sourceConfig);
     if (!commit.sha || !app.gitConnectionId || !repo) return;
     try {
@@ -59,7 +68,10 @@ export class CommitStatusService {
     }
   }
 
-  protected async resolveProvider(connectionId: string, tenant: { organizationId: string }): Promise<IGitProvider | null> {
+  protected async resolveProvider(
+    connectionId: string,
+    tenant: { organizationId: string },
+  ): Promise<IGitProvider | null> {
     const conn = await withTransaction(() => this.connections.findById(connectionId), { tenant });
     if (!conn || conn.organizationId !== tenant.organizationId) return null;
     return this.factory.fromConnection(conn);

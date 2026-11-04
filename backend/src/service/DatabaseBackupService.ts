@@ -53,13 +53,23 @@ export class DatabaseBackupService {
     return withTransaction(() => this.backups.listByDatabase(databaseId), { tenant });
   }
 
-  async create(databaseId: string, tenant: { organizationId: string }, opts: DatabaseBackupOptions = {}): Promise<Backup> {
+  async create(
+    databaseId: string,
+    tenant: { organizationId: string },
+    opts: DatabaseBackupOptions = {},
+  ): Promise<Backup> {
     const db = await withTransaction(() => this.databases.findById(databaseId), { tenant });
     if (!db) throw HttpError.notFound("Banco não encontrado.");
-    if (!DUMP_KINDS.has(db.kind)) throw HttpError.badRequest("Backup por dump suporta apenas PostgreSQL e MySQL.");
+    if (!DUMP_KINDS.has(db.kind))
+      throw HttpError.badRequest("Backup por dump suporta apenas PostgreSQL e MySQL.");
 
-    const creds = await this.storage.resolveCredentials(tenant.organizationId, opts.storageProviderId);
-    const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const creds = await this.storage.resolveCredentials(
+      tenant.organizationId,
+      opts.storageProviderId,
+    );
+    const env = await withTransaction(() => this.environments.findById(db.environmentId), {
+      tenant,
+    });
     const namespace = env?.namespace ?? "default";
     const scope = opts.scope ?? "single";
     const stamp = backupStamp();
@@ -87,11 +97,20 @@ export class DatabaseBackupService {
       const secretData = buildDatabaseSecretData(db, namespace, creds, { BACKUP_STAMP: stamp });
       const command = databaseBackupCommand(db.kind as DbBackupKind, scope, prefix);
       await this.k8s.apply(ctx, genericSecretManifest(secretName, namespace, secretData));
-      await this.k8s.apply(ctx, databaseBackupJobManifest(secretName, namespace, command, secretName));
-      await withTransaction(() => this.backups.update(backup.id, { status: "completed", finishedAt: new Date() }), { tenant });
+      await this.k8s.apply(
+        ctx,
+        databaseBackupJobManifest(secretName, namespace, command, secretName),
+      );
+      await withTransaction(
+        () => this.backups.update(backup.id, { status: "completed", finishedAt: new Date() }),
+        { tenant },
+      );
     } catch (error) {
       console.error("[db-backup] falhou:", (error as Error).message);
-      await withTransaction(() => this.backups.update(backup.id, { status: "failed", finishedAt: new Date() }), { tenant });
+      await withTransaction(
+        () => this.backups.update(backup.id, { status: "failed", finishedAt: new Date() }),
+        { tenant },
+      );
     }
 
     return withTransaction(() => this.backups.findById(backup.id), { tenant }) as Promise<Backup>;
@@ -120,11 +139,17 @@ export class DatabaseBackupService {
       if (!due) continue;
 
       const tenant = { organizationId: db.project.organizationId };
-      const latest = await withTransaction(() => this.backups.latestForDatabase(db.id), { tenant }).catch(() => null);
+      const latest = await withTransaction(() => this.backups.latestForDatabase(db.id), {
+        tenant,
+      }).catch(() => null);
       if (latest && sameMinute(latest.startedAt, now)) continue; // dedupe no mesmo minuto
 
-      await this.create(db.id, tenant, { scope: "single" }).catch((e) => console.error("[db-backup] agendado:", (e as Error).message));
-      await this.applyRetention(db, tenant, backupCfg.retentionDays).catch((e) => console.error("[db-backup] retenção:", (e as Error).message));
+      await this.create(db.id, tenant, { scope: "single" }).catch((e) =>
+        console.error("[db-backup] agendado:", (e as Error).message),
+      );
+      await this.applyRetention(db, tenant, backupCfg.retentionDays).catch((e) =>
+        console.error("[db-backup] retenção:", (e as Error).message),
+      );
       triggered++;
     }
 
@@ -132,18 +157,32 @@ export class DatabaseBackupService {
   }
 
   /** Retenção: apaga registros antigos e dispara um Job para limpar o S3 (best-effort). */
-  private async applyRetention(db: ManagedDatabase, tenant: { organizationId: string }, retentionDays: number): Promise<void> {
+  private async applyRetention(
+    db: ManagedDatabase,
+    tenant: { organizationId: string },
+    retentionDays: number,
+  ): Promise<void> {
     const before = new Date(Date.now() - retentionDays * 86_400_000);
     await withTransaction(() => this.backups.deleteOlderThan(db.id, before), { tenant });
 
     const creds = await this.storage.resolveCredentials(tenant.organizationId).catch(() => null);
     if (!creds) return;
-    const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const env = await withTransaction(() => this.environments.findById(db.environmentId), {
+      tenant,
+    });
     const namespace = env?.namespace ?? "default";
     const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
     const secretName = `${db.name}-retention-${Date.now().toString(36).slice(-6)}`;
     await this.k8s.apply(ctx, genericSecretManifest(secretName, namespace, s3EnvOf(creds)));
-    await this.k8s.apply(ctx, databaseBackupJobManifest(secretName, namespace, databaseRetentionCommand(db.name, retentionDays), secretName));
+    await this.k8s.apply(
+      ctx,
+      databaseBackupJobManifest(
+        secretName,
+        namespace,
+        databaseRetentionCommand(db.name, retentionDays),
+        secretName,
+      ),
+    );
   }
 }
 

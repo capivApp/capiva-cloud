@@ -23,11 +23,15 @@ export class GitConnectionController {
   };
 
   update = async (req: Request, res: Response): Promise<void> => {
-    const { accessTokenCipher, webhookSecret, ...rest } = await this.connections.update(tenantOf(req).organizationId, String(req.params.id), {
-      accessToken: req.body?.accessToken,
-      accountLogin: req.body?.accountLogin,
-      baseUrl: req.body?.baseUrl,
-    });
+    const { accessTokenCipher, webhookSecret, ...rest } = await this.connections.update(
+      tenantOf(req).organizationId,
+      String(req.params.id),
+      {
+        accessToken: req.body?.accessToken,
+        accountLogin: req.body?.accountLogin,
+        baseUrl: req.body?.baseUrl,
+      },
+    );
     res.json(rest);
   };
 

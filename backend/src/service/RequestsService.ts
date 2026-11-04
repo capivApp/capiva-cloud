@@ -5,7 +5,11 @@ import { DomainRepository } from "@repository/DomainRepository";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
-import { buildTraefikSelector, parseTraefikAccessLog, type RequestEntry } from "@functions/requestStats";
+import {
+  buildTraefikSelector,
+  parseTraefikAccessLog,
+  type RequestEntry,
+} from "@functions/requestStats";
 
 export type { RequestEntry };
 
@@ -24,25 +28,40 @@ export class RequestsService {
   ) {}
 
   /** Lista requisições por host (domínio) ou por aplicação. */
-  async list(tenant: { organizationId: string }, opts: { host?: string; applicationId?: string }): Promise<RequestEntry[]> {
-    const host = opts.host ?? (opts.applicationId ? await this.hostOf(opts.applicationId, tenant) : undefined);
+  async list(
+    tenant: { organizationId: string },
+    opts: { host?: string; applicationId?: string },
+  ): Promise<RequestEntry[]> {
+    const host =
+      opts.host ?? (opts.applicationId ? await this.hostOf(opts.applicationId, tenant) : undefined);
     // Access log do Traefik (entrypoint) — filtra pelo host quando informado.
     const lines = await this.loki.queryBySelector(buildTraefikSelector(host), 200);
 
-    const parsed = lines.map((l) => parseTraefikAccessLog(l.line)).filter((e): e is RequestEntry => e !== null);
+    const parsed = lines
+      .map((l) => parseTraefikAccessLog(l.line))
+      .filter((e): e is RequestEntry => e !== null);
     if (parsed.length > 0) return parsed.reverse();
     return this.simulated(host);
   }
 
   /** Host primário da aplicação (também usado pelos alertas de 5xx e latência). */
-  async hostOf(applicationId: string, tenant: { organizationId: string }): Promise<string | undefined> {
+  async hostOf(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<string | undefined> {
     const { app, domains } = await withTransaction(
-      async () => ({ app: await this.apps.findById(applicationId), domains: await this.domains.listByApplication(applicationId) }),
+      async () => ({
+        app: await this.apps.findById(applicationId),
+        domains: await this.domains.listByApplication(applicationId),
+      }),
       { tenant },
     );
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
     // Host primário vem da entidade Domain; fallback ao legado sourceConfig.domain.
-    return domains[0]?.host ?? ((app.sourceConfig as Record<string, unknown>)?.domain as string | undefined);
+    return (
+      domains[0]?.host ??
+      ((app.sourceConfig as Record<string, unknown>)?.domain as string | undefined)
+    );
   }
 
   private simulated(host?: string): RequestEntry[] {

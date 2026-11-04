@@ -1,8 +1,8 @@
 {
   "name": "@capiva/backend",
   "version": "0.1.0",
-  "module": "src/index.ts",
   "type": "module",
+  "module": "src/index.ts",
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",

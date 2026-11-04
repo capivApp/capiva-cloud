@@ -27,7 +27,9 @@ class PromiseObservable<T> {
   }
 }
 
-type AgentLike = { options?: { ca?: unknown; cert?: unknown; key?: unknown; rejectUnauthorized?: boolean } };
+type AgentLike = {
+  options?: { ca?: unknown; cert?: unknown; key?: unknown; rejectUnauthorized?: boolean };
+};
 
 /**
  * Escape hatch para clusters cujo kubeconfig não traz a CA (self-signed sem
@@ -56,7 +58,9 @@ export function installBunKubeFetchShim(): void {
   if (typeof (globalThis as { Bun?: unknown }).Bun === "undefined") return;
   installed = true;
 
-  IsomorphicFetchHttpLibrary.prototype.send = function send(request: Parameters<IsomorphicFetchHttpLibrary["send"]>[0]) {
+  IsomorphicFetchHttpLibrary.prototype.send = function send(
+    request: Parameters<IsomorphicFetchHttpLibrary["send"]>[0],
+  ) {
     const init: RequestInit & { tls?: Record<string, unknown> } = {
       method: request.getHttpMethod().toString(),
       body: request.getBody(),
@@ -78,6 +82,8 @@ export function installBunKubeFetchShim(): void {
       return new ResponseContext(resp.status, headers, body);
     });
 
-    return new PromiseObservable(resultPromise) as unknown as ReturnType<IsomorphicFetchHttpLibrary["send"]>;
+    return new PromiseObservable(resultPromise) as unknown as ReturnType<
+      IsomorphicFetchHttpLibrary["send"]
+    >;
   };
 }

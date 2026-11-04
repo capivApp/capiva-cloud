@@ -9,7 +9,9 @@ describe("matchesWatchPaths", () => {
 
   it("dispara quando o push toca um caminho observado", () => {
     expect(matchesWatchPaths(["apps/api"], ["apps/api/src/index.ts"])).toBe(true);
-    expect(matchesWatchPaths(["apps/api", "packages/shared"], ["packages/shared/util.ts"])).toBe(true);
+    expect(matchesWatchPaths(["apps/api", "packages/shared"], ["packages/shared/util.ts"])).toBe(
+      true,
+    );
   });
 
   it("ignora push que não toca nenhum caminho observado", () => {

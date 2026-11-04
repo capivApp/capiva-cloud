@@ -74,11 +74,19 @@ export function trivyJobManifest(input: TrivyJobInput): K8sManifest {
               image: process.env.CAPIVA_TRIVY_IMAGE || TRIVY_IMAGE,
               command: ["/bin/sh", "-c", SCAN_SCRIPT],
               env: buildEnv(input),
-              ...(input.credentialsSecret ? { envFrom: [{ secretRef: { name: input.credentialsSecret } }] } : {}),
+              ...(input.credentialsSecret
+                ? { envFrom: [{ secretRef: { name: input.credentialsSecret } }] }
+                : {}),
               // O banco de CVEs carregado em memória passa de 500 MiB em imagens grandes.
               resources: {
-                requests: { cpu: process.env.CAPIVA_SCAN_CPU_REQUEST || "100m", memory: process.env.CAPIVA_SCAN_MEMORY_REQUEST || "256Mi" },
-                limits: { cpu: process.env.CAPIVA_SCAN_CPU_LIMIT || "1", memory: process.env.CAPIVA_SCAN_MEMORY_LIMIT || "2Gi" },
+                requests: {
+                  cpu: process.env.CAPIVA_SCAN_CPU_REQUEST || "100m",
+                  memory: process.env.CAPIVA_SCAN_MEMORY_REQUEST || "256Mi",
+                },
+                limits: {
+                  cpu: process.env.CAPIVA_SCAN_CPU_LIMIT || "1",
+                  memory: process.env.CAPIVA_SCAN_MEMORY_LIMIT || "2Gi",
+                },
               },
             },
           ],
@@ -98,7 +106,11 @@ export function trivyCredentialsSecretManifest(
     apiVersion: "v1",
     kind: "Secret",
     type: "Opaque",
-    metadata: { name, namespace, labels: { "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva-cloud" } },
+    metadata: {
+      name,
+      namespace,
+      labels: { "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva-cloud" },
+    },
     data: {
       TRIVY_USERNAME: Buffer.from(credentials.username).toString("base64"),
       TRIVY_PASSWORD: Buffer.from(credentials.password).toString("base64"),

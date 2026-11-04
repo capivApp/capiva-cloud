@@ -49,7 +49,10 @@ export function limitRangeManifest(namespace: string): K8sManifest {
         {
           type: "Container",
           default: { cpu: RESOURCE_PROFILES.SMALL.cpu, memory: RESOURCE_PROFILES.SMALL.memory },
-          defaultRequest: { cpu: RESOURCE_PROFILES.NANO.cpu, memory: RESOURCE_PROFILES.NANO.memory },
+          defaultRequest: {
+            cpu: RESOURCE_PROFILES.NANO.cpu,
+            memory: RESOURCE_PROFILES.NANO.memory,
+          },
         },
       ],
     },

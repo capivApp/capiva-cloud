@@ -12,7 +12,8 @@ export function useScanPolicy(applicationId: string) {
 
   const saveMut = useMutation({
     mutationKey: ["application", "security", applicationId],
-    mutationFn: (policy: ScanPolicy) => api.put<Application>(`/applications/${applicationId}/security`, policy),
+    mutationFn: (policy: ScanPolicy) =>
+      api.put<Application>(`/applications/${applicationId}/security`, policy),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["application", applicationId] }),
   });
 

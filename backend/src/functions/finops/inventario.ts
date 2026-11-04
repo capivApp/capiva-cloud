@@ -40,7 +40,10 @@ export interface Inventario {
   bancos: BancoInventario[];
 }
 
-export type RecursoDaAplicacaoInput = Pick<AplicacaoInventario, "profile" | "customResources" | "scaling" | "sourceConfig" | "previewOfId">;
+export type RecursoDaAplicacaoInput = Pick<
+  AplicacaoInventario,
+  "profile" | "customResources" | "scaling" | "sourceConfig" | "previewOfId"
+>;
 
 export const toRecursoDaAplicacao = (app: RecursoDaAplicacaoInput): AplicacaoDeConsumo => {
   const replicas = resolveReplicasDaAplicacao(app.scaling, resolveReplicasFixas(app));
@@ -53,17 +56,25 @@ export const toRecursoDaAplicacao = (app: RecursoDaAplicacaoInput): AplicacaoDeC
   };
 };
 
-export const toRecursoDoBanco = (banco: Pick<BancoInventario, "kind" | "size" | "highAvailability">): BancoDeConsumo => ({
+export const toRecursoDoBanco = (
+  banco: Pick<BancoInventario, "kind" | "size" | "highAvailability">,
+): BancoDeConsumo => ({
   tipo: "DATABASE",
   kind: banco.kind,
   size: banco.size,
   highAvailability: banco.highAvailability,
 });
 
-export const toRecursoDoVolume = (volume: { sizeGi: number }): VolumeDeConsumo => ({ tipo: "VOLUME", sizeGi: volume.sizeGi });
+export const toRecursoDoVolume = (volume: { sizeGi: number }): VolumeDeConsumo => ({
+  tipo: "VOLUME",
+  sizeGi: volume.sizeGi,
+});
 
 export const listRecursosMedidos = (inventario: Inventario): RecursoMedido[] => [
-  ...inventario.aplicacoes.flatMap((app) => [toRecursoDaAplicacao(app), ...app.volumes.map(toRecursoDoVolume)]),
+  ...inventario.aplicacoes.flatMap((app) => [
+    toRecursoDaAplicacao(app),
+    ...app.volumes.map(toRecursoDoVolume),
+  ]),
   ...inventario.bancos.map(toRecursoDoBanco),
 ];
 
@@ -72,4 +83,5 @@ export const buildConsumoMaximo = (recursos: RecursoMedido[]): Consumo =>
   sumConsumo(recursos.map((recurso) => buildFaixaDeConsumo(recurso).max));
 
 /** Uso que a quota considera: réplicas máximas do HPA (ou as fixas gravadas), volumes e bancos. */
-export const buildUsoDoInventario = (inventario: Inventario): Consumo => buildConsumoMaximo(listRecursosMedidos(inventario));
+export const buildUsoDoInventario = (inventario: Inventario): Consumo =>
+  buildConsumoMaximo(listRecursosMedidos(inventario));

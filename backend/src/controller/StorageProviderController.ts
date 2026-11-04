@@ -15,7 +15,10 @@ export class StorageProviderController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createStorageProviderSchema.parse(req.body);
-    const { credentialsCipher, ...rest } = await this.providers.create(tenantOf(req).organizationId, dto);
+    const { credentialsCipher, ...rest } = await this.providers.create(
+      tenantOf(req).organizationId,
+      dto,
+    );
     res.status(201).json(rest);
   };
 

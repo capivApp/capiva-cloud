@@ -1,9 +1,18 @@
-import { RECURSOS_DE_CONSUMO, type Consumo, type RecursoDeConsumo } from "@functions/finops/consumo";
+import {
+  RECURSOS_DE_CONSUMO,
+  type Consumo,
+  type RecursoDeConsumo,
+} from "@functions/finops/consumo";
 
 /** Limite por recurso; `null` = sem limite. Mesma unidade do `Consumo`. */
 export type QuotaLimite = { [K in RecursoDeConsumo]: number | null };
 
-export const QUOTA_ILIMITADA: QuotaLimite = { cpuMillicores: null, memoryMib: null, pods: null, storageGi: null };
+export const QUOTA_ILIMITADA: QuotaLimite = {
+  cpuMillicores: null,
+  memoryMib: null,
+  pods: null,
+  storageGi: null,
+};
 
 export interface QuotaViolacao {
   recurso: RecursoDeConsumo;
@@ -33,19 +42,28 @@ export const buildDisponivel = (limite: QuotaLimite, uso: Consumo): QuotaLimite 
 const formatDecimal = (valor: number): string =>
   valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
-const formatMemoria = (mib: number): string => (mib < 1024 ? `${formatDecimal(mib)} MiB` : `${formatDecimal(mib / 1024)} GiB`);
+const formatMemoria = (mib: number): string =>
+  mib < 1024 ? `${formatDecimal(mib)} MiB` : `${formatDecimal(mib / 1024)} GiB`;
 
 /** Rótulo e formatação de cada recurso na mensagem para o usuário. */
-const APRESENTACAO: Record<RecursoDeConsumo, { rotulo: string; format: (valor: number) => string }> = {
+const APRESENTACAO: Record<
+  RecursoDeConsumo,
+  { rotulo: string; format: (valor: number) => string }
+> = {
   cpuMillicores: { rotulo: "CPU", format: (m) => `${formatDecimal(m / 1000)} vCPU` },
   memoryMib: { rotulo: "Memória", format: formatMemoria },
   pods: { rotulo: "Pods", format: (n) => `${formatDecimal(n)} ${n === 1 ? "pod" : "pods"}` },
   storageGi: { rotulo: "Armazenamento", format: (gi) => `${formatDecimal(gi)} GiB` },
 };
 
-export const formatConsumo = (recurso: RecursoDeConsumo, valor: number): string => APRESENTACAO[recurso].format(valor);
+export const formatConsumo = (recurso: RecursoDeConsumo, valor: number): string =>
+  APRESENTACAO[recurso].format(valor);
 
-const buildMensagem = (recurso: RecursoDeConsumo, solicitado: number, disponivel: number): string => {
+const buildMensagem = (
+  recurso: RecursoDeConsumo,
+  solicitado: number,
+  disponivel: number,
+): string => {
   const { rotulo, format } = APRESENTACAO[recurso];
   return `${rotulo} acima da quota do ambiente. Pedido: ${format(solicitado)}. Disponível: ${format(disponivel)}.`;
 };

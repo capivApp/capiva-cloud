@@ -54,14 +54,20 @@ export class AuthService {
 
       // Cria a organização inicial e vincula o usuário como OWNER.
       const orgName = input.organizationName ?? `${input.name}'s Org`;
-      const org = await this.orgs.create({ name: orgName, slug: `${slugify(orgName)}-${user.id.slice(-6)}` });
+      const org = await this.orgs.create({
+        name: orgName,
+        slug: `${slugify(orgName)}-${user.id.slice(-6)}`,
+      });
       await this.orgs.addMember({ userId: user.id, organizationId: org.id, role: "OWNER" });
 
       return this.issue(user, device);
     });
   }
 
-  async login(input: { email: string; password: string }, device: SessionDevice): Promise<AuthResult> {
+  async login(
+    input: { email: string; password: string },
+    device: SessionDevice,
+  ): Promise<AuthResult> {
     return withTransaction(async () => {
       const user = await this.users.findByEmail(input.email);
       if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
@@ -82,7 +88,11 @@ export class AuthService {
         name: user.name,
         sid: rotated.session.id,
       });
-      return { accessToken, refresh: rotated, user: { id: user.id, email: user.email, name: user.name } };
+      return {
+        accessToken,
+        refresh: rotated,
+        user: { id: user.id, email: user.email, name: user.name },
+      };
     });
   }
 

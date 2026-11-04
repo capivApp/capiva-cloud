@@ -22,7 +22,10 @@ export type LogDownloadFormat = "txt" | "ndjson";
 /** Mensagem do erro da API: a do campo (422 do Zod) ou a geral. */
 export const messageOfLogError = (error: unknown): string | undefined => {
   if (!error) return undefined;
-  const issues = (error instanceof ApiError ? (error.body as { issues?: Array<{ message: string }> })?.issues : undefined) ?? [];
+  const issues =
+    (error instanceof ApiError
+      ? (error.body as { issues?: Array<{ message: string }> })?.issues
+      : undefined) ?? [];
   return issues[0]?.message ?? (error as Error).message;
 };
 
@@ -44,30 +47,40 @@ export function useLogs(applicationId: string, filters: LogFilterState) {
   const liveQuery = buildLogQuery(filters, "live");
   const searchQuery = buildLogQuery(filters, "search");
   // Pods dependem só do intervalo: filtrar por pod não pode esconder os outros da lista.
-  const podsQuery = buildLogQuery({ ...filters, q: "", exclude: "", regex: "", levels: [], pod: "" }, "search");
+  const podsQuery = buildLogQuery(
+    { ...filters, q: "", exclude: "", regex: "", levels: [], pod: "" },
+    "search",
+  );
 
   const live = useEventSource<LogLine[]>(
-    applicationId && isLive ? `/streams/applications/${applicationId}/logs${liveQuery ? `?${liveQuery}` : ""}` : null,
+    applicationId && isLive
+      ? `/streams/applications/${applicationId}/logs${liveQuery ? `?${liveQuery}` : ""}`
+      : null,
     "logs",
   );
 
   const search = useQuery({
     queryKey: ["applications", applicationId, "logs", searchQuery],
-    queryFn: () => api.get<{ lines: LogLine[] }>(`/applications/${applicationId}/logs?${searchQuery}`),
+    queryFn: () =>
+      api.get<{ lines: LogLine[] }>(`/applications/${applicationId}/logs?${searchQuery}`),
     enabled: Boolean(applicationId) && !isLive,
     placeholderData: keepPreviousData,
   });
 
   const pods = useQuery({
     queryKey: ["applications", applicationId, "logs", "pods", podsQuery],
-    queryFn: () => api.get<{ pods: string[] }>(`/applications/${applicationId}/logs/pods?${podsQuery}`),
+    queryFn: () =>
+      api.get<{ pods: string[] }>(`/applications/${applicationId}/logs/pods?${podsQuery}`),
     enabled: Boolean(applicationId),
     staleTime: 60_000,
   });
 
   const downloadMut = useMutation({
     mutationFn: (format: LogDownloadFormat) =>
-      api.download(`/applications/${applicationId}/logs/download?${buildLogQuery(filters, "download")}&format=${format}`, `logs.${format}`),
+      api.download(
+        `/applications/${applicationId}/logs/download?${buildLogQuery(filters, "download")}&format=${format}`,
+        `logs.${format}`,
+      ),
   });
 
   return {

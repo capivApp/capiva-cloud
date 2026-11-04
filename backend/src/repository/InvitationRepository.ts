@@ -9,7 +9,10 @@ export class InvitationRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<Invitation[]> {
-    return this.tx.invitation.findMany({ where: { organizationId, acceptedAt: null }, orderBy: { createdAt: "desc" } });
+    return this.tx.invitation.findMany({
+      where: { organizationId, acceptedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   findByToken(token: string): Promise<Invitation | null> {

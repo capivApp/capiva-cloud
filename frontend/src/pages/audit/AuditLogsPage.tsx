@@ -22,13 +22,20 @@ export function AuditLogsPage() {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input className="pl-8" placeholder="Filtrar por ação (ex.: application.deploy)" value={event} onChange={(e) => setEvent(e.target.value)} />
+        <Input
+          className="pl-8"
+          placeholder="Filtrar por ação (ex.: application.deploy)"
+          value={event}
+          onChange={(e) => setEvent(e.target.value)}
+        />
       </div>
 
       <Card>
         <CardContent className="pt-5">
           {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-          {!isLoading && logs.length === 0 && <p className="text-sm text-muted-foreground">Nenhum registro.</p>}
+          {!isLoading && logs.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum registro.</p>
+          )}
           <div className="divide-y divide-border">
             {logs.map((l) => (
               <div key={l.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">

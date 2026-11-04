@@ -20,11 +20,15 @@ export class NodeTerminalService {
   ) {}
 
   /** Valida posse do nó e monta o alvo SSH (chave ou senha) a partir do cifrado. */
-  async resolveTarget(nodeId: string, tenant: { organizationId: string }): Promise<SSHTarget & { label: string }> {
+  async resolveTarget(
+    nodeId: string,
+    tenant: { organizationId: string },
+  ): Promise<SSHTarget & { label: string }> {
     const node = await withTransaction(() => this.nodes.findById(nodeId), { tenant });
     if (!node) throw HttpError.notFound("Nó não encontrado.");
     const cluster = await withTransaction(() => this.clusters.findById(node.clusterId), { tenant });
-    if (!cluster || cluster.organizationId !== tenant.organizationId) throw HttpError.notFound("Nó não encontrado.");
+    if (!cluster || cluster.organizationId !== tenant.organizationId)
+      throw HttpError.notFound("Nó não encontrado.");
     if (!node.sshCredentialCipher) throw HttpError.badRequest("Nó sem credencial SSH cadastrada.");
 
     const credential = decrypt(node.sshCredentialCipher);
@@ -40,7 +44,10 @@ export class NodeTerminalService {
   }
 
   /** Abre o shell SSH interativo no alvo (delegado ao executor; usado pelo gateway). */
-  sshShell(target: SSHTarget, io: { onData: (chunk: string) => void; onClose: () => void }): Promise<SSHShell> {
+  sshShell(
+    target: SSHTarget,
+    io: { onData: (chunk: string) => void; onClose: () => void },
+  ): Promise<SSHShell> {
     return this.ssh.openShell(target, io);
   }
 }

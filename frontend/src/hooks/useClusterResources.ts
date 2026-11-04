@@ -63,7 +63,8 @@ export function useClusterResources(clusterId: string | null) {
   });
   const databases = useQuery({
     queryKey: ["cluster-databases", clusterId],
-    queryFn: () => api.get<ClusterDatabasesView>(`/platform/cluster-databases?clusterId=${clusterId}`),
+    queryFn: () =>
+      api.get<ClusterDatabasesView>(`/platform/cluster-databases?clusterId=${clusterId}`),
     enabled: Boolean(clusterId),
     refetchInterval: 5_000,
   });

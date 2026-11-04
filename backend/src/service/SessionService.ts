@@ -1,10 +1,7 @@
 import { Injectable } from "@di/index";
 import { SessionRepository } from "@repository/SessionRepository";
 import { AuditRepository } from "@repository/AuditRepository";
-import {
-  generateRefreshToken,
-  hashRefreshToken,
-} from "@auth/tokens";
+import { generateRefreshToken, hashRefreshToken } from "@auth/tokens";
 import type { SessionDevice } from "@auth/fingerprint";
 import { HttpError } from "@functions/HttpError";
 import { config } from "../config";

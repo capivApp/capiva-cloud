@@ -12,7 +12,10 @@ export class AuditRepository extends BaseRepository {
     return this.tx.auditLog.findMany({ where: { userId }, orderBy: { at: "desc" }, take: 100 });
   }
 
-  listByOrganization(organizationId: string, filters: { event?: string; userId?: string } = {}): Promise<AuditLog[]> {
+  listByOrganization(
+    organizationId: string,
+    filters: { event?: string; userId?: string } = {},
+  ): Promise<AuditLog[]> {
     return this.tx.auditLog.findMany({
       where: {
         organizationId,

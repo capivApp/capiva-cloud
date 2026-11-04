@@ -40,17 +40,34 @@ function Select({
 
 /** Seletor de organização / projeto / ambiente no topo da aplicação. */
 export function WorkspaceSwitcher() {
-  const { projects, environments, projectId, environmentId, setProject, setEnvironment } = useWorkspace();
+  const { projects, environments, projectId, environmentId, setProject, setEnvironment } =
+    useWorkspace();
   const [newProject, setNewProject] = useState(false);
 
   return (
     <div className="flex items-center gap-2">
-      <Select icon={FolderGit2} value={projectId} onChange={setProject} options={projects.map((p) => ({ id: p.id, label: p.name }))} />
-      <Button variant="ghost" size="icon" className="size-7" title="Novo projeto" onClick={() => setNewProject(true)}>
+      <Select
+        icon={FolderGit2}
+        value={projectId}
+        onChange={setProject}
+        options={projects.map((p) => ({ id: p.id, label: p.name }))}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7"
+        title="Novo projeto"
+        onClick={() => setNewProject(true)}
+      >
         <Plus className="size-4" />
       </Button>
       <span className="text-muted-foreground">/</span>
-      <Select icon={Layers} value={environmentId} onChange={setEnvironment} options={environments.map((e) => ({ id: e.id, label: e.name }))} />
+      <Select
+        icon={Layers}
+        value={environmentId}
+        onChange={setEnvironment}
+        options={environments.map((e) => ({ id: e.id, label: e.name }))}
+      />
       <CreateProjectDrawer open={newProject} onClose={() => setNewProject(false)} />
     </div>
   );

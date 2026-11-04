@@ -31,7 +31,8 @@ export function useDomains(applicationId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
   const addMut = useMutation({
-    mutationFn: (input: AddDomainInput) => api.post<Domain>(`/applications/${applicationId}/domains`, input),
+    mutationFn: (input: AddDomainInput) =>
+      api.post<Domain>(`/applications/${applicationId}/domains`, input),
     onSuccess: invalidate,
   });
   const removeMut = useMutation({

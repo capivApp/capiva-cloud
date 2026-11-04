@@ -39,7 +39,12 @@ export interface AppReconcileInput {
   /** Domínios adicionais (CRUD) → um Ingress por domínio, TLS por domínio. */
   domains?: { host: string; tlsMode: TlsModeManifest; tlsCert?: { cert: string; key: string } }[];
   /** Política de autoscaling → HPA (apenas ROLLING/Deployment). HPA passa a ser o dono das réplicas. */
-  scaling?: { minReplicas: number; maxReplicas: number; metric: "CPU" | "MEMORY" | "REQUESTS"; target: number };
+  scaling?: {
+    minReplicas: number;
+    maxReplicas: number;
+    metric: "CPU" | "MEMORY" | "REQUESTS";
+    target: number;
+  };
   /** Volumes persistentes (PVC) montados nos pods. */
   volumes?: AppVolumeSpec[];
   /** Nome do imagePullSecret (registry privado). */
@@ -56,7 +61,19 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
   constructor(private readonly k8s: KubernetesAdapter) {}
 
   async reconcile(input: AppReconcileInput, ctx: KubeContext): Promise<ObservedStatus> {
-    const { app, image, replicas = 2, envVars = [], domain, tlsMode = "LETS_ENCRYPT", tlsCert, domains = [], scaling, volumes = [], imagePullSecret } = input;
+    const {
+      app,
+      image,
+      replicas = 2,
+      envVars = [],
+      domain,
+      tlsMode = "LETS_ENCRYPT",
+      tlsCert,
+      domains = [],
+      scaling,
+      volumes = [],
+      imagePullSecret,
+    } = input;
     // HPA só para ROLLING (Deployment). Quando há autoscaling, o HPA é o dono das réplicas.
     const hpaEnabled = Boolean(scaling) && app.rolloutStrategy === "ROLLING";
     const port = app.port ?? 3000;
@@ -67,7 +84,9 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
       port,
       profile: app.profile,
       customResources: app.customResources as Record<string, unknown> | null,
-      healthPath: (app.sourceConfig as Record<string, unknown> | null)?.healthPath as string | undefined,
+      healthPath: (app.sourceConfig as Record<string, unknown> | null)?.healthPath as
+        | string
+        | undefined,
       envVars,
       volumes: volumes.map((v) => ({ name: v.name, mountPath: v.mountPath })),
       imagePullSecret,
@@ -75,13 +94,18 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
 
     // Volumes persistentes (PVC por volume) antes dos workloads.
     for (const v of volumes) {
-      await this.k8s.apply(ctx, pvcManifest(`${app.name}-${v.name}`, ctx.namespace, v.sizeGi, v.accessMode));
+      await this.k8s.apply(
+        ctx,
+        pvcManifest(`${app.name}-${v.name}`, ctx.namespace, v.sizeGi, v.accessMode),
+      );
     }
 
     // A NetworkPolicy é do namespace (NetworkPolicyService). A policy por app das
     // versões anteriores negava o tráfego mesmo com o isolamento do ambiente
     // desligado, por isso sai do cluster aqui.
-    await this.k8s.remove(ctx, "networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`).catch(() => undefined);
+    await this.k8s
+      .remove(ctx, "networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`)
+      .catch(() => undefined);
 
     // Orçamento de interrupção: protege a app de drain de nó e upgrade de
     // cluster derrubarem todas as réplicas ao mesmo tempo.
@@ -97,12 +121,23 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
       const exists = Boolean((await this.k8s.observe(ctx, "apps/v1", "Deployment", app.name)).raw);
       await this.k8s.apply(ctx, deploymentManifest(base, hpaEnabled || exists ? null : replicas));
       if (hpaEnabled && scaling) {
-        await this.k8s.apply(ctx, hpaManifest(app.name, ctx.namespace, scaling.minReplicas, scaling.maxReplicas, scaling.metric, scaling.target));
+        await this.k8s.apply(
+          ctx,
+          hpaManifest(
+            app.name,
+            ctx.namespace,
+            scaling.minReplicas,
+            scaling.maxReplicas,
+            scaling.metric,
+            scaling.target,
+          ),
+        );
       }
       status = await this.k8s.observe(ctx, "apps/v1", "Deployment", app.name);
     } else {
       const cfg = app.rolloutConfig as Record<string, unknown> | null;
-      if (cfg?.autoRollback !== false) await this.k8s.apply(ctx, analysisTemplateManifest(app.name, ctx.namespace));
+      if (cfg?.autoRollback !== false)
+        await this.k8s.apply(ctx, analysisTemplateManifest(app.name, ctx.namespace));
       await this.k8s.apply(ctx, rolloutManifest(base, app.rolloutStrategy, replicas, cfg));
       status = await this.k8s.observe(ctx, "argoproj.io/v1alpha1", "Rollout", app.name);
     }
@@ -113,7 +148,10 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
     if (domain) {
       // UPLOADED: garante o Secret tls a partir do certificado enviado antes do Ingress.
       if (tlsMode === "UPLOADED" && tlsCert) {
-        await this.k8s.apply(ctx, tlsSecretManifest(app.name, ctx.namespace, tlsCert.cert, tlsCert.key));
+        await this.k8s.apply(
+          ctx,
+          tlsSecretManifest(app.name, ctx.namespace, tlsCert.cert, tlsCert.key),
+        );
       }
       await this.k8s.apply(ctx, ingressManifest(app.name, ctx.namespace, domain, tlsMode));
     }
@@ -122,11 +160,17 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
     for (const d of domains) {
       const ingressName = ingressNameFor(app.name, d.host);
       if (d.tlsMode === "UPLOADED" && d.tlsCert) {
-        await this.k8s.apply(ctx, tlsSecretManifest(ingressName, ctx.namespace, d.tlsCert.cert, d.tlsCert.key));
+        await this.k8s.apply(
+          ctx,
+          tlsSecretManifest(ingressName, ctx.namespace, d.tlsCert.cert, d.tlsCert.key),
+        );
       }
       await this.k8s.apply(
         ctx,
-        ingressManifest(ingressName, ctx.namespace, d.host, d.tlsMode, { serviceName: app.name, tlsSecretName: `${ingressName}-tls` }),
+        ingressManifest(ingressName, ctx.namespace, d.host, d.tlsMode, {
+          serviceName: app.name,
+          tlsSecretName: `${ingressName}-tls`,
+        }),
       );
     }
 

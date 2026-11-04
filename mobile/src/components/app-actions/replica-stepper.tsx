@@ -14,7 +14,13 @@ interface ReplicaStepperProps {
 }
 
 /** Stepper de réplicas (− valor +) preso aos limites recebidos. */
-export function ReplicaStepper({ label, value, limites, disabled = false, onChange }: ReplicaStepperProps) {
+export function ReplicaStepper({
+  label,
+  value,
+  limites,
+  disabled = false,
+  onChange,
+}: ReplicaStepperProps) {
   const change = (delta: number) => onChange(stepReplicas(value, delta, limites));
 
   return (

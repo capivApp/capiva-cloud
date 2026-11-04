@@ -15,7 +15,12 @@ export interface Consumo {
 
 export type RecursoDeConsumo = keyof Consumo;
 
-export const RECURSOS_DE_CONSUMO: readonly RecursoDeConsumo[] = ["cpuMillicores", "memoryMib", "pods", "storageGi"];
+export const RECURSOS_DE_CONSUMO: readonly RecursoDeConsumo[] = [
+  "cpuMillicores",
+  "memoryMib",
+  "pods",
+  "storageGi",
+];
 
 export const CONSUMO_ZERO: Consumo = { cpuMillicores: 0, memoryMib: 0, pods: 0, storageGi: 0 };
 
@@ -54,7 +59,10 @@ export const REPLICAS_FIXAS = 2;
 export const REPLICAS_DO_PREVIEW = 1;
 
 /** Réplicas fixas da aplicação: as gravadas (tela ou capiva.json) ou o padrão. */
-export const resolveReplicasFixas = (app: { sourceConfig?: unknown; previewOfId?: string | null }): number => {
+export const resolveReplicasFixas = (app: {
+  sourceConfig?: unknown;
+  previewOfId?: string | null;
+}): number => {
   const replicas = (app.sourceConfig as Record<string, unknown> | null | undefined)?.replicas;
   if (typeof replicas === "number") return replicas;
   return app.previewOfId ? REPLICAS_DO_PREVIEW : REPLICAS_FIXAS;
@@ -119,13 +127,19 @@ interface ConsumoStrategy<T extends RecursoMedido> {
 const aplicacaoStrategy: ConsumoStrategy<AplicacaoDeConsumo> = {
   buildFaixa: (app) => {
     const porPod = buildConsumoPorPod(resolveResources(app.profile, app.customResources));
-    return { min: multiplyConsumo(porPod, app.minReplicas), max: multiplyConsumo(porPod, Math.max(app.minReplicas, app.maxReplicas)) };
+    return {
+      min: multiplyConsumo(porPod, app.minReplicas),
+      max: multiplyConsumo(porPod, Math.max(app.minReplicas, app.maxReplicas)),
+    };
   },
 };
 
 const bancoStrategy: ConsumoStrategy<BancoDeConsumo> = {
   buildFaixa: (banco) => {
-    const porInstancia = buildConsumoPorPod(resolveDatabaseResources(banco.size), gibOf(storageFor(banco.size)));
+    const porInstancia = buildConsumoPorPod(
+      resolveDatabaseResources(banco.size),
+      gibOf(storageFor(banco.size)),
+    );
     const total = multiplyConsumo(porInstancia, resolveInstanciasDoBanco(banco));
     return { min: total, max: total };
   },
@@ -138,7 +152,9 @@ const volumeStrategy: ConsumoStrategy<VolumeDeConsumo> = {
   },
 };
 
-const CONSUMO_STRATEGIES: { [K in TipoDeRecurso]: ConsumoStrategy<Extract<RecursoMedido, { tipo: K }>> } = {
+const CONSUMO_STRATEGIES: {
+  [K in TipoDeRecurso]: ConsumoStrategy<Extract<RecursoMedido, { tipo: K }>>;
+} = {
   APPLICATION: aplicacaoStrategy,
   DATABASE: bancoStrategy,
   VOLUME: volumeStrategy,

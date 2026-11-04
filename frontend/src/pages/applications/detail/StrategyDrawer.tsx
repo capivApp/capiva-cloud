@@ -13,7 +13,17 @@ const STRATEGIES = [
   { id: "CANARY", label: "Canary", desc: "Tráfego progressivo com análise" },
 ];
 
-export function StrategyDrawer({ open, onClose, applicationId, current }: { open: boolean; onClose: () => void; applicationId: string; current: string }) {
+export function StrategyDrawer({
+  open,
+  onClose,
+  applicationId,
+  current,
+}: {
+  open: boolean;
+  onClose: () => void;
+  applicationId: string;
+  current: string;
+}) {
   const { updateStrategy } = useApplication(applicationId);
   const [strategy, setStrategy] = useState(current);
   const [initialTraffic, setInitialTraffic] = useState(10);
@@ -23,7 +33,10 @@ export function StrategyDrawer({ open, onClose, applicationId, current }: { open
 
   async function save() {
     try {
-      await updateStrategy({ strategy, config: { initialTraffic, increment, intervalMinutes, autoRollback } });
+      await updateStrategy({
+        strategy,
+        config: { initialTraffic, increment, intervalMinutes, autoRollback },
+      });
       toast.success("Estratégia atualizada");
       onClose();
     } catch (e) {
@@ -39,8 +52,12 @@ export function StrategyDrawer({ open, onClose, applicationId, current }: { open
       description="Como novas versões substituem as antigas — sem downtime."
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant="gradient" onClick={save}>Salvar</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="gradient" onClick={save}>
+            Salvar
+          </Button>
         </div>
       }
     >
@@ -52,7 +69,9 @@ export function StrategyDrawer({ open, onClose, applicationId, current }: { open
               onClick={() => setStrategy(s.id)}
               className={cn(
                 "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
-                strategy === s.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
+                strategy === s.id
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/40",
               )}
             >
               <span className="font-medium">{s.label}</span>
@@ -63,15 +82,41 @@ export function StrategyDrawer({ open, onClose, applicationId, current }: { open
 
         {strategy === "CANARY" && (
           <div className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
-            <div className="space-y-1.5"><Label>Tráfego inicial (%)</Label><Input type="number" value={initialTraffic} onChange={(e) => setInitialTraffic(+e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Incremento (%)</Label><Input type="number" value={increment} onChange={(e) => setIncrement(+e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Intervalo (min)</Label><Input type="number" value={intervalMinutes} onChange={(e) => setIntervalMinutes(+e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>Tráfego inicial (%)</Label>
+              <Input
+                type="number"
+                value={initialTraffic}
+                onChange={(e) => setInitialTraffic(+e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Incremento (%)</Label>
+              <Input
+                type="number"
+                value={increment}
+                onChange={(e) => setIncrement(+e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Intervalo (min)</Label>
+              <Input
+                type="number"
+                value={intervalMinutes}
+                onChange={(e) => setIntervalMinutes(+e.target.value)}
+              />
+            </div>
           </div>
         )}
 
         {strategy !== "ROLLING" && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={autoRollback} onChange={(e) => setAutoRollback(e.target.checked)} className="accent-primary" />
+            <input
+              type="checkbox"
+              checked={autoRollback}
+              onChange={(e) => setAutoRollback(e.target.checked)}
+              className="accent-primary"
+            />
             Rollback automático ao detectar erros/latência
           </label>
         )}

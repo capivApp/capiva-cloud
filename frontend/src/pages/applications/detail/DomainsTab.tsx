@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { useDomains, type AddDomainInput } from "@/pages/applications/hooks/useDomains";
 import { useTlsCertificates } from "@/hooks/useTlsCertificates";
 
-const tlsLabel = { lets_encrypt: "Let's Encrypt", uploaded: "Certificado enviado", none: "Sem TLS" } as const;
+const tlsLabel = {
+  lets_encrypt: "Let's Encrypt",
+  uploaded: "Certificado enviado",
+  none: "Sem TLS",
+} as const;
 
 /**
  * Aba "Domínios" do detalhe da aplicação. CRUD de domínios customizados; cada um
@@ -25,9 +29,14 @@ export function DomainsTab({ applicationId }: { applicationId: string }) {
 
   const submit = async () => {
     if (!host.trim()) return toast.error("Informe o domínio.");
-    if (tlsMode === "uploaded" && !tlsCertificateId) return toast.error("Selecione um certificado.");
+    if (tlsMode === "uploaded" && !tlsCertificateId)
+      return toast.error("Selecione um certificado.");
     try {
-      await add({ host: host.trim(), tlsMode, tlsCertificateId: tlsMode === "uploaded" ? tlsCertificateId : undefined });
+      await add({
+        host: host.trim(),
+        tlsMode,
+        tlsCertificateId: tlsMode === "uploaded" ? tlsCertificateId : undefined,
+      });
       setHost("");
       setTlsCertificateId("");
       toast.success("Domínio adicionado. Reconciliando Ingress…");
@@ -50,9 +59,14 @@ export function DomainsTab({ applicationId }: { applicationId: string }) {
       <Card>
         <CardContent className="space-y-3 pt-5">
           {isLoading && <p className="text-sm text-muted-foreground">Carregando domínios…</p>}
-          {!isLoading && domains.length === 0 && <p className="text-sm text-muted-foreground">Nenhum domínio customizado.</p>}
+          {!isLoading && domains.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum domínio customizado.</p>
+          )}
           {domains.map((d) => (
-            <div key={d.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5 text-sm">
+            <div
+              key={d.id}
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5 text-sm"
+            >
               <div className="flex items-center gap-2">
                 <Globe className="size-4 text-muted-foreground" />
                 <span className="font-medium">{d.host}</span>
@@ -62,7 +76,9 @@ export function DomainsTab({ applicationId }: { applicationId: string }) {
                   {d.tlsMode !== "none" && <ShieldCheck className="mr-1 size-3" />}
                   {tlsLabel[d.tlsMode]}
                 </Badge>
-                <Button variant="ghost" size="icon" onClick={() => del(d.id)}><Trash2 className="size-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => del(d.id)}>
+                  <Trash2 className="size-4" />
+                </Button>
               </div>
             </div>
           ))}
@@ -74,12 +90,21 @@ export function DomainsTab({ applicationId }: { applicationId: string }) {
           <p className="text-sm font-medium">Adicionar domínio</p>
           <div className="space-y-1.5">
             <Label className="text-xs">Domínio</Label>
-            <Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="app.exemplo.com" className="font-mono text-xs" />
+            <Input
+              value={host}
+              onChange={(e) => setHost(e.target.value)}
+              placeholder="app.exemplo.com"
+              className="font-mono text-xs"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">TLS</Label>
-              <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={tlsMode} onChange={(e) => setTlsMode(e.target.value as AddDomainInput["tlsMode"])}>
+              <select
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                value={tlsMode}
+                onChange={(e) => setTlsMode(e.target.value as AddDomainInput["tlsMode"])}
+              >
                 <option value="lets_encrypt">Let's Encrypt (automático)</option>
                 <option value="uploaded">Certificado enviado</option>
                 <option value="none">Sem TLS</option>
@@ -88,14 +113,24 @@ export function DomainsTab({ applicationId }: { applicationId: string }) {
             {tlsMode === "uploaded" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Certificado</Label>
-                <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={tlsCertificateId} onChange={(e) => setTlsCertificateId(e.target.value)}>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  value={tlsCertificateId}
+                  onChange={(e) => setTlsCertificateId(e.target.value)}
+                >
                   <option value="">Selecione…</option>
-                  {certificates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {certificates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
           </div>
-          <Button variant="gradient" size="sm" onClick={submit} disabled={isAdding}><Plus className="size-4" /> Adicionar e reconciliar</Button>
+          <Button variant="gradient" size="sm" onClick={submit} disabled={isAdding}>
+            <Plus className="size-4" /> Adicionar e reconciliar
+          </Button>
         </CardContent>
       </Card>
     </div>

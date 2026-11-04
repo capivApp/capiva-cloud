@@ -6,7 +6,10 @@ import type { K8sManifest } from "@interface/integrations";
  * Deployment/Rollout, Service, HTTPRoute (Gateway API), HPA, CronJob,
  * CloudNativePG Cluster. Mantém os reconcilers enxutos e testáveis.
  */
-const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
+const labels = (name: string) => ({
+  "app.kubernetes.io/name": name,
+  "app.kubernetes.io/part-of": "capiva",
+});
 
 /** Variável do container: valor literal ou referência a um Secret (cofre externo). */
 export interface ContainerEnvVar {
@@ -16,7 +19,9 @@ export interface ContainerEnvVar {
 }
 
 const containerEnv = (e: ContainerEnvVar) =>
-  e.secretRef ? { name: e.key, valueFrom: { secretKeyRef: e.secretRef } } : { name: e.key, value: e.value };
+  e.secretRef
+    ? { name: e.key, valueFrom: { secretKeyRef: e.secretRef } }
+    : { name: e.key, value: e.value };
 
 export interface AppManifestInput {
   name: string;
@@ -41,7 +46,9 @@ export interface AppManifestInput {
  * health check HTTP que o usuário nunca configurou.
  */
 function probeTarget(input: AppManifestInput) {
-  return input.healthPath ? { httpGet: { path: input.healthPath, port: input.port } } : { tcpSocket: { port: input.port } };
+  return input.healthPath
+    ? { httpGet: { path: input.healthPath, port: input.port } }
+    : { tcpSocket: { port: input.port } };
 }
 
 function readinessProbe(input: AppManifestInput) {
@@ -55,7 +62,13 @@ function readinessProbe(input: AppManifestInput) {
  * um falso positivo aqui MATA o container, então preferimos demorar a agir.
  */
 function livenessProbe(input: AppManifestInput) {
-  return { ...probeTarget(input), initialDelaySeconds: 30, periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 };
+  return {
+    ...probeTarget(input),
+    initialDelaySeconds: 30,
+    periodSeconds: 20,
+    timeoutSeconds: 5,
+    failureThreshold: 6,
+  };
 }
 
 /**
@@ -67,8 +80,18 @@ function livenessProbe(input: AppManifestInput) {
 function topologySpreadConstraints(name: string) {
   const selector = { matchLabels: labels(name) };
   return [
-    { maxSkew: 1, topologyKey: "kubernetes.io/hostname", whenUnsatisfiable: "ScheduleAnyway", labelSelector: selector },
-    { maxSkew: 1, topologyKey: "topology.kubernetes.io/zone", whenUnsatisfiable: "ScheduleAnyway", labelSelector: selector },
+    {
+      maxSkew: 1,
+      topologyKey: "kubernetes.io/hostname",
+      whenUnsatisfiable: "ScheduleAnyway",
+      labelSelector: selector,
+    },
+    {
+      maxSkew: 1,
+      topologyKey: "topology.kubernetes.io/zone",
+      whenUnsatisfiable: "ScheduleAnyway",
+      labelSelector: selector,
+    },
   ];
 }
 
@@ -91,7 +114,10 @@ function volumeBits(input: AppManifestInput) {
   const vols = input.volumes ?? [];
   return {
     volumeMounts: vols.map((v) => ({ name: v.name, mountPath: v.mountPath })),
-    volumes: vols.map((v) => ({ name: v.name, persistentVolumeClaim: { claimName: `${input.name}-${v.name}` } })),
+    volumes: vols.map((v) => ({
+      name: v.name,
+      persistentVolumeClaim: { claimName: `${input.name}-${v.name}` },
+    })),
     imagePullSecrets: input.imagePullSecret ? [{ name: input.imagePullSecret }] : undefined,
   };
 }
@@ -107,7 +133,12 @@ function storageClassFor(accessMode: "RWO" | "RWX"): string {
 }
 
 /** PVC de um volume da aplicação. RWX usa Longhorn (share-manager). */
-export function pvcManifest(claimName: string, namespace: string, sizeGi: number, accessMode: "RWO" | "RWX"): K8sManifest {
+export function pvcManifest(
+  claimName: string,
+  namespace: string,
+  sizeGi: number,
+  accessMode: "RWO" | "RWX",
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "PersistentVolumeClaim",
@@ -155,20 +186,35 @@ export interface KanikoBuildInput {
  */
 export function buildResources() {
   return {
-    requests: { cpu: process.env.CAPIVA_BUILD_CPU_REQUEST || "250m", memory: process.env.CAPIVA_BUILD_MEMORY_REQUEST || "512Mi" },
-    limits: { cpu: process.env.CAPIVA_BUILD_CPU_LIMIT || "2", memory: process.env.CAPIVA_BUILD_MEMORY_LIMIT || "4Gi" },
+    requests: {
+      cpu: process.env.CAPIVA_BUILD_CPU_REQUEST || "250m",
+      memory: process.env.CAPIVA_BUILD_MEMORY_REQUEST || "512Mi",
+    },
+    limits: {
+      cpu: process.env.CAPIVA_BUILD_CPU_LIMIT || "2",
+      memory: process.env.CAPIVA_BUILD_MEMORY_LIMIT || "4Gi",
+    },
   };
 }
 
 /** Volume `docker-config` com o `config.json` do registry de destino (secret de push). */
 export function dockerConfigVolume(pushSecret: string) {
-  return { name: "docker-config", secret: { secretName: pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] } };
+  return {
+    name: "docker-config",
+    secret: { secretName: pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] },
+  };
 }
 
 /** Casca comum dos Jobs de build (Kaniko, BuildKit, Buildpacks): labels, retries, TTL e deadline. */
-export function buildJobEnvelope(input: { name: string; namespace: string; deploymentId?: string }, podSpec: Record<string, unknown>): K8sManifest {
+export function buildJobEnvelope(
+  input: { name: string; namespace: string; deploymentId?: string },
+  podSpec: Record<string, unknown>,
+): K8sManifest {
   // Label do deploy → permite buscar os logs do build (podLogsByLabel).
-  const buildLabels = { ...labels(input.name), ...(input.deploymentId ? { "capiva.cloud/deployment": input.deploymentId } : {}) };
+  const buildLabels = {
+    ...labels(input.name),
+    ...(input.deploymentId ? { "capiva.cloud/deployment": input.deploymentId } : {}),
+  };
   return {
     apiVersion: "batch/v1",
     kind: "Job",
@@ -197,7 +243,9 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
     ...(input.contextSubPath ? [`--context-sub-path=${input.contextSubPath}`] : []),
     ...(input.push ? [] : ["--no-push"]),
     // Registry HTTP/sem TLS: libera push e pull inseguros.
-    ...(input.insecure ? ["--insecure", "--skip-tls-verify", "--insecure-pull", "--skip-tls-verify-pull"] : []),
+    ...(input.insecure
+      ? ["--insecure", "--skip-tls-verify", "--insecure-pull", "--skip-tls-verify-pull"]
+      : []),
     ...(input.buildArgs ?? []).map((a) => `--build-arg=${a.key}=${a.value}`),
   ];
   const volumeMounts = [
@@ -210,7 +258,9 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
   const env = input.gitPullMethod ? [{ name: "GIT_PULL_METHOD", value: input.gitPullMethod }] : [];
   const gitEnv = {
     ...(env.length ? { env } : {}),
-    ...(input.gitCredentialsSecret ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] } : {}),
+    ...(input.gitCredentialsSecret
+      ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] }
+      : {}),
   };
   const volumes = [
     ...(input.pushSecret ? [dockerConfigVolume(input.pushSecret)] : []),
@@ -239,7 +289,10 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
  * Deployment da app. `replicas = null` omite o campo (deixa o HPA ser o dono
  * das réplicas, evitando conflito de server-side apply com o autoscaler).
  */
-export function deploymentManifest(input: AppManifestInput, replicas: number | null = 2): K8sManifest {
+export function deploymentManifest(
+  input: AppManifestInput,
+  replicas: number | null = 2,
+): K8sManifest {
   const bits = volumeBits(input);
   return {
     apiVersion: "apps/v1",
@@ -296,7 +349,9 @@ export function analysisTemplateManifest(name: string, namespace: string): K8sMa
   // cria (`service=<app>`) e é preso ao namespace do ambiente — antes o filtro
   // era `app="<nome>"`, label que NENHUM recurso gerado aqui aplica: a query
   // não retornava série alguma e a análise ficava sem dado.
-  const selector = (process.env.CAPIVA_ANALYSIS_SELECTOR || 'service="{{name}}",namespace="{{namespace}}"')
+  const selector = (
+    process.env.CAPIVA_ANALYSIS_SELECTOR || 'service="{{name}}",namespace="{{namespace}}"'
+  )
     .replace(/\{\{name\}\}/g, name)
     .replace(/\{\{namespace\}\}/g, namespace);
 
@@ -335,7 +390,11 @@ export function analysisTemplateManifest(name: string, namespace: string): K8sMa
  * O incremento é forçado a ser positivo: um `increment` 0 ou negativo vindo da
  * configuração do usuário travaria o processo num laço infinito.
  */
-function canarySteps(initialTraffic: number, incrementBy: number, interval: string): Record<string, unknown>[] {
+function canarySteps(
+  initialTraffic: number,
+  incrementBy: number,
+  interval: string,
+): Record<string, unknown>[] {
   const initial = Math.min(Math.max(Number.isFinite(initialTraffic) ? initialTraffic : 10, 1), 99);
   const increment = Math.min(Math.max(Number.isFinite(incrementBy) ? incrementBy : 20, 1), 100);
 
@@ -384,7 +443,13 @@ export function rolloutManifest(
                 activeService: input.name,
                 previewService: `${input.name}-preview`,
                 autoPromotionEnabled: !autoRollback,
-                ...(autoRollback ? { prePromotionAnalysis: { templates: [{ templateName: `${input.name}-health` }] } } : {}),
+                ...(autoRollback
+                  ? {
+                      prePromotionAnalysis: {
+                        templates: [{ templateName: `${input.name}-health` }],
+                      },
+                    }
+                  : {}),
               },
             },
       template: {
@@ -471,7 +536,11 @@ export function longhornBackupManifest(name: string, longhornVolume: string): K8
   return {
     apiVersion: "longhorn.io/v1beta2",
     kind: "Backup",
-    metadata: { name, namespace: "longhorn-system", labels: { "app.kubernetes.io/part-of": "capiva" } },
+    metadata: {
+      name,
+      namespace: "longhorn-system",
+      labels: { "app.kubernetes.io/part-of": "capiva" },
+    },
     spec: { snapshotName: name, labels: { "capiva.backup": name } },
     // O controller do Longhorn associa o Backup ao volume via label/owner; aqui
     // mantemos o vínculo explícito para reconciliação/observação.
@@ -487,7 +556,11 @@ export function longhornBackupTargetSecretManifest(
   return {
     apiVersion: "v1",
     kind: "Secret",
-    metadata: { name, namespace: "longhorn-system", labels: { "app.kubernetes.io/part-of": "capiva" } },
+    metadata: {
+      name,
+      namespace: "longhorn-system",
+      labels: { "app.kubernetes.io/part-of": "capiva" },
+    },
     type: "Opaque",
     data: {
       AWS_ACCESS_KEY_ID: Buffer.from(s3.accessKeyId).toString("base64"),
@@ -504,7 +577,9 @@ export function dockerConfigSecretManifest(
   registry: { url: string; username: string; password: string },
 ): K8sManifest {
   const auth = Buffer.from(`${registry.username}:${registry.password}`).toString("base64");
-  const dockerconfig = { auths: { [registry.url]: { username: registry.username, password: registry.password, auth } } };
+  const dockerconfig = {
+    auths: { [registry.url]: { username: registry.username, password: registry.password, auth } },
+  };
   return {
     apiVersion: "v1",
     kind: "Secret",
@@ -515,7 +590,12 @@ export function dockerConfigSecretManifest(
 }
 
 /** Secret com GIT_USERNAME/GIT_PASSWORD consumido pelo Job Kaniko (repo privado). */
-export function gitCredentialsSecretManifest(name: string, namespace: string, username: string, password: string): K8sManifest {
+export function gitCredentialsSecretManifest(
+  name: string,
+  namespace: string,
+  username: string,
+  password: string,
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "Secret",
@@ -529,7 +609,12 @@ export function gitCredentialsSecretManifest(name: string, namespace: string, us
 }
 
 /** Secret `kubernetes.io/tls` a partir de um certificado enviado (PEM cert+key). */
-export function tlsSecretManifest(name: string, namespace: string, certPem: string, keyPem: string): K8sManifest {
+export function tlsSecretManifest(
+  name: string,
+  namespace: string,
+  certPem: string,
+  keyPem: string,
+): K8sManifest {
   return {
     apiVersion: "v1",
     kind: "Secret",
@@ -554,7 +639,10 @@ export function tlsSecretManifest(name: string, namespace: string, certPem: stri
  * permite remover o Ingress exato ao apagar o domínio).
  */
 export function ingressNameFor(appName: string, host: string): string {
-  const slug = host.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = host
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return `${appName}-${slug}`.slice(0, 253);
 }
 
@@ -578,14 +666,30 @@ export function ingressManifest(
   const serviceName = opts.serviceName ?? name;
   const tlsSecretName = opts.tlsSecretName ?? `${name}-tls`;
   const rules = [
-    { host, http: { paths: [{ path: "/", pathType: "Prefix", backend: { service: { name: serviceName, port: { number: 80 } } } }] } },
+    {
+      host,
+      http: {
+        paths: [
+          {
+            path: "/",
+            pathType: "Prefix",
+            backend: { service: { name: serviceName, port: { number: 80 } } },
+          },
+        ],
+      },
+    },
   ];
 
   if (tlsMode === "NONE") {
     return {
       apiVersion: "networking.k8s.io/v1",
       kind: "Ingress",
-      metadata: { name, namespace, labels: labels(name), annotations: { "traefik.ingress.kubernetes.io/router.entrypoints": "web" } },
+      metadata: {
+        name,
+        namespace,
+        labels: labels(name),
+        annotations: { "traefik.ingress.kubernetes.io/router.entrypoints": "web" },
+      },
       spec: { ingressClassName: "traefik", rules },
     };
   }
@@ -593,8 +697,11 @@ export function ingressManifest(
   // Roteia HTTP (web) e HTTPS (websecure): plain HTTP funciona de imediato e o
   // HTTPS passa a valer quando o certificado for emitido (evita 404 no Traefik
   // ao acessar via http:// enquanto o cert do Let's Encrypt ainda não saiu).
-  const annotations: Record<string, string> = { "traefik.ingress.kubernetes.io/router.entrypoints": "web,websecure" };
-  if (tlsMode === "LETS_ENCRYPT") annotations["cert-manager.io/cluster-issuer"] = process.env.CERT_ISSUER || "letsencrypt-prod";
+  const annotations: Record<string, string> = {
+    "traefik.ingress.kubernetes.io/router.entrypoints": "web,websecure",
+  };
+  if (tlsMode === "LETS_ENCRYPT")
+    annotations["cert-manager.io/cluster-issuer"] = process.env.CERT_ISSUER || "letsencrypt-prod";
 
   return {
     apiVersion: "networking.k8s.io/v1",
@@ -620,8 +727,24 @@ export function hpaManifest(
   // CPU/MEMORY usam Resource utilization (metrics-server).
   const metrics =
     metric === "REQUESTS"
-      ? [{ type: "Pods", pods: { metric: { name: "http_requests_per_second" }, target: { type: "AverageValue", averageValue: String(target) } } }]
-      : [{ type: "Resource", resource: { name: metric === "MEMORY" ? "memory" : "cpu", target: { type: "Utilization", averageUtilization: target } } }];
+      ? [
+          {
+            type: "Pods",
+            pods: {
+              metric: { name: "http_requests_per_second" },
+              target: { type: "AverageValue", averageValue: String(target) },
+            },
+          },
+        ]
+      : [
+          {
+            type: "Resource",
+            resource: {
+              name: metric === "MEMORY" ? "memory" : "cpu",
+              target: { type: "Utilization", averageUtilization: target },
+            },
+          },
+        ];
 
   return {
     apiVersion: "autoscaling/v2",
@@ -636,7 +759,13 @@ export function hpaManifest(
   };
 }
 
-export function cronJobManifest(name: string, namespace: string, schedule: string, image: string, profile: string): K8sManifest {
+export function cronJobManifest(
+  name: string,
+  namespace: string,
+  schedule: string,
+  image: string,
+  profile: string,
+): K8sManifest {
   const res = resolveResources(profile, null);
   return {
     apiVersion: "batch/v1",

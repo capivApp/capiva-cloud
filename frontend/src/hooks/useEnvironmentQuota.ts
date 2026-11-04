@@ -22,7 +22,8 @@ export function useEnvironmentQuota(environmentId: string | null | undefined) {
 
   const saveMut = useMutation({
     mutationKey: ["environment-quota", "save"],
-    mutationFn: (limite: LimiteDeQuota) => api.put<QuotaDoAmbiente>(`/environments/${environmentId}/quota`, limite),
+    mutationFn: (limite: LimiteDeQuota) =>
+      api.put<QuotaDoAmbiente>(`/environments/${environmentId}/quota`, limite),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["environment-quota"] }),
   });
 

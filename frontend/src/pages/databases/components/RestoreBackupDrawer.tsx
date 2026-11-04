@@ -25,21 +25,37 @@ type ModeCheck = (values: FormValues, ctx: z.RefinementCtx, databaseName: string
 const MODE_CHECKS: Record<RestoreMode, ModeCheck> = {
   IN_PLACE: (values, ctx, databaseName) => {
     if (values.confirmName.trim() === databaseName) return;
-    ctx.addIssue({ code: "custom", path: ["confirmName"], message: "Digite o nome do banco para confirmar." });
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmName"],
+      message: "Digite o nome do banco para confirmar.",
+    });
   },
   AS_COPY: (values, ctx, databaseName) => {
     if (!RESOURCE_NAME.test(values.newName)) {
-      ctx.addIssue({ code: "custom", path: ["newName"], message: "Use letras minúsculas, números e hífen." });
+      ctx.addIssue({
+        code: "custom",
+        path: ["newName"],
+        message: "Use letras minúsculas, números e hífen.",
+      });
       return;
     }
     if (values.newName !== databaseName) return;
-    ctx.addIssue({ code: "custom", path: ["newName"], message: "Use um nome diferente do banco atual." });
+    ctx.addIssue({
+      code: "custom",
+      path: ["newName"],
+      message: "Use um nome diferente do banco atual.",
+    });
   },
 };
 
 const buildSchema = (databaseName: string) =>
   z
-    .object({ mode: z.enum(["IN_PLACE", "AS_COPY"]), confirmName: z.string(), newName: z.string().trim().max(40, "Use no máximo 40 caracteres.") })
+    .object({
+      mode: z.enum(["IN_PLACE", "AS_COPY"]),
+      confirmName: z.string(),
+      newName: z.string().trim().max(40, "Use no máximo 40 caracteres."),
+    })
     .superRefine((values, ctx) => MODE_CHECKS[values.mode](values, ctx, databaseName));
 
 const PAYLOAD: Record<RestoreMode, (values: FormValues) => DatabaseRestoreInput> = {
@@ -54,22 +70,36 @@ const FIELD_BY_CODE: Record<string, keyof FormValues> = {
   CONFLICT: "newName",
 };
 
-type ApiBody = { error?: string; message?: string; issues?: { path: (string | number)[]; message: string }[] };
+type ApiBody = {
+  error?: string;
+  message?: string;
+  issues?: { path: (string | number)[]; message: string }[];
+};
 
 /** Devolve o erro da API para o campo: issues do Zod (422) e erros de negócio com código. */
 function applyApiErrors(error: unknown, setError: UseFormSetError<FormValues>): boolean {
   if (!(error instanceof ApiError)) return false;
   const body = (error.body ?? {}) as ApiBody;
   const issues = body.issues ?? [];
-  issues.forEach((issue) => setError(issue.path.join(".") as keyof FormValues, { message: issue.message }));
+  issues.forEach((issue) =>
+    setError(issue.path.join(".") as keyof FormValues, { message: issue.message }),
+  );
   const field = FIELD_BY_CODE[body.error ?? ""];
   if (field) setError(field, { message: body.message ?? error.message });
   return issues.length > 0 || Boolean(field);
 }
 
 const MODE_OPTIONS: { mode: RestoreMode; title: string; hint: string }[] = [
-  { mode: "AS_COPY", title: "Como cópia", hint: "Cria um banco novo com os dados do backup. O banco atual continua igual." },
-  { mode: "IN_PLACE", title: "Sobre o banco atual", hint: "Apaga os dados atuais e coloca os do backup no lugar." },
+  {
+    mode: "AS_COPY",
+    title: "Como cópia",
+    hint: "Cria um banco novo com os dados do backup. O banco atual continua igual.",
+  },
+  {
+    mode: "IN_PLACE",
+    title: "Sobre o banco atual",
+    hint: "Apaga os dados atuais e coloca os do backup no lugar.",
+  },
 ];
 
 /** Modal de restore de um backup de banco: escolha do modo e confirmação. */
@@ -125,8 +155,14 @@ export function RestoreBackupDrawer({
       description={`Backup de ${backupLabel}`}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant={mode === "IN_PLACE" ? "destructive" : "default"} onClick={submit} disabled={isSubmitting}>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            variant={mode === "IN_PLACE" ? "destructive" : "default"}
+            onClick={submit}
+            disabled={isSubmitting}
+          >
             {mode === "IN_PLACE" ? "Substituir dados" : "Criar cópia"}
           </Button>
         </div>
@@ -141,7 +177,9 @@ export function RestoreBackupDrawer({
               onClick={() => setValue("mode", option.mode)}
               className={cn(
                 "w-full rounded-lg border p-3 text-left transition-colors",
-                mode === option.mode ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50",
+                mode === option.mode
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50",
               )}
             >
               <p className="text-sm font-medium">{option.title}</p>
@@ -164,7 +202,9 @@ export function RestoreBackupDrawer({
               Para confirmar, digite <span className="font-mono font-semibold">{databaseName}</span>
             </Label>
             <Input id="confirmName" autoComplete="off" {...register("confirmName")} />
-            {errors.confirmName && <p className="text-xs text-destructive">{errors.confirmName.message}</p>}
+            {errors.confirmName && (
+              <p className="text-xs text-destructive">{errors.confirmName.message}</p>
+            )}
             <p className="text-xs text-destructive">Os dados atuais do banco serão apagados.</p>
           </div>
         )}

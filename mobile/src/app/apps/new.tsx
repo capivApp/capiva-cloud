@@ -33,7 +33,9 @@ interface KV {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="gap-2">
-      <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Text>
+      <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </Text>
       {children}
     </View>
   );
@@ -78,7 +80,8 @@ export default function NewApplicationScreen() {
     if (!activeEnvironment) return "Nenhum ambiente disponível — crie um no painel web.";
     if (!name.trim()) return "Informe o nome da aplicação.";
     if (source === "DOCKER_IMAGE" && !image.trim()) return "Informe a imagem (ex.: nginx:latest).";
-    if (isGit && (!connectionId || !repo || !branch)) return "Selecione conexão, repositório e branch.";
+    if (isGit && (!connectionId || !repo || !branch))
+      return "Selecione conexão, repositório e branch.";
     return null;
   };
 
@@ -135,7 +138,12 @@ export default function NewApplicationScreen() {
         </CardHeader>
         <CardContent className="gap-4">
           <Field label="Nome">
-            <Input value={name} onChangeText={setName} placeholder="minha-api" autoCapitalize="none" />
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder="minha-api"
+              autoCapitalize="none"
+            />
           </Field>
           <Field label="Ambiente">
             <ChipSelector
@@ -164,7 +172,12 @@ export default function NewApplicationScreen() {
 
           {source === "DOCKER_IMAGE" && (
             <Field label="Imagem">
-              <Input value={image} onChangeText={setImage} placeholder="nginx:latest" autoCapitalize="none" />
+              <Input
+                value={image}
+                onChangeText={setImage}
+                placeholder="nginx:latest"
+                autoCapitalize="none"
+              />
             </Field>
           )}
 
@@ -231,7 +244,12 @@ export default function NewApplicationScreen() {
         </CardHeader>
         <CardContent className="gap-4">
           <Field label="Porta">
-            <Input value={port} onChangeText={setPort} keyboardType="number-pad" placeholder="3000" />
+            <Input
+              value={port}
+              onChangeText={setPort}
+              keyboardType="number-pad"
+              placeholder="3000"
+            />
           </Field>
           <Field label="Domínio (opcional)">
             <Input
@@ -272,7 +290,10 @@ export default function NewApplicationScreen() {
                 autoCorrect={false}
                 className="flex-1"
               />
-              <Pressable onPress={() => setEnv((rows) => rows.filter((_, i) => i !== index))} className="p-1">
+              <Pressable
+                onPress={() => setEnv((rows) => rows.filter((_, i) => i !== index))}
+                className="p-1"
+              >
                 <Trash2 color="#ef4444" size={16} />
               </Pressable>
             </View>
@@ -292,7 +313,13 @@ export default function NewApplicationScreen() {
           colors={brandGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={{ borderRadius: 12, height: 48, alignItems: "center", justifyContent: "center", opacity: isCreating ? 0.7 : 1 }}
+          style={{
+            borderRadius: 12,
+            height: 48,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: isCreating ? 0.7 : 1,
+          }}
         >
           <Text className="text-base font-semibold text-white">
             {isCreating ? "Criando…" : "Criar e implantar"}

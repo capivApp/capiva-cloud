@@ -9,7 +9,10 @@ export class NotificationChannelRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<NotificationChannel[]> {
-    return this.tx.notificationChannel.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.notificationChannel.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   listEnabledForEvent(organizationId: string): Promise<NotificationChannel[]> {
@@ -17,10 +20,15 @@ export class NotificationChannelRepository extends BaseRepository {
   }
 
   findById(id: string): Promise<NotificationChannel | null> {
-    return this.tx.notificationChannel.findFirst({ where: { id, ...this.scope("notificationChannel") } });
+    return this.tx.notificationChannel.findFirst({
+      where: { id, ...this.scope("notificationChannel") },
+    });
   }
 
-  async update(id: string, data: Prisma.NotificationChannelUncheckedUpdateInput): Promise<NotificationChannel> {
+  async update(
+    id: string,
+    data: Prisma.NotificationChannelUncheckedUpdateInput,
+  ): Promise<NotificationChannel> {
     await this.ensureScoped(() => this.findById(id), "Canal");
     return this.tx.notificationChannel.update({ where: { id }, data });
   }

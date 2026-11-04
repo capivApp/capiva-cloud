@@ -19,18 +19,30 @@ describe("tenantScope", () => {
   });
 
   it("aplicação chega à organização pelo projeto", () => {
-    expect(inTenant(ORG, () => tenantScope("application"))).toEqual({ project: { organizationId: ORG } });
+    expect(inTenant(ORG, () => tenantScope("application"))).toEqual({
+      project: { organizationId: ORG },
+    });
   });
 
   it("recursos filhos da aplicação atravessam a cadeia completa", () => {
     const expected = { application: { project: { organizationId: ORG } } };
-    for (const model of ["volume", "domain", "envVar", "deployment", "uptimeCheck", "scalingPolicy", "alertRule"] as const) {
+    for (const model of [
+      "volume",
+      "domain",
+      "envVar",
+      "deployment",
+      "uptimeCheck",
+      "scalingPolicy",
+      "alertRule",
+    ] as const) {
       expect(inTenant(ORG, () => tenantScope(model))).toEqual(expected);
     }
   });
 
   it("nó de cluster chega à organização pelo cluster", () => {
-    expect(inTenant(ORG, () => tenantScope("clusterNode"))).toEqual({ cluster: { organizationId: ORG } });
+    expect(inTenant(ORG, () => tenantScope("clusterNode"))).toEqual({
+      cluster: { organizationId: ORG },
+    });
   });
 
   it("organização é filtrada pelo próprio id", () => {
@@ -40,7 +52,9 @@ describe("tenantScope", () => {
   // Regressão: um escopo silenciosamente vazio devolveria recursos de TODAS as
   // organizações — o modo de falha exato que a correção existe para impedir.
   it("falha alto quando não há organização no contexto", () => {
-    expect(() => inTenant(undefined, () => tenantScope("application"))).toThrow(/exige organização/);
+    expect(() => inTenant(undefined, () => tenantScope("application"))).toThrow(
+      /exige organização/,
+    );
   });
 
   it("falha alto fora de uma transação", () => {

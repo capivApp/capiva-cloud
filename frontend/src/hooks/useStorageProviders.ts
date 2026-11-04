@@ -36,8 +36,15 @@ export function useStorageProviders() {
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: CreateStorageProviderInput) => api.post<StorageProvider>("/storage-providers", input), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/storage-providers/${id}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: CreateStorageProviderInput) =>
+      api.post<StorageProvider>("/storage-providers", input),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/storage-providers/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     providers: list.data ?? [],

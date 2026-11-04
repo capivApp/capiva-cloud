@@ -2,7 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/useAuthStore";
 
-export type NotificationType = "DISCORD" | "SLACK" | "TELEGRAM" | "TEAMS" | "EMAIL" | "RESEND" | "LARK" | "PUSH" | "WEBHOOK";
+export type NotificationType =
+  | "DISCORD"
+  | "SLACK"
+  | "TELEGRAM"
+  | "TEAMS"
+  | "EMAIL"
+  | "RESEND"
+  | "LARK"
+  | "PUSH"
+  | "WEBHOOK";
 
 export interface NotificationChannel {
   id: string;
@@ -27,13 +36,29 @@ export function useNotifications() {
   const queryClient = useQueryClient();
   const key = ["notifications", organizationId];
 
-  const list = useQuery({ queryKey: key, queryFn: () => api.get<NotificationChannel[]>("/notifications"), enabled: Boolean(organizationId) });
-  const events = useQuery({ queryKey: ["notification-events"], queryFn: () => api.get<string[]>("/notifications/events") });
+  const list = useQuery({
+    queryKey: key,
+    queryFn: () => api.get<NotificationChannel[]>("/notifications"),
+    enabled: Boolean(organizationId),
+  });
+  const events = useQuery({
+    queryKey: ["notification-events"],
+    queryFn: () => api.get<string[]>("/notifications/events"),
+  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: CreateChannelInput) => api.post<NotificationChannel>("/notifications", input), onSuccess: invalidate });
-  const testMut = useMutation({ mutationFn: (id: string) => api.post(`/notifications/${id}/test`, {}) });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/notifications/${id}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: CreateChannelInput) =>
+      api.post<NotificationChannel>("/notifications", input),
+    onSuccess: invalidate,
+  });
+  const testMut = useMutation({
+    mutationFn: (id: string) => api.post(`/notifications/${id}/test`, {}),
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/notifications/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     channels: list.data ?? [],

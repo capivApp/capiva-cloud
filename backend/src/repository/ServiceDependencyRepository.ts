@@ -58,7 +58,9 @@ export class ServiceDependencyRepository extends BaseRepository {
   }
 
   find(sourceId: string, targetId: string): Promise<ServiceDependency | null> {
-    return this.tx.serviceDependency.findFirst({ where: { sourceId, targetId, ...this.edgeScope } });
+    return this.tx.serviceDependency.findFirst({
+      where: { sourceId, targetId, ...this.edgeScope },
+    });
   }
 
   async delete(id: string): Promise<ServiceDependency> {

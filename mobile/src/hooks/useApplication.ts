@@ -44,7 +44,8 @@ export function useApplication(id: string | null) {
   const restartMut = useMutation(lifecycle("restart"));
   const rollbackMut = useMutation({
     mutationKey: ["application", id, "rollback"],
-    mutationFn: (deploymentId: string) => api.post<Deployment>(`/applications/${id}/rollback`, { deploymentId }),
+    mutationFn: (deploymentId: string) =>
+      api.post<Deployment>(`/applications/${id}/rollback`, { deploymentId }),
     onSuccess: invalidate,
   });
 

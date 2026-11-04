@@ -5,18 +5,37 @@
 import { describe, expect, it, mock } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { TRIVY_IMAGE, trivyCredentialsSecretManifest, trivyJobManifest } from "@infra/security/trivyJob";
+import {
+  TRIVY_IMAGE,
+  trivyCredentialsSecretManifest,
+  trivyJobManifest,
+} from "@infra/security/trivyJob";
 import { TRIVY_REPORT_BEGIN, TRIVY_REPORT_END } from "@infra/security/trivyReport";
 import { TrivyScanner } from "@infra/security/TrivyScanner";
 import type { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import type { K8sManifest } from "@interface/integrations";
 
-type Container = { name: string; image: string; command: string[]; env?: { name: string; value: string }[]; envFrom?: unknown[]; resources?: unknown };
-const podSpec = (m: K8sManifest) => (m.spec as { template: { spec: { containers: Container[]; restartPolicy: string } } }).template.spec;
+type Container = {
+  name: string;
+  image: string;
+  command: string[];
+  env?: { name: string; value: string }[];
+  envFrom?: unknown[];
+  resources?: unknown;
+};
+const podSpec = (m: K8sManifest) =>
+  (m.spec as { template: { spec: { containers: Container[]; restartPolicy: string } } }).template
+    .spec;
 const container = (m: K8sManifest) => podSpec(m).containers[0];
-const envOf = (m: K8sManifest) => Object.fromEntries((container(m).env ?? []).map((e) => [e.name, e.value]));
+const envOf = (m: K8sManifest) =>
+  Object.fromEntries((container(m).env ?? []).map((e) => [e.name, e.value]));
 
-const base = { name: "scan-dep1", namespace: "prod", imageRef: "registry.local:5000/api:1.4.0", deploymentId: "dep1" };
+const base = {
+  name: "scan-dep1",
+  namespace: "prod",
+  imageRef: "registry.local:5000/api:1.4.0",
+  deploymentId: "dep1",
+};
 
 describe("trivyJobManifest", () => {
   it("Job único, sem retry, com prazo e limpeza automática", () => {
@@ -24,7 +43,11 @@ describe("trivyJobManifest", () => {
     expect(job.apiVersion).toBe("batch/v1");
     expect(job.kind).toBe("Job");
     expect(job.metadata).toMatchObject({ name: "scan-dep1", namespace: "prod" });
-    const spec = job.spec as { backoffLimit: number; activeDeadlineSeconds: number; ttlSecondsAfterFinished: number };
+    const spec = job.spec as {
+      backoffLimit: number;
+      activeDeadlineSeconds: number;
+      ttlSecondsAfterFinished: number;
+    };
     expect(spec.backoffLimit).toBe(0);
     expect(spec.activeDeadlineSeconds).toBeGreaterThan(0);
     expect(spec.ttlSecondsAfterFinished).toBeGreaterThan(0);
@@ -33,7 +56,9 @@ describe("trivyJobManifest", () => {
 
   it("rótulos ligam o pod ao deploy e ao próprio Job (leitura do log)", () => {
     const job = trivyJobManifest(base);
-    const templateLabels = (job.spec as { template: { metadata: { labels: Record<string, string> } } }).template.metadata.labels;
+    const templateLabels = (
+      job.spec as { template: { metadata: { labels: Record<string, string> } } }
+    ).template.metadata.labels;
     expect(templateLabels["capiva.cloud/deployment"]).toBe("dep1");
     expect(templateLabels["capiva.cloud/scan-job"]).toBe("scan-dep1");
   });
@@ -71,14 +96,25 @@ describe("trivyJobManifest", () => {
   });
 
   it("tem requests e limits de recursos", () => {
-    expect(container(trivyJobManifest(base)).resources).toMatchObject({ requests: expect.any(Object), limits: expect.any(Object) });
+    expect(container(trivyJobManifest(base)).resources).toMatchObject({
+      requests: expect.any(Object),
+      limits: expect.any(Object),
+    });
   });
 });
 
 describe("trivyCredentialsSecretManifest", () => {
   it("Secret Opaque com TRIVY_USERNAME/TRIVY_PASSWORD em base64", () => {
-    const secret = trivyCredentialsSecretManifest("scan-dep1-auth", "prod", { username: "ci", password: "s3cr3t" });
-    expect(secret).toMatchObject({ apiVersion: "v1", kind: "Secret", type: "Opaque", metadata: { name: "scan-dep1-auth", namespace: "prod" } });
+    const secret = trivyCredentialsSecretManifest("scan-dep1-auth", "prod", {
+      username: "ci",
+      password: "s3cr3t",
+    });
+    expect(secret).toMatchObject({
+      apiVersion: "v1",
+      kind: "Secret",
+      type: "Opaque",
+      metadata: { name: "scan-dep1-auth", namespace: "prod" },
+    });
     const data = secret.data as Record<string, string>;
     expect(Buffer.from(data.TRIVY_USERNAME, "base64").toString()).toBe("ci");
     expect(Buffer.from(data.TRIVY_PASSWORD, "base64").toString()).toBe("s3cr3t");
@@ -99,7 +135,9 @@ function makeScanner(overrides: { observe?: Observe; podLogsByLabel?: PodLogs } 
     apply: mock(async (_ctx: unknown, manifest: K8sManifest) => {
       applied.push(manifest);
     }),
-    observe: mock<Observe>(overrides.observe ?? (async () => ({ ready: false, raw: { succeeded: 1 } }))),
+    observe: mock<Observe>(
+      overrides.observe ?? (async () => ({ ready: false, raw: { succeeded: 1 } })),
+    ),
     podLogsByLabel: mock<PodLogs>(overrides.podLogsByLabel ?? (async () => LOGS)),
     remove: mock(async (_ctx: unknown, _api: string, kind: string, name: string) => {
       removed.push(`${kind}/${name}`);
@@ -111,7 +149,12 @@ function makeScanner(overrides: { observe?: Observe; podLogsByLabel?: PodLogs } 
 }
 
 describe("TrivyScanner", () => {
-  const request = { ctx: CTX, imageRef: "registry.local:5000/api:1.4.0", deploymentId: "dep1", insecure: false };
+  const request = {
+    ctx: CTX,
+    imageRef: "registry.local:5000/api:1.4.0",
+    deploymentId: "dep1",
+    insecure: false,
+  };
 
   it("aplica o Job, espera concluir e devolve o resumo lido do log", async () => {
     const { scanner, applied, k8s } = makeScanner();
@@ -130,8 +173,12 @@ describe("TrivyScanner", () => {
   });
 
   it("Job com falha rejeita (e ainda remove o Secret)", async () => {
-    const { scanner, removed } = makeScanner({ observe: async () => ({ ready: false, raw: { failed: 1 } }) });
-    expect(scanner.scan({ ...request, auth: { username: "ci", password: "x" } })).rejects.toThrow("scan-dep1");
+    const { scanner, removed } = makeScanner({
+      observe: async () => ({ ready: false, raw: { failed: 1 } }),
+    });
+    expect(scanner.scan({ ...request, auth: { username: "ci", password: "x" } })).rejects.toThrow(
+      "scan-dep1",
+    );
     expect(removed).toContain("Secret/scan-dep1-auth");
   });
 
@@ -148,7 +195,9 @@ describe("TrivyScanner", () => {
 
   it("cluster sem kubeconfig (simulação) rejeita sem aplicar nada", async () => {
     const { scanner, applied } = makeScanner();
-    expect(scanner.scan({ ...request, ctx: { kubeconfig: "", namespace: "prod" } })).rejects.toThrow();
+    expect(
+      scanner.scan({ ...request, ctx: { kubeconfig: "", namespace: "prod" } }),
+    ).rejects.toThrow();
     expect(applied).toEqual([]);
   });
 });

@@ -111,13 +111,16 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     };
 
     if (!resolved) {
-      console.log(`[k8s:dry-run] apply ${obj.kind}/${obj.metadata.name} @ ${obj.metadata.namespace}`);
+      console.log(
+        `[k8s:dry-run] apply ${obj.kind}/${obj.metadata.name} @ ${obj.metadata.namespace}`,
+      );
       return;
     }
 
     // Garante que o namespace exista antes de aplicar recursos nele (idempotente).
     const ns = obj.metadata.namespace;
-    if (ns && obj.kind !== "Namespace") await this.ensureNamespace(resolved.api, ctx.kubeconfig, ns);
+    if (ns && obj.kind !== "Namespace")
+      await this.ensureNamespace(resolved.api, ctx.kubeconfig, ns);
 
     // Server-Side Apply: cria ou atualiza convergindo para o estado desejado.
     await resolved.api.patch(
@@ -138,10 +141,19 @@ export class KubernetesAdapter implements IKubernetesAdapter {
   async applyRaw(ctx: KubeContext, obj: KubernetesObject): Promise<void> {
     const resolved = this.resolve(ctx.kubeconfig);
     if (!resolved) {
-      console.log(`[k8s:dry-run] applyRaw ${(obj as { kind?: string }).kind}/${obj.metadata?.name}`);
+      console.log(
+        `[k8s:dry-run] applyRaw ${(obj as { kind?: string }).kind}/${obj.metadata?.name}`,
+      );
       return;
     }
-    await resolved.api.patch(obj, undefined, undefined, "capiva", true, PatchStrategy.ServerSideApply);
+    await resolved.api.patch(
+      obj,
+      undefined,
+      undefined,
+      "capiva",
+      true,
+      PatchStrategy.ServerSideApply,
+    );
   }
 
   /** Existe um CustomResourceDefinition com este nome? (checagem de operator instalado). */
@@ -149,7 +161,11 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     const resolved = this.resolve(ctx.kubeconfig);
     if (!resolved) return false;
     try {
-      await resolved.api.read({ apiVersion: "apiextensions.k8s.io/v1", kind: "CustomResourceDefinition", metadata: { name: crdName } });
+      await resolved.api.read({
+        apiVersion: "apiextensions.k8s.io/v1",
+        kind: "CustomResourceDefinition",
+        metadata: { name: crdName },
+      });
       return true;
     } catch {
       return false;
@@ -157,12 +173,20 @@ export class KubernetesAdapter implements IKubernetesAdapter {
   }
 
   /** Cria o namespace se não existir (idempotente, cacheado por kubeconfig). */
-  private async ensureNamespace(api: KubernetesObjectApi, kubeconfig: string, namespace: string): Promise<void> {
+  private async ensureNamespace(
+    api: KubernetesObjectApi,
+    kubeconfig: string,
+    namespace: string,
+  ): Promise<void> {
     const key = crypto.createHash("sha256").update(kubeconfig).digest("hex") + ":" + namespace;
     if (this.ensuredNs.has(key)) return;
     try {
       await api.patch(
-        { apiVersion: "v1", kind: "Namespace", metadata: { name: namespace, labels: { "app.kubernetes.io/managed-by": "capiva" } } },
+        {
+          apiVersion: "v1",
+          kind: "Namespace",
+          metadata: { name: namespace, labels: { "app.kubernetes.io/managed-by": "capiva" } },
+        },
         undefined,
         undefined,
         "capiva",
@@ -175,7 +199,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     this.ensuredNs.add(key);
   }
 
-  async observe(ctx: KubeContext, apiVersion: string, kind: string, name: string): Promise<ObservedStatus> {
+  async observe(
+    ctx: KubeContext,
+    apiVersion: string,
+    kind: string,
+    name: string,
+  ): Promise<ObservedStatus> {
     const resolved = this.resolve(ctx.kubeconfig);
     if (!resolved) return { ready: true, replicas: 1, message: "dry-run" };
 
@@ -216,7 +245,9 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     }
   }
 
-  async testConnection(kubeconfig: string): Promise<{ ok: boolean; version?: string; message?: string }> {
+  async testConnection(
+    kubeconfig: string,
+  ): Promise<{ ok: boolean; version?: string; message?: string }> {
     try {
       const kc = this.loadKc(kubeconfig);
       const version = await kc.makeApiClient(VersionApi).getCode();
@@ -224,7 +255,9 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       // SelfSubjectAccessReview exige um usuário autenticado, então credencial
       // inválida/expirada retorna 401 aqui em vez de falhar só no deploy.
       await kc.makeApiClient(AuthorizationV1Api).createSelfSubjectAccessReview({
-        body: { spec: { resourceAttributes: { verb: "create", resource: "deployments", group: "apps" } } },
+        body: {
+          spec: { resourceAttributes: { verb: "create", resource: "deployments", group: "apps" } },
+        },
       });
       return { ok: true, version: version.gitVersion };
     } catch (error) {
@@ -335,7 +368,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
    * Retorna o texto atual (não-follow); o SSE faz o polling. "" se não houver pod.
    */
   /** `container` lê um container específico (ex.: o initContainer `clone` do build). */
-  async podLogsByLabel(ctx: KubeContext, labelSelector: string, tailLines = 1000, container?: string): Promise<string> {
+  async podLogsByLabel(
+    ctx: KubeContext,
+    labelSelector: string,
+    tailLines = 1000,
+    container?: string,
+  ): Promise<string> {
     if (!ctx.kubeconfig) return "";
     try {
       const kc = this.loadKc(ctx.kubeconfig);
@@ -343,7 +381,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       const pods = await core.listNamespacedPod({ namespace: ctx.namespace, labelSelector });
       const podName = pods.items[0]?.metadata?.name;
       if (!podName) return "";
-      return await core.readNamespacedPodLog({ name: podName, namespace: ctx.namespace, tailLines, container });
+      return await core.readNamespacedPodLog({
+        name: podName,
+        namespace: ctx.namespace,
+        tailLines,
+        container,
+      });
     } catch {
       return "";
     }
@@ -357,7 +400,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
   async scaleDeployment(ctx: KubeContext, name: string, replicas: number): Promise<void> {
     await this.apply(
       ctx,
-      { apiVersion: "apps/v1", kind: "Deployment", metadata: { name, namespace: ctx.namespace }, spec: { replicas } },
+      {
+        apiVersion: "apps/v1",
+        kind: "Deployment",
+        metadata: { name, namespace: ctx.namespace },
+        spec: { replicas },
+      },
       "capiva-scale",
     );
   }
@@ -381,7 +429,9 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       const specMetric = (spec.metrics ?? [])[0] ?? {};
       const curMetric = (status.currentMetrics ?? [])[0] ?? {};
       const metricName =
-        specMetric.type === "Pods" ? specMetric.pods?.metric?.name : specMetric.resource?.name ?? "cpu";
+        specMetric.type === "Pods"
+          ? specMetric.pods?.metric?.name
+          : (specMetric.resource?.name ?? "cpu");
       const targetValue =
         specMetric.type === "Pods"
           ? specMetric.pods?.target?.averageValue
@@ -405,7 +455,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         metric: metricName,
         currentMetricValue: currentValue,
         targetMetricValue: targetValue,
-        conditions: (status.conditions ?? []).map((c) => ({ type: c.type, status: c.status, reason: c.reason, message: c.message })),
+        conditions: (status.conditions ?? []).map((c) => ({
+          type: c.type,
+          status: c.status,
+          reason: c.reason,
+          message: c.message,
+        })),
       };
     } catch {
       return { exists: false };
@@ -417,11 +472,17 @@ export class KubernetesAdapter implements IKubernetesAdapter {
    * subiu (ImagePullBackOff, CrashLoopBackOff, Pending/unschedulable...). Dá
    * visibilidade do "porquê" quando o Deployment não fica ready.
    */
-  async podHealth(ctx: KubeContext, appName: string): Promise<{ total: number; ready: number; issues: string[] }> {
+  async podHealth(
+    ctx: KubeContext,
+    appName: string,
+  ): Promise<{ total: number; ready: number; issues: string[] }> {
     const resolved = this.resolve(ctx.kubeconfig);
     if (!resolved) return { total: 0, ready: 0, issues: [] };
     const core = resolved.kc.makeApiClient(CoreV1Api);
-    const pods = await core.listNamespacedPod({ namespace: ctx.namespace, labelSelector: `app.kubernetes.io/name=${appName}` });
+    const pods = await core.listNamespacedPod({
+      namespace: ctx.namespace,
+      labelSelector: `app.kubernetes.io/name=${appName}`,
+    });
     let ready = 0;
     const issues: string[] = [];
     for (const p of pods.items) {
@@ -435,12 +496,15 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         const w = cs.state?.waiting;
         if (w?.reason) issues.push(`${name}: ${w.reason}${w.message ? ` — ${w.message}` : ""}`);
         const t = cs.state?.terminated;
-        if (t?.reason && t.reason !== "Completed") issues.push(`${name}: ${t.reason}${t.message ? ` — ${t.message}` : ""}`);
+        if (t?.reason && t.reason !== "Completed")
+          issues.push(`${name}: ${t.reason}${t.message ? ` — ${t.message}` : ""}`);
       }
       // Sem containerStatuses → pod pendente (ex.: unschedulable): usa a condição negativa.
       if (states.length === 0) {
         const cond = (p.status?.conditions ?? []).find((c) => c.status === "False" && c.reason);
-        issues.push(`${name}: ${cond?.reason ?? p.status?.phase ?? "Pending"}${cond?.message ? ` — ${cond.message}` : ""}`);
+        issues.push(
+          `${name}: ${cond?.reason ?? p.status?.phase ?? "Pending"}${cond?.message ? ` — ${cond.message}` : ""}`,
+        );
       }
     }
     return { total: pods.items.length, ready, issues: [...new Set(issues)] };
@@ -479,11 +543,18 @@ export class KubernetesAdapter implements IKubernetesAdapter {
    * Primeiro pod (preferindo Running) de uma aplicação, pelo selector padrão
    * `app.kubernetes.io/name=<nome>`. Usado pelo terminal web (exec).
    */
-  async firstRunningPod(kubeconfig: string, namespace: string, appName: string): Promise<{ pod: string; container: string } | null> {
+  async firstRunningPod(
+    kubeconfig: string,
+    namespace: string,
+    appName: string,
+  ): Promise<{ pod: string; container: string } | null> {
     if (!kubeconfig) return null;
     const kc = this.loadKc(kubeconfig);
     const core = kc.makeApiClient(CoreV1Api);
-    const pods = await core.listNamespacedPod({ namespace, labelSelector: `app.kubernetes.io/name=${appName}` });
+    const pods = await core.listNamespacedPod({
+      namespace,
+      labelSelector: `app.kubernetes.io/name=${appName}`,
+    });
     const chosen = pods.items.find((p) => p.status?.phase === "Running") ?? pods.items[0];
     const podName = chosen?.metadata?.name;
     if (!podName) return null;
@@ -503,7 +574,11 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     command?: string[];
     onData: (chunk: Buffer) => void;
     onClose: (status?: V1Status) => void;
-  }): Promise<{ write: (data: string) => void; resize: (cols: number, rows: number) => void; close: () => void }> {
+  }): Promise<{
+    write: (data: string) => void;
+    resize: (cols: number, rows: number) => void;
+    close: () => void;
+  }> {
     const kc = this.loadKc(opts.kubeconfig);
     const exec = new Exec(kc);
     const stdin = new stream.PassThrough();
@@ -515,7 +590,17 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     });
 
     const command = opts.command ?? ["/bin/sh", "-c", "exec /bin/bash 2>/dev/null || exec /bin/sh"];
-    const ws = await exec.exec(opts.namespace, opts.pod, opts.container, command, sink, sink, stdin, true, (status) => opts.onClose(status));
+    const ws = await exec.exec(
+      opts.namespace,
+      opts.pod,
+      opts.container,
+      command,
+      sink,
+      sink,
+      stdin,
+      true,
+      (status) => opts.onClose(status),
+    );
     ws.on("close", () => opts.onClose());
     ws.on("error", () => opts.onClose());
 
@@ -524,7 +609,12 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       // Canal 4 do protocolo de exec do k8s = resize ({Width,Height}).
       resize: (cols, rows) => {
         try {
-          ws.send(Buffer.concat([Buffer.from([4]), Buffer.from(JSON.stringify({ Width: cols, Height: rows }))]));
+          ws.send(
+            Buffer.concat([
+              Buffer.from([4]),
+              Buffer.from(JSON.stringify({ Width: cols, Height: rows })),
+            ]),
+          );
         } catch {
           /* ws ainda não pronto/fechado */
         }
@@ -553,14 +643,20 @@ export class KubernetesAdapter implements IKubernetesAdapter {
       return pods.items.map((p) => {
         const statuses = p.status?.containerStatuses ?? [];
         const ports = (p.spec?.containers ?? []).flatMap((c) =>
-          (c.ports ?? []).map((port) => ({ name: port.name, containerPort: port.containerPort, protocol: port.protocol ?? "TCP" })),
+          (c.ports ?? []).map((port) => ({
+            name: port.name,
+            containerPort: port.containerPort,
+            protocol: port.protocol ?? "TCP",
+          })),
         );
         return {
           name: p.metadata?.name ?? "pod",
           namespace: p.metadata?.namespace ?? "default",
           node: p.spec?.nodeName ?? "",
           phase: p.status?.phase ?? "Unknown",
-          ready: (p.status?.conditions ?? []).some((c) => c.type === "Ready" && c.status === "True"),
+          ready: (p.status?.conditions ?? []).some(
+            (c) => c.type === "Ready" && c.status === "True",
+          ),
           restarts: statuses.reduce((sum, s) => sum + (s.restartCount ?? 0), 0),
           podIP: p.status?.podIP ?? null,
           ports,
@@ -583,10 +679,18 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         metrics.getPodMetrics(namespace),
         namespace ? core.listNamespacedPod({ namespace }) : core.listPodForAllNamespaces(),
       ]);
-      const nodeByPod = new Map(podList.items.map((p) => [`${p.metadata?.namespace}/${p.metadata?.name}`, p.spec?.nodeName ?? ""]));
+      const nodeByPod = new Map(
+        podList.items.map((p) => [
+          `${p.metadata?.namespace}/${p.metadata?.name}`,
+          p.spec?.nodeName ?? "",
+        ]),
+      );
 
       return podMetrics.items.map((m) => {
-        const cpuMillicores = m.containers.reduce((sum, c) => sum + cpuToMillicores(c.usage.cpu), 0);
+        const cpuMillicores = m.containers.reduce(
+          (sum, c) => sum + cpuToMillicores(c.usage.cpu),
+          0,
+        );
         const memoryMib = m.containers.reduce((sum, c) => sum + memoryToMib(c.usage.memory), 0);
         return {
           name: m.metadata.name,

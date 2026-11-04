@@ -6,7 +6,9 @@ const BLOCK_LEVELS = Object.values(BlockOnSeverity) as [BlockOnSeverity, ...Bloc
 /** Corpo do PUT /applications/:id/security (política de scan de vulnerabilidades). */
 export const scanPolicySchema = z.object({
   scanEnabled: z.boolean({ error: "Informe se o scan fica ligado." }),
-  blockOnSeverity: z.enum(BLOCK_LEVELS, { error: "Escolha entre não bloquear, bloquear críticas ou bloquear altas e críticas." }),
+  blockOnSeverity: z.enum(BLOCK_LEVELS, {
+    error: "Escolha entre não bloquear, bloquear críticas ou bloquear altas e críticas.",
+  }),
 });
 
 /**

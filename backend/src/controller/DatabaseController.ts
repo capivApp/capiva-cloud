@@ -24,13 +24,25 @@ export class DatabaseController {
 
   createBackup = async (req: Request, res: Response): Promise<void> => {
     const { scope, mode, storageProviderId } = req.body ?? {};
-    res.status(201).json(await this.backups.create(String(req.params.id), tenantOf(req), { scope, mode, storageProviderId }));
+    res.status(201).json(
+      await this.backups.create(String(req.params.id), tenantOf(req), {
+        scope,
+        mode,
+        storageProviderId,
+      }),
+    );
   };
 
   restoreBackup = async (req: Request, res: Response): Promise<void> => {
     const dto = restoreBackupSchema.parse(req.body);
     const backupId = String(req.params.backupId);
-    const restore = await this.restores.requestRestore(String(req.params.id), backupId, dto, tenantOf(req), req.auth?.sub);
+    const restore = await this.restores.requestRestore(
+      String(req.params.id),
+      backupId,
+      dto,
+      tenantOf(req),
+      req.auth?.sub,
+    );
     this.audit.fromRequest(req, "database.restore", {
       targetType: "database",
       targetId: restore.targetDatabaseId ?? String(req.params.id),
@@ -44,7 +56,13 @@ export class DatabaseController {
   };
 
   getRestore = async (req: Request, res: Response): Promise<void> => {
-    res.json(await this.restores.getById(String(req.params.id), String(req.params.restoreId), tenantOf(req)));
+    res.json(
+      await this.restores.getById(
+        String(req.params.id),
+        String(req.params.restoreId),
+        tenantOf(req),
+      ),
+    );
   };
 
   list = async (req: Request, res: Response): Promise<void> => {

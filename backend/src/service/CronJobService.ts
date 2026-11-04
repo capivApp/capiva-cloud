@@ -45,7 +45,10 @@ export class CronJobService {
     const ctx = await this.kube.forEnvironment(input.environmentId, tenant);
     const image = (input.sourceConfig?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const status = await this.reconcilers.forCronJob().reconcile({ cron, image }, ctx);
-    await withTransaction(() => this.cronJobs.updateStatus(cron.id, status.ready ? "scheduled" : "progressing"), { tenant });
+    await withTransaction(
+      () => this.cronJobs.updateStatus(cron.id, status.ready ? "scheduled" : "progressing"),
+      { tenant },
+    );
     return cron;
   }
 
@@ -63,14 +66,21 @@ export class CronJobService {
     if (patch.env !== undefined) sourceConfig.env = patch.env;
 
     const updated = await withTransaction(
-      () => this.cronJobs.update(id, { schedule: patch.schedule ?? cron.schedule, sourceConfig: sourceConfig as Prisma.InputJsonValue }),
+      () =>
+        this.cronJobs.update(id, {
+          schedule: patch.schedule ?? cron.schedule,
+          sourceConfig: sourceConfig as Prisma.InputJsonValue,
+        }),
       { tenant },
     );
 
     const ctx = await this.kube.forEnvironment(environmentId, tenant);
     const image = (sourceConfig.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const status = await this.reconcilers.forCronJob().reconcile({ cron: updated, image }, ctx);
-    await withTransaction(() => this.cronJobs.updateStatus(id, status.ready ? "scheduled" : "progressing"), { tenant });
+    await withTransaction(
+      () => this.cronJobs.updateStatus(id, status.ready ? "scheduled" : "progressing"),
+      { tenant },
+    );
     return updated;
   }
 }

@@ -6,7 +6,12 @@
 import { describe, expect, it } from "bun:test";
 import { buildCapivaNotice, isCapivaManaged, readCapivaMarker } from "@/lib/capivaJson";
 
-const marker = { path: "apps/api/capiva.json", ref: "abc", fields: ["port", "env"], envKeys: ["LOG_LEVEL", "NODE_ENV"] };
+const marker = {
+  path: "apps/api/capiva.json",
+  ref: "abc",
+  fields: ["port", "env"],
+  envKeys: ["LOG_LEVEL", "NODE_ENV"],
+};
 
 describe("readCapivaMarker", () => {
   it("lê a marca do sourceConfig", () => {
@@ -31,12 +36,16 @@ describe("isCapivaManaged", () => {
 describe("buildCapivaNotice", () => {
   it("aviso curto, com o arquivo, sem travessão", () => {
     const text = buildCapivaNotice(marker, ["port"]);
-    expect(text).toBe("Campos marcados são definidos pelo apps/api/capiva.json. Para mudar, edite o arquivo no repositório.");
+    expect(text).toBe(
+      "Campos marcados são definidos pelo apps/api/capiva.json. Para mudar, edite o arquivo no repositório.",
+    );
     expect(text).not.toContain("—");
   });
 
   it("para variáveis, lista as chaves do arquivo", () => {
-    expect(buildCapivaNotice(marker, ["env"])).toBe("LOG_LEVEL, NODE_ENV são definidas pelo apps/api/capiva.json. Para mudar, edite o arquivo no repositório.");
+    expect(buildCapivaNotice(marker, ["env"])).toBe(
+      "LOG_LEVEL, NODE_ENV são definidas pelo apps/api/capiva.json. Para mudar, edite o arquivo no repositório.",
+    );
   });
 
   it("sem campo da seção, não há aviso", () => {

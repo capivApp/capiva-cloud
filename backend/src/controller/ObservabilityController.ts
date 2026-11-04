@@ -7,7 +7,10 @@ import { ManagedDatabaseService } from "@service/ManagedDatabaseService";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { tenantOf } from "@functions/tenant";
 import { logDownloadSchema, logFiltrosSchema } from "@schemas/logs.schema";
-import { createLogExportFormat, type LogExportStrategy } from "@service/logSearch/logExport.strategy";
+import {
+  createLogExportFormat,
+  type LogExportStrategy,
+} from "@service/logSearch/logExport.strategy";
 import type { LogLine } from "@interface/logs";
 
 function openSse(res: Response): void {
@@ -26,7 +29,12 @@ const buildLogFileName = (app: string, extension: string, now: Date): string =>
  * Escreve as páginas conforme chegam. Erro antes do primeiro byte ainda vira resposta
  * JSON no errorHandler; depois disso só dá para encerrar o arquivo.
  */
-async function streamLogPages(req: Request, res: Response, pages: AsyncGenerator<LogLine[]>, format: LogExportStrategy): Promise<void> {
+async function streamLogPages(
+  req: Request,
+  res: Response,
+  pages: AsyncGenerator<LogLine[]>,
+  format: LogExportStrategy,
+): Promise<void> {
   let closed = false;
   req.on("close", () => (closed = true));
   try {
@@ -116,10 +124,18 @@ export class ObservabilityController {
   /** Arquivo .txt/.ndjson com os logs filtrados, em streaming, até `maxLines`. */
   downloadLogs = async (req: Request, res: Response): Promise<void> => {
     const { filtros, format, maxLines } = logDownloadSchema.parse(req.query);
-    const { app, pages } = await this.observability.exportLogs(String(req.params.id), tenantOf(req), filtros, maxLines);
+    const { app, pages } = await this.observability.exportLogs(
+      String(req.params.id),
+      tenantOf(req),
+      filtros,
+      maxLines,
+    );
     const strategy = createLogExportFormat(format);
     res.setHeader("Content-Type", strategy.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${buildLogFileName(app, strategy.extension, new Date())}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${buildLogFileName(app, strategy.extension, new Date())}"`,
+    );
     await streamLogPages(req, res, pages, strategy);
   };
 

@@ -1,6 +1,9 @@
 import { isReconcileDeferred } from "@functions/reconcileScope";
 import { Injectable } from "@di/index";
-import { ApplicationRepository, type ApplicationWithPreviews } from "@repository/ApplicationRepository";
+import {
+  ApplicationRepository,
+  type ApplicationWithPreviews,
+} from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { VolumeRepository } from "@repository/VolumeRepository";
 import { DomainRepository } from "@repository/DomainRepository";
@@ -25,7 +28,8 @@ import type { Application, Prisma, ScalingPolicy } from "@prisma-generated/clien
 import type { DeployTrigger } from "@service/git/deployTrigger.strategy";
 
 /** Com HPA ativo o autoscaling é o dono das réplicas; o valor fixo fica gravado, sem efeito. */
-export const AVISO_REPLICAS_COM_HPA = "O autoscaling está ativo e controla as réplicas. Para usar réplicas fixas, desative o autoscaling.";
+export const AVISO_REPLICAS_COM_HPA =
+  "O autoscaling está ativo e controla as réplicas. Para usar réplicas fixas, desative o autoscaling.";
 
 export interface CreateApplicationInput {
   projectId: string;
@@ -78,7 +82,10 @@ export class ApplicationService {
   ) {}
 
   /** Recusa antes de gravar a criação que estoura a quota do ambiente. */
-  private requireQuotaDaCriacao(input: CreateApplicationInput, tenant: { organizationId: string }): Promise<void> {
+  private requireQuotaDaCriacao(
+    input: CreateApplicationInput,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const app = toRecursoDaAplicacao({
       profile: input.profile ?? "SMALL",
       customResources: null,
@@ -86,10 +93,20 @@ export class ApplicationService {
       sourceConfig: input.sourceConfig,
       previewOfId: input.previewOf?.applicationId ?? null,
     });
-    const volumes = (input.volumes ?? []).filter((v) => v.name.trim() && v.mountPath.trim()).map(toRecursoDoVolume);
+    const volumes = (input.volumes ?? [])
+      .filter((v) => v.name.trim() && v.mountPath.trim())
+      .map(toRecursoDoVolume);
     return this.quotas.requireCabe(
       input.environmentId,
-      { pedido: [app, ...volumes], paths: { cpuMillicores: "profile", memoryMib: "profile", pods: "profile", storageGi: "volumes" } },
+      {
+        pedido: [app, ...volumes],
+        paths: {
+          cpuMillicores: "profile",
+          memoryMib: "profile",
+          pods: "profile",
+          storageGi: "volumes",
+        },
+      },
       tenant,
     );
   }
@@ -102,8 +119,19 @@ export class ApplicationService {
     path: string,
     tenant: { organizationId: string },
   ): Promise<void> {
-    const atual = { profile: app.profile, customResources: app.customResources, sourceConfig: app.sourceConfig, previewOfId: app.previewOfId, scaling };
-    return this.quotas.requireCabeNaAplicacao(app.environmentId, { atual, novo: { ...atual, ...next } }, path, tenant);
+    const atual = {
+      profile: app.profile,
+      customResources: app.customResources,
+      sourceConfig: app.sourceConfig,
+      previewOfId: app.previewOfId,
+      scaling,
+    };
+    return this.quotas.requireCabeNaAplicacao(
+      app.environmentId,
+      { atual, novo: { ...atual, ...next } },
+      path,
+      tenant,
+    );
   }
 
   /**
@@ -122,7 +150,9 @@ export class ApplicationService {
     if (app.rolloutStrategy !== "ROLLING" || app.desiredStatus === "stopped") return undefined;
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     if (!ctx.kubeconfig) return undefined;
-    await this.k8s.scaleDeployment(ctx, app.name, replicas).catch((e) => console.error("[app] patch scale:", (e as Error).message));
+    await this.k8s
+      .scaleDeployment(ctx, app.name, replicas)
+      .catch((e) => console.error("[app] patch scale:", (e as Error).message));
     return undefined;
   }
 
@@ -130,7 +160,10 @@ export class ApplicationService {
     return withTransaction(() => this.apps.listByProject(projectId), { tenant });
   }
 
-  async create(input: CreateApplicationInput, tenant: { organizationId: string }): Promise<Application> {
+  async create(
+    input: CreateApplicationInput,
+    tenant: { organizationId: string },
+  ): Promise<Application> {
     // Domínio do wizard vira entidade Domain (o que a UI lista) — não fica no
     // sourceConfig (evita Ingress "primário legado" duplicado na reconcile).
     const { domain: rawDomain, ...sourceWithoutDomain } = input.sourceConfig;
@@ -149,7 +182,7 @@ export class ApplicationService {
           source: input.source,
           gitConnectionId: input.gitConnectionId ?? null,
           sourceConfig: sourceConfig,
-          tags: (input.tags ?? []),
+          tags: input.tags ?? [],
           profile: input.profile ?? "SMALL",
           rolloutStrategy: input.rolloutStrategy ?? "ROLLING",
           port: input.port ?? 3000,
@@ -160,11 +193,23 @@ export class ApplicationService {
           previewPrNumber: input.previewOf?.prNumber ?? null,
         });
         for (const e of input.env ?? []) {
-          if (e.key.trim()) await this.envVars.upsert({ applicationId: created.id, key: e.key, value: e.value, source: "MANUAL" });
+          if (e.key.trim())
+            await this.envVars.upsert({
+              applicationId: created.id,
+              key: e.key,
+              value: e.value,
+              source: "MANUAL",
+            });
         }
         for (const v of input.volumes ?? []) {
           if (v.name.trim() && v.mountPath.trim()) {
-            await this.volumes.create({ applicationId: created.id, name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode });
+            await this.volumes.create({
+              applicationId: created.id,
+              name: v.name,
+              mountPath: v.mountPath,
+              sizeGi: v.sizeGi,
+              accessMode: v.accessMode,
+            });
           }
         }
         if (host && isValidHostname(host) && !(await this.domainRepo.findByHost(host))) {
@@ -191,7 +236,12 @@ export class ApplicationService {
   }
 
   /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
-  async reconcile(app: Application, tenant: { organizationId: string }, replicas = desiredReplicasOf(app), imageOverride?: string) {
+  async reconcile(
+    app: Application,
+    tenant: { organizationId: string },
+    replicas = desiredReplicasOf(app),
+    imageOverride?: string,
+  ) {
     // capiva.json no deploy: os services gravam; o reconcile do deploy, com a imagem nova, aplica tudo.
     if (isReconcileDeferred()) return { ready: false, replicas: 0 };
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
@@ -210,7 +260,12 @@ export class ApplicationService {
       { tenant },
     );
     const resolvedEnv = buildContainerEnvVars(app.name, envVars, safeDecrypt);
-    const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode }));
+    const volumeSpecs = volumes.map((v) => ({
+      name: v.name,
+      mountPath: v.mountPath,
+      sizeGi: v.sizeGi,
+      accessMode: v.accessMode,
+    }));
 
     // NetworkPolicy padrão do namespace (deny-all + liberações + dependências).
     await this.networkPolicies.syncEnvironmentQuietly(app.environmentId, tenant);
@@ -220,7 +275,7 @@ export class ApplicationService {
     });
 
     // TLS por domínio: se UPLOADED, decifra o certificado da org para virar Secret.
-    const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT");
+    const tlsMode = app.tlsMode ?? "LETS_ENCRYPT";
     const tlsCert =
       tlsMode === "UPLOADED" && app.tlsCertificateId
         ? await this.tlsCerts.decrypted(tenant.organizationId, app.tlsCertificateId)
@@ -235,31 +290,60 @@ export class ApplicationService {
       : await this.registries.defaultCredentials(tenant.organizationId);
     if (pullCreds) {
       imagePullSecret = `${app.name}-pull`;
-      await this.k8s.apply(ctx, dockerConfigSecretManifest(imagePullSecret, ctx.namespace, pullCreds));
+      await this.k8s.apply(
+        ctx,
+        dockerConfigSecretManifest(imagePullSecret, ctx.namespace, pullCreds),
+      );
     }
 
     // Domínios adicionais (CRUD): mapeia o modo TLS e decifra certs UPLOADED por domínio.
-    const tlsModeMap = { lets_encrypt: "LETS_ENCRYPT", uploaded: "UPLOADED", none: "NONE" } as const;
+    const tlsModeMap = {
+      lets_encrypt: "LETS_ENCRYPT",
+      uploaded: "UPLOADED",
+      none: "NONE",
+    } as const;
     const domains = await Promise.all(
       domainRows.map(async (d) => {
-        const mode = (tlsModeMap[d.tlsMode as keyof typeof tlsModeMap] ?? "LETS_ENCRYPT");
+        const mode = tlsModeMap[d.tlsMode as keyof typeof tlsModeMap] ?? "LETS_ENCRYPT";
         const cert =
           mode === "UPLOADED" && d.tlsCertificateId
-            ? await this.tlsCerts.decrypted(tenant.organizationId, d.tlsCertificateId).catch(() => undefined)
+            ? await this.tlsCerts
+                .decrypted(tenant.organizationId, d.tlsCertificateId)
+                .catch(() => undefined)
             : undefined;
         return { host: d.host, tlsMode: mode, tlsCert: cert };
       }),
     );
 
     const scaling = scalingPolicy
-      ? { minReplicas: scalingPolicy.minReplicas, maxReplicas: scalingPolicy.maxReplicas, metric: scalingPolicy.metric, target: scalingPolicy.target }
+      ? {
+          minReplicas: scalingPolicy.minReplicas,
+          maxReplicas: scalingPolicy.maxReplicas,
+          metric: scalingPolicy.metric,
+          target: scalingPolicy.target,
+        }
       : undefined;
 
     const status = await this.reconcilers.forApplication().reconcile(
-      { app, image, replicas, envVars: resolvedEnv, domain, tlsMode, tlsCert, domains, scaling, volumes: volumeSpecs, imagePullSecret },
+      {
+        app,
+        image,
+        replicas,
+        envVars: resolvedEnv,
+        domain,
+        tlsMode,
+        tlsCert,
+        domains,
+        scaling,
+        volumes: volumeSpecs,
+        imagePullSecret,
+      },
       ctx,
     );
-    await withTransaction(() => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"), { tenant });
+    await withTransaction(
+      () => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"),
+      { tenant },
+    );
     return status;
   }
 
@@ -275,19 +359,38 @@ export class ApplicationService {
     tenant: { organizationId: string },
   ) {
     const app = await this.getById(applicationId, tenant);
-    await this.quotas.requireCabe(app.environmentId, { pedido: [toRecursoDoVolume(input)], paths: { storageGi: "sizeGi" } }, tenant);
+    await this.quotas.requireCabe(
+      app.environmentId,
+      { pedido: [toRecursoDoVolume(input)], paths: { storageGi: "sizeGi" } },
+      tenant,
+    );
     const vol = await withTransaction(
-      () => this.volumes.create({ applicationId, name: input.name, mountPath: input.mountPath, sizeGi: input.sizeGi, accessMode: input.accessMode }),
+      () =>
+        this.volumes.create({
+          applicationId,
+          name: input.name,
+          mountPath: input.mountPath,
+          sizeGi: input.sizeGi,
+          accessMode: input.accessMode,
+        }),
       { tenant },
     );
-    await this.reconcile(app, tenant).catch((e) => console.error("[volume] reconcile:", (e as Error).message));
+    await this.reconcile(app, tenant).catch((e) =>
+      console.error("[volume] reconcile:", (e as Error).message),
+    );
     return vol;
   }
 
-  async removeVolume(applicationId: string, volumeId: string, tenant: { organizationId: string }): Promise<void> {
+  async removeVolume(
+    applicationId: string,
+    volumeId: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const app = await this.getById(applicationId, tenant);
     await withTransaction(() => this.volumes.delete(volumeId), { tenant });
-    await this.reconcile(app, tenant).catch((e) => console.error("[volume] reconcile:", (e as Error).message));
+    await this.reconcile(app, tenant).catch((e) =>
+      console.error("[volume] reconcile:", (e as Error).message),
+    );
   }
 
   /** Registro completo: inclui os previews por PR (e, no preview, a origem). */
@@ -344,7 +447,8 @@ export class ApplicationService {
     }
     if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
-    if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews) ?? {}), enabled: dto.previewsEnabled };
+    if (dto.previewsEnabled !== undefined)
+      cfg.previews = { ...(cfg.previews ?? {}), enabled: dto.previewsEnabled };
     if (dto.deployTrigger !== undefined) cfg.deployTrigger = dto.deployTrigger;
     // Réplicas e comandos de build/start (declarados pelo capiva.json ou pela tela).
     for (const key of ["replicas", "buildCommand", "startCommand"] as const) {
@@ -352,16 +456,31 @@ export class ApplicationService {
     }
 
     const isRecursoAlterado = dto.profile !== undefined || dto.customResources !== undefined;
-    const scaling = await withTransaction(() => this.scalingRepo.findByApplication(app.id), { tenant });
+    const scaling = await withTransaction(() => this.scalingRepo.findByApplication(app.id), {
+      tenant,
+    });
     if (isRecursoAlterado || dto.replicas !== undefined) {
-      const next = { profile: dto.profile ?? app.profile, customResources: dto.customResources ?? app.customResources, sourceConfig: cfg };
-      await this.requireQuotaDaTroca(app, next, scaling, isRecursoAlterado ? "profile" : "replicas", tenant);
+      const next = {
+        profile: dto.profile ?? app.profile,
+        customResources: dto.customResources ?? app.customResources,
+        sourceConfig: cfg,
+      };
+      await this.requireQuotaDaTroca(
+        app,
+        next,
+        scaling,
+        isRecursoAlterado ? "profile" : "replicas",
+        tenant,
+      );
     }
 
-    const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
+    const data: Prisma.ApplicationUncheckedUpdateInput = {
+      sourceConfig: cfg as Prisma.InputJsonValue,
+    };
     if (dto.name) data.name = dto.name;
     if (dto.profile) data.profile = dto.profile;
-    if (dto.customResources !== undefined) data.customResources = dto.customResources as Prisma.InputJsonValue;
+    if (dto.customResources !== undefined)
+      data.customResources = dto.customResources as Prisma.InputJsonValue;
     if (dto.port !== undefined) data.port = dto.port;
 
     // Renomear: remove os recursos de nome antigo antes de recriar com o novo nome.
@@ -369,7 +488,9 @@ export class ApplicationService {
     // passa volumes — apagar os PVCs aqui destruiria os dados da aplicação.
     if (renaming) {
       const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-      const domainRows = await withTransaction(() => this.domainRepo.listByApplication(app.id), { tenant });
+      const domainRows = await withTransaction(() => this.domainRepo.listByApplication(app.id), {
+        tenant,
+      });
       const domains = domainRows.map((d) => ({ host: d.host, tlsMode: "NONE" as TlsModeManifest }));
       await this.reconcilers
         .forApplication()
@@ -378,12 +499,18 @@ export class ApplicationService {
     }
 
     const updated = await withTransaction(() => this.apps.update(id, data), { tenant });
-    await this.reconcile(updated, tenant).catch((e) => console.error("[app] patch reconcile:", (e as Error).message));
+    await this.reconcile(updated, tenant).catch((e) =>
+      console.error("[app] patch reconcile:", (e as Error).message),
+    );
     const aviso = await this.applyReplicas(updated, dto.replicas, scaling, tenant);
     return aviso ? { ...updated, aviso } : updated;
   }
 
-  async updateTags(id: string, tags: string[], tenant: { organizationId: string }): Promise<Application> {
+  async updateTags(
+    id: string,
+    tags: string[],
+    tenant: { organizationId: string },
+  ): Promise<Application> {
     await this.getById(id, tenant);
     return withTransaction(() => this.apps.update(id, { tags: tags }), { tenant });
   }
@@ -399,10 +526,16 @@ export class ApplicationService {
       throw HttpError.badRequest("Selecione um certificado para o modo 'uploaded'.");
     }
     const updated = await withTransaction(
-      () => this.apps.update(id, { tlsMode: input.tlsMode, tlsCertificateId: input.tlsCertificateId ?? null }),
+      () =>
+        this.apps.update(id, {
+          tlsMode: input.tlsMode,
+          tlsCertificateId: input.tlsCertificateId ?? null,
+        }),
       { tenant },
     );
-    await this.reconcile(updated, tenant).catch((e) => console.error("[tls] reconcile:", (e as Error).message));
+    await this.reconcile(updated, tenant).catch((e) =>
+      console.error("[tls] reconcile:", (e as Error).message),
+    );
     return updated;
   }
 
@@ -410,7 +543,10 @@ export class ApplicationService {
   async stop(id: string, tenant: { organizationId: string }): Promise<Application> {
     const app = await this.getById(id, tenant);
     await this.reconcile(app, tenant, 0);
-    return withTransaction(() => this.apps.update(id, { desiredStatus: "stopped", observedStatus: "stopped" }), { tenant });
+    return withTransaction(
+      () => this.apps.update(id, { desiredStatus: "stopped", observedStatus: "stopped" }),
+      { tenant },
+    );
   }
 
   /** Inicia a aplicação novamente. */
@@ -428,7 +564,11 @@ export class ApplicationService {
       apiVersion: "apps/v1",
       kind: "Deployment",
       metadata: { name: app.name, namespace: ctx.namespace },
-      spec: { template: { metadata: { annotations: { "capiva.cloud/restartedAt": new Date().toISOString() } } } },
+      spec: {
+        template: {
+          metadata: { annotations: { "capiva.cloud/restartedAt": new Date().toISOString() } },
+        },
+      },
     });
   }
 
@@ -436,28 +576,51 @@ export class ApplicationService {
    * Marca os campos "definidos pelo capiva.json" (a tela os mostra somente leitura).
    * `null` limpa a marca quando o arquivo some do repositório. Metadado: não reconcilia.
    */
-  async saveCapivaMarker(id: string, marker: CapivaMarker | null, tenant: { organizationId: string }): Promise<Application> {
-    return withTransaction(async () => {
-      const app = await this.getById(id, tenant);
-      const { capivaJson: _previous, ...cfg } = (app.sourceConfig as Record<string, unknown>) ?? {};
-      const next = marker ? { ...cfg, capivaJson: marker } : cfg;
-      return this.apps.update(id, { sourceConfig: next as Prisma.InputJsonValue });
-    }, { tenant });
+  async saveCapivaMarker(
+    id: string,
+    marker: CapivaMarker | null,
+    tenant: { organizationId: string },
+  ): Promise<Application> {
+    return withTransaction(
+      async () => {
+        const app = await this.getById(id, tenant);
+        const { capivaJson: _previous, ...cfg } =
+          (app.sourceConfig as Record<string, unknown>) ?? {};
+        const next = marker ? { ...cfg, capivaJson: marker } : cfg;
+        return this.apps.update(id, { sourceConfig: next as Prisma.InputJsonValue });
+      },
+      { tenant },
+    );
   }
 
   /** Build args (ARG do Dockerfile) armazenados no sourceConfig. */
-  async listBuildArgs(id: string, tenant: { organizationId: string }): Promise<{ key: string; value: string }[]> {
+  async listBuildArgs(
+    id: string,
+    tenant: { organizationId: string },
+  ): Promise<{ key: string; value: string }[]> {
     const app = await this.getById(id, tenant);
-    return ((app.sourceConfig as Record<string, unknown>)?.buildArgs as { key: string; value: string }[]) ?? [];
+    return (
+      ((app.sourceConfig as Record<string, unknown>)?.buildArgs as {
+        key: string;
+        value: string;
+      }[]) ?? []
+    );
   }
 
   /** Substitui os build args (passados como --build-arg no próximo build). */
-  async replaceBuildArgs(id: string, buildArgs: { key: string; value: string }[], tenant: { organizationId: string }): Promise<Application> {
-    return withTransaction(async () => {
-      const app = await this.getById(id, tenant);
-      const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), buildArgs };
-      return this.apps.update(id, { sourceConfig: cfg });
-    }, { tenant });
+  async replaceBuildArgs(
+    id: string,
+    buildArgs: { key: string; value: string }[],
+    tenant: { organizationId: string },
+  ): Promise<Application> {
+    return withTransaction(
+      async () => {
+        const app = await this.getById(id, tenant);
+        const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), buildArgs };
+        return this.apps.update(id, { sourceConfig: cfg });
+      },
+      { tenant },
+    );
   }
 
   /**
@@ -473,7 +636,11 @@ export class ApplicationService {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     const [domainRows, volumeRows] = await withTransaction(
-      async () => [await this.domainRepo.listByApplication(id), await this.volumes.listByApplication(id)] as const,
+      async () =>
+        [
+          await this.domainRepo.listByApplication(id),
+          await this.volumes.listByApplication(id),
+        ] as const,
       { tenant },
     );
 
@@ -482,7 +649,12 @@ export class ApplicationService {
         app,
         image: "",
         domains: domainRows.map((d) => ({ host: d.host, tlsMode: "NONE" as TlsModeManifest })),
-        volumes: volumeRows.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode })),
+        volumes: volumeRows.map((v) => ({
+          name: v.name,
+          mountPath: v.mountPath,
+          sizeGi: v.sizeGi,
+          accessMode: v.accessMode,
+        })),
       },
       ctx,
     );
@@ -507,6 +679,9 @@ export interface CapivaMarker {
 }
 
 /** Réplicas desejadas: as gravadas (tela ou capiva.json) ou o padrão (mesma regra da quota). */
-export function desiredReplicasOf(app: { sourceConfig: unknown; previewOfId?: string | null }): number {
+export function desiredReplicasOf(app: {
+  sourceConfig: unknown;
+  previewOfId?: string | null;
+}): number {
   return resolveReplicasFixas(app);
 }

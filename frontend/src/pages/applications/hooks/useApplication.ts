@@ -32,11 +32,19 @@ export function useApplication(id: string) {
     enabled: Boolean(id),
   });
 
-  const deployMut = useMutation({ mutationKey: ["application", "deploy", id], mutationFn: () => api.post<Deployment>(`/applications/${id}/deploy`, {}) });
-  const rollbackMut = useMutation({ mutationKey: ["application", "rollback", id], mutationFn: (deploymentId: string) => api.post(`/applications/${id}/rollback`, { deploymentId }) });
+  const deployMut = useMutation({
+    mutationKey: ["application", "deploy", id],
+    mutationFn: () => api.post<Deployment>(`/applications/${id}/deploy`, {}),
+  });
+  const rollbackMut = useMutation({
+    mutationKey: ["application", "rollback", id],
+    mutationFn: (deploymentId: string) =>
+      api.post(`/applications/${id}/rollback`, { deploymentId }),
+  });
   const strategyMut = useMutation({
     mutationKey: ["application", "strategy", id],
-    mutationFn: (input: { strategy: string; config: Record<string, unknown> }) => api.patch(`/applications/${id}/strategy`, input),
+    mutationFn: (input: { strategy: string; config: Record<string, unknown> }) =>
+      api.patch(`/applications/${id}/strategy`, input),
   });
 
   return {

@@ -9,7 +9,10 @@ import { buildOpenApiDocument } from "@openapi/document";
 describe("/schemas/capiva.json", () => {
   it("serve o JSON Schema do capiva.json", () => {
     const handlers: Record<string, (req: unknown, res: unknown) => void> = {};
-    registry({ get: (path: string, handler: (req: unknown, res: unknown) => void) => (handlers[path] = handler) } as unknown as Router);
+    registry({
+      get: (path: string, handler: (req: unknown, res: unknown) => void) =>
+        (handlers[path] = handler),
+    } as unknown as Router);
 
     const send = mock((_body: string) => undefined);
     const res = { setHeader: mock(() => undefined), type: mock(() => ({ send })) };

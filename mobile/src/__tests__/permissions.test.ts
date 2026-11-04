@@ -4,9 +4,14 @@
  * mutações exigem DEVELOPER+). Função pura, sem rede.
  */
 import { describe, expect, test } from "bun:test";
-import { ACOES_APLICACAO, buildPermissoesDaAplicacao, type PermissoesDaAplicacao } from "@/lib/permissions";
+import {
+  ACOES_APLICACAO,
+  buildPermissoesDaAplicacao,
+  type PermissoesDaAplicacao,
+} from "@/lib/permissions";
 
-const todas = (valor: boolean) => Object.fromEntries(ACOES_APLICACAO.map((acao) => [acao, valor])) as PermissoesDaAplicacao;
+const todas = (valor: boolean) =>
+  Object.fromEntries(ACOES_APLICACAO.map((acao) => [acao, valor])) as PermissoesDaAplicacao;
 
 describe("buildPermissoesDaAplicacao", () => {
   test("VIEWER não opera nada", () => {
@@ -27,6 +32,12 @@ describe("buildPermissoesDaAplicacao", () => {
   });
 
   test("cobre redeploy, rollback, escala, restart e ciclo de vida", () => {
-    expect([...ACOES_APLICACAO].sort()).toEqual(["lifecycle", "redeploy", "restart", "rollback", "scale"]);
+    expect([...ACOES_APLICACAO].sort()).toEqual([
+      "lifecycle",
+      "redeploy",
+      "restart",
+      "rollback",
+      "scale",
+    ]);
   });
 });

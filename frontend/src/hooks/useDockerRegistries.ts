@@ -34,9 +34,19 @@ export function useDockerRegistries() {
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: CreateDockerRegistryInput) => api.post<DockerRegistry>("/docker-registries", input), onSuccess: invalidate });
-  const setDefaultMut = useMutation({ mutationFn: (id: string) => api.patch<DockerRegistry>(`/docker-registries/${id}/default`, {}), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`/docker-registries/${id}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: CreateDockerRegistryInput) =>
+      api.post<DockerRegistry>("/docker-registries", input),
+    onSuccess: invalidate,
+  });
+  const setDefaultMut = useMutation({
+    mutationFn: (id: string) => api.patch<DockerRegistry>(`/docker-registries/${id}/default`, {}),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/docker-registries/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     registries: list.data ?? [],

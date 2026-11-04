@@ -4,7 +4,14 @@ import type { AlertRule, Prisma } from "@prisma-generated/client";
 
 /** Dono da regra: o scheduler precisa do app (nome/ambiente) e da organização. */
 const INCLUDE_OWNER = {
-  application: { select: { id: true, name: true, environmentId: true, project: { select: { organizationId: true } } } },
+  application: {
+    select: {
+      id: true,
+      name: true,
+      environmentId: true,
+      project: { select: { organizationId: true } },
+    },
+  },
 } satisfies Prisma.AlertRuleInclude;
 
 export type AlertRuleWithOwner = Prisma.AlertRuleGetPayload<{ include: typeof INCLUDE_OWNER }>;
@@ -14,7 +21,10 @@ export type AlertRuleWithOwner = Prisma.AlertRuleGetPayload<{ include: typeof IN
 export class AlertRuleRepository extends BaseRepository {
   async create(data: Prisma.AlertRuleUncheckedCreateInput): Promise<AlertRule> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: data.applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
     return this.tx.alertRule.create({ data });
@@ -50,7 +60,13 @@ export class AlertRuleRepository extends BaseRepository {
   }
 
   /** Grava o resultado da avaliação (scheduler, sem tenant). */
-  saveEvaluation(id: string, data: Pick<Prisma.AlertRuleUncheckedUpdateInput, "state" | "lastValue" | "lastEvaluatedAt" | "lastTransitionAt">): Promise<AlertRule> {
+  saveEvaluation(
+    id: string,
+    data: Pick<
+      Prisma.AlertRuleUncheckedUpdateInput,
+      "state" | "lastValue" | "lastEvaluatedAt" | "lastTransitionAt"
+    >,
+  ): Promise<AlertRule> {
     return this.tx.alertRule.update({ where: { id }, data });
   }
 }

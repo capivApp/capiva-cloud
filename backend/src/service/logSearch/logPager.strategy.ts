@@ -21,7 +21,9 @@ const COMPARATORS: Record<LogDirection, (a: LogLine, b: LogLine) => number> = {
   backward: (a, b) => Number(tsOf(b) - tsOf(a)),
 };
 
-export const nextPageWindow = (request: LogRangeRequest, page: LogLine[]) => PAGERS[request.direction](request, page);
+export const nextPageWindow = (request: LogRangeRequest, page: LogLine[]) =>
+  PAGERS[request.direction](request, page);
 
 /** O Loki devolve um bloco por stream (pod); a ordem global sai daqui. */
-export const sortLogLines = (lines: LogLine[], direction: LogDirection): LogLine[] => [...lines].sort(COMPARATORS[direction]);
+export const sortLogLines = (lines: LogLine[], direction: LogDirection): LogLine[] =>
+  [...lines].sort(COMPARATORS[direction]);

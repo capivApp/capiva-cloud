@@ -25,7 +25,10 @@ describe("deploymentManifest — alta disponibilidade", () => {
   const manifest = deploymentManifest(baseInput, 3) as Record<string, any>;
 
   it("faz rollout sem derrubar réplica antiga antes da nova ficar pronta", () => {
-    expect(manifest.spec.strategy).toEqual({ type: "RollingUpdate", rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } });
+    expect(manifest.spec.strategy).toEqual({
+      type: "RollingUpdate",
+      rollingUpdate: { maxUnavailable: 0, maxSurge: 1 },
+    });
     expect(manifest.spec.minReadySeconds).toBe(10);
   });
 
@@ -75,7 +78,10 @@ describe("rolloutManifest — paridade com o Deployment", () => {
   });
 
   it("gera os passos de canary até 100%", () => {
-    const manifest = rolloutManifest(baseInput, "CANARY", 2, { initialTraffic: 20, increment: 40 }) as Record<string, any>;
+    const manifest = rolloutManifest(baseInput, "CANARY", 2, {
+      initialTraffic: 20,
+      increment: 40,
+    }) as Record<string, any>;
     const weights = manifest.spec.strategy.canary.steps
       .filter((s: any) => s.setWeight !== undefined)
       .map((s: any) => s.setWeight);
@@ -86,7 +92,10 @@ describe("rolloutManifest — paridade com o Deployment", () => {
   // travando o processo do backend inteiro na criação da app.
   it("não trava com incremento zero ou negativo", () => {
     for (const increment of [0, -5, Number.NaN]) {
-      const manifest = rolloutManifest(baseInput, "CANARY", 2, { increment }) as Record<string, any>;
+      const manifest = rolloutManifest(baseInput, "CANARY", 2, { increment }) as Record<
+        string,
+        any
+      >;
       const steps = manifest.spec.strategy.canary.steps;
       expect(steps.length).toBeGreaterThan(0);
       expect(steps.at(-1)).toEqual({ setWeight: 100 });
@@ -96,7 +105,10 @@ describe("rolloutManifest — paridade com o Deployment", () => {
 
 describe("cronJobManifest", () => {
   it("impede execuções concorrentes e limita o histórico", () => {
-    const manifest = cronJobManifest("nightly", "prod", "0 3 * * *", "img:1", "NANO") as Record<string, any>;
+    const manifest = cronJobManifest("nightly", "prod", "0 3 * * *", "img:1", "NANO") as Record<
+      string,
+      any
+    >;
     expect(manifest.spec.concurrencyPolicy).toBe("Forbid");
     expect(manifest.spec.successfulJobsHistoryLimit).toBe(3);
     expect(manifest.spec.startingDeadlineSeconds).toBe(120);

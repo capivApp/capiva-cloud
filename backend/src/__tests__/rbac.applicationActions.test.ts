@@ -10,7 +10,12 @@ import type { Role } from "@prisma-generated/client";
 import { HttpError } from "@functions/HttpError";
 
 const runAs = async (role: Role): Promise<unknown> => {
-  const req = { auth: { sub: "u1" }, params: {}, organizationId: "org-1", organizationRole: role } as unknown as Request;
+  const req = {
+    auth: { sub: "u1" },
+    params: {},
+    organizationId: "org-1",
+    organizationRole: role,
+  } as unknown as Request;
   let received: unknown = "não chamou next";
   const next: NextFunction = (error?: unknown) => {
     received = error;

@@ -15,10 +15,19 @@ const backupRestoreSchema = {
     mode: { type: "string", enum: ["IN_PLACE", "AS_COPY"] },
     status: { type: "string", enum: ["PENDING", "RUNNING", "COMPLETED", "FAILED"] },
     sourceDatabaseId: { type: ["string", "null"] },
-    targetDatabaseId: { type: ["string", "null"], description: "Banco que recebeu o dump (o próprio ou a cópia)." },
+    targetDatabaseId: {
+      type: ["string", "null"],
+      description: "Banco que recebeu o dump (o próprio ou a cópia).",
+    },
     volumeId: { type: ["string", "null"] },
-    targetName: { type: ["string", "null"], description: "Nome do banco de destino ou do PVC restaurado." },
-    jobName: { type: ["string", "null"], description: "Job (banco) ou Volume Longhorn (volume) acompanhado." },
+    targetName: {
+      type: ["string", "null"],
+      description: "Nome do banco de destino ou do PVC restaurado.",
+    },
+    jobName: {
+      type: ["string", "null"],
+      description: "Job (banco) ou Volume Longhorn (volume) acompanhado.",
+    },
     message: { type: ["string", "null"] },
     requestedBy: { type: ["string", "null"] },
     startedAt: { type: "string", format: "date-time" },
@@ -47,12 +56,20 @@ const restoreResponse = (description: string) => ({
 });
 const restoreListResponse = {
   description: "OK",
-  content: { "application/json": { schema: { type: "array", items: backupRestoreSchema }, example: [restoreExample] } },
+  content: {
+    "application/json": {
+      schema: { type: "array", items: backupRestoreSchema },
+      example: [restoreExample],
+    },
+  },
 };
 
 const path = (name: string) => ({ name, in: "path", required: true, schema: { type: "string" } });
 
-export function buildRestorePaths(bearer: { bearerAuth: string[] }[], orgHeader: Record<string, unknown>): Record<string, unknown> {
+export function buildRestorePaths(
+  bearer: { bearerAuth: string[] }[],
+  orgHeader: Record<string, unknown>,
+): Record<string, unknown> {
   const parameters = (...names: string[]) => [...names.map(path), orgHeader];
   return {
     "/databases/{id}/backups/{backupId}/restore": {
@@ -77,7 +94,10 @@ export function buildRestorePaths(bearer: { bearerAuth: string[] }[], orgHeader:
         },
         responses: {
           "202": restoreResponse("Restore iniciado"),
-          "400": { description: "Tipo sem suporte, confirmação errada, backup não concluído ou de vários bancos" },
+          "400": {
+            description:
+              "Tipo sem suporte, confirmação errada, backup não concluído ou de vários bancos",
+          },
           "404": { description: "Banco ou backup fora da organização ativa" },
           "409": { description: "Já existe um banco com o nome da cópia no ambiente" },
           "422": { description: "Corpo inválido" },
@@ -90,17 +110,24 @@ export function buildRestorePaths(bearer: { bearerAuth: string[] }[], orgHeader:
         summary: "Listar restores do banco (com andamento atualizado)",
         security: bearer,
         parameters: parameters("id"),
-        responses: { "200": restoreListResponse, "404": { description: "Banco fora da organização ativa" } },
+        responses: {
+          "200": restoreListResponse,
+          "404": { description: "Banco fora da organização ativa" },
+        },
       },
     },
     "/databases/{id}/restores/{restoreId}": {
       get: {
         tags: ["Databases"],
         summary: "Andamento de um restore",
-        description: "Lê o Job no cluster e grava o desfecho (COMPLETED/FAILED). Ao terminar, o Secret efêmero é apagado.",
+        description:
+          "Lê o Job no cluster e grava o desfecho (COMPLETED/FAILED). Ao terminar, o Secret efêmero é apagado.",
         security: bearer,
         parameters: parameters("id", "restoreId"),
-        responses: { "200": restoreResponse("OK"), "404": { description: "Restore não encontrado" } },
+        responses: {
+          "200": restoreResponse("OK"),
+          "404": { description: "Restore não encontrado" },
+        },
       },
     },
     "/applications/{id}/volumes/{volId}/backups/{backupId}/restore": {
@@ -111,7 +138,11 @@ export function buildRestorePaths(bearer: { bearerAuth: string[] }[], orgHeader:
           "Cria um Volume Longhorn a partir do backup (`fromBackup`), com PV e PVC novos no namespace da aplicação. O volume em uso não é alterado.",
         security: bearer,
         parameters: parameters("id", "volId", "backupId"),
-        responses: { "202": restoreResponse("Restore iniciado"), "400": { description: "Backup não concluído" }, "404": { description: "Volume ou backup não encontrado" } },
+        responses: {
+          "202": restoreResponse("Restore iniciado"),
+          "400": { description: "Backup não concluído" },
+          "404": { description: "Volume ou backup não encontrado" },
+        },
       },
     },
     "/applications/{id}/volumes/{volId}/restores": {

@@ -6,7 +6,11 @@ export interface DraftState<T> {
 }
 
 /** Mesma chave devolve o mesmo estado; chave nova recomeça o rascunho pelo `build`. */
-export function nextDraftState<T>(state: DraftState<T>, key: unknown, build: (prev: T | undefined) => T): DraftState<T> {
+export function nextDraftState<T>(
+  state: DraftState<T>,
+  key: unknown,
+  build: (prev: T | undefined) => T,
+): DraftState<T> {
   if (Object.is(state.key, key)) return state;
   return { key, draft: build(state.draft) };
 }
@@ -17,13 +21,19 @@ export function nextDraftState<T>(state: DraftState<T>, key: unknown, build: (pr
  * estado quando uma prop muda", em vez de um `useEffect` com setState.
  */
 export function useSyncedDraft<T>(syncKey: unknown, build: (prev: T | undefined) => T) {
-  const [state, setState] = useState<DraftState<T>>(() => ({ key: syncKey, draft: build(undefined) }));
+  const [state, setState] = useState<DraftState<T>>(() => ({
+    key: syncKey,
+    draft: build(undefined),
+  }));
   const next = nextDraftState(state, syncKey, build);
   if (next !== state) setState(next);
 
   const setDraft = useCallback(
     (action: SetStateAction<T>) =>
-      setState((s) => ({ ...s, draft: typeof action === "function" ? (action as (prev: T) => T)(s.draft) : action })),
+      setState((s) => ({
+        ...s,
+        draft: typeof action === "function" ? (action as (prev: T) => T)(s.draft) : action,
+      })),
     [],
   );
 

@@ -37,20 +37,31 @@ import {
 
 export function ApplicationDetailPage() {
   const { id = "" } = useParams();
-  const { app, deployments, refetchDeployments, deploy, isDeploying, rollback, latestDeploymentId } = useApplication(id);
+  const {
+    app,
+    deployments,
+    refetchDeployments,
+    deploy,
+    isDeploying,
+    rollback,
+    latestDeploymentId,
+  } = useApplication(id);
   const [strategyOpen, setStrategyOpen] = useState(false);
   // A aba fica na URL para o link dos logs filtrados abrir direto nela, e o
   // `?deployment=` do status de commit no Git abre em Deploys com o deploy destacado.
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = readApplicationTab(searchParams);
   const deploymentDestacado = readDeploymentDestacado(searchParams);
-  const onTabChange = (next: string) => setSearchParams((current) => writeApplicationTab(current, next), { replace: true });
+  const onTabChange = (next: string) =>
+    setSearchParams((current) => writeApplicationTab(current, next), { replace: true });
 
   const metrics = useMetricsStream(id || null);
-  const progress = useEventSource<{ label: string; progress: number; status: string; done?: boolean }>(
-    latestDeploymentId ? `/streams/deployments/${latestDeploymentId}` : null,
-    "progress",
-  );
+  const progress = useEventSource<{
+    label: string;
+    progress: number;
+    status: string;
+    done?: boolean;
+  }>(latestDeploymentId ? `/streams/deployments/${latestDeploymentId}` : null, "progress");
   const buildLogs = useEventSource<{ logs: string; done?: boolean }>(
     latestDeploymentId ? `/streams/deployments/${latestDeploymentId}/build-logs` : null,
     "build",
@@ -73,7 +84,10 @@ export function ApplicationDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link to="/applications" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/applications"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="size-4" /> Aplicações
       </Link>
 
@@ -83,14 +97,25 @@ export function ApplicationDetailPage() {
           {app && <StatusBadge status={app.observedStatus} />}
           {app && <PreviewBadge app={app} />}
           {app?.previewOf && (
-            <Link to={`/applications/${app.previewOf.id}`} className="text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              to={`/applications/${app.previewOf.id}`}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
               de {app.previewOf.name}
             </Link>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setStrategyOpen(true)}><Settings2 className="size-4" /> Estratégia</Button>
-          <Button variant="gradient" onClick={act(deploy, "Deploy disparado")} disabled={isDeploying}><Rocket className="size-4" /> Deploy</Button>
+          <Button variant="outline" onClick={() => setStrategyOpen(true)}>
+            <Settings2 className="size-4" /> Estratégia
+          </Button>
+          <Button
+            variant="gradient"
+            onClick={act(deploy, "Deploy disparado")}
+            disabled={isDeploying}
+          >
+            <Rocket className="size-4" /> Deploy
+          </Button>
           {app && <ApplicationActions id={app.id} stopped={app.desiredStatus === "stopped"} />}
         </div>
       </div>
@@ -104,7 +129,12 @@ export function ApplicationDetailPage() {
           ["Latência p95", metrics ? `${metrics.latencyP95Ms} ms` : "—"],
           ["Erros", metrics ? `${metrics.errorRate}` : "—"],
         ].map(([label, value]) => (
-          <Card key={label}><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-0.5 text-xl font-bold">{value}</p></CardContent></Card>
+          <Card key={label}>
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="mt-0.5 text-xl font-bold">{value}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
@@ -129,18 +159,29 @@ export function ApplicationDetailPage() {
                 <div className="flex items-center gap-3">
                   <span className="w-40 text-sm text-muted-foreground">{progress.label}</span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full gradient-bg transition-all" style={{ width: `${progress.progress}%` }} />
+                    <div
+                      className="h-full gradient-bg transition-all"
+                      style={{ width: `${progress.progress}%` }}
+                    />
                   </div>
-                  <span className="w-10 text-right text-xs text-muted-foreground">{progress.progress}%</span>
+                  <span className="w-10 text-right text-xs text-muted-foreground">
+                    {progress.progress}%
+                  </span>
                 </div>
               )}
               {buildLogs?.logs && (
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Logs de build (Kaniko){buildLogs.done ? " · concluído" : " · ao vivo"}</p>
-                  <pre className="max-h-64 overflow-auto rounded-lg bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground">{buildLogs.logs}</pre>
+                  <p className="text-xs text-muted-foreground">
+                    Logs de build (Kaniko){buildLogs.done ? " · concluído" : " · ao vivo"}
+                  </p>
+                  <pre className="max-h-64 overflow-auto rounded-lg bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+                    {buildLogs.logs}
+                  </pre>
                 </div>
               )}
-              {deployments.length === 0 && <p className="text-sm text-muted-foreground">Nenhum deploy ainda.</p>}
+              {deployments.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum deploy ainda.</p>
+              )}
               {(() => {
                 // Apenas o deploy HEALTHY mais recente serve pods (rolling update); os
                 // anteriores ficam "substituídos" (0 pods, mantidos para rollback).
@@ -162,12 +203,34 @@ export function ApplicationDetailPage() {
                       )}
                     >
                       <span className="font-mono text-xs">{d.version}</span>
-                      <span className="text-muted-foreground">{isActive ? `${d.podCount} pods em execução` : superseded ? "inativo (0 pods)" : `${d.podCount} pods`}</span>
+                      <span className="text-muted-foreground">
+                        {isActive
+                          ? `${d.podCount} pods em execução`
+                          : superseded
+                            ? "inativo (0 pods)"
+                            : `${d.podCount} pods`}
+                      </span>
                       <div className="flex items-center gap-2">
-                        <DeploymentScanBadge summary={d.scanSummary} version={d.version} defaultOpen={isDestacado} />
-                        {isActive ? <Badge variant="success">Ativo</Badge> : superseded ? <Badge variant="muted">Substituído</Badge> : <Badge variant={d.status === "FAILED" ? "danger" : "warning"}>{d.status}</Badge>}
+                        <DeploymentScanBadge
+                          summary={d.scanSummary}
+                          version={d.version}
+                          defaultOpen={isDestacado}
+                        />
+                        {isActive ? (
+                          <Badge variant="success">Ativo</Badge>
+                        ) : superseded ? (
+                          <Badge variant="muted">Substituído</Badge>
+                        ) : (
+                          <Badge variant={d.status === "FAILED" ? "danger" : "warning"}>
+                            {d.status}
+                          </Badge>
+                        )}
                         {superseded && (
-                          <Button variant="ghost" size="sm" onClick={act(() => rollback(d.id), "Restaurando versão…")}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={act(() => rollback(d.id), "Restaurando versão…")}
+                          >
                             <RotateCcw className="size-3.5" /> Restaurar
                           </Button>
                         )}
@@ -181,7 +244,9 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="env" className="pt-5">
-          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["env", "buildArgs"]} />}
+          {app && (
+            <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["env", "buildArgs"]} />
+          )}
           {app && <EnvVarsTab applicationId={app.id} />}
         </TabsContent>
 
@@ -191,7 +256,9 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="scaling" className="pt-5">
-          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["scaling", "replicas"]} />}
+          {app && (
+            <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["scaling", "replicas"]} />
+          )}
           {app && <ScalingTab applicationId={app.id} />}
         </TabsContent>
 
@@ -226,7 +293,14 @@ export function ApplicationDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {app && <StrategyDrawer open={strategyOpen} onClose={() => setStrategyOpen(false)} applicationId={app.id} current={app.rolloutStrategy} />}
+      {app && (
+        <StrategyDrawer
+          open={strategyOpen}
+          onClose={() => setStrategyOpen(false)}
+          applicationId={app.id}
+          current={app.rolloutStrategy}
+        />
+      )}
     </div>
   );
 }

@@ -53,7 +53,11 @@ describe("parseTrivyReport", () => {
   });
 
   it("alvo sem a chave Vulnerabilities (gobinary limpo) não quebra a leitura", () => {
-    const clean = JSON.stringify({ SchemaVersion: 2, ArtifactName: "x", Results: [{ Target: "bin", Class: "lang-pkgs", Type: "gobinary" }] });
+    const clean = JSON.stringify({
+      SchemaVersion: 2,
+      ArtifactName: "x",
+      Results: [{ Target: "bin", Class: "lang-pkgs", Type: "gobinary" }],
+    });
     expect(parseTrivyReport(clean)).toEqual({
       counts: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 },
       total: 0,
@@ -62,29 +66,60 @@ describe("parseTrivyReport", () => {
   });
 
   it("imagem sem nenhum alvo (Results ausente) é relatório limpo", () => {
-    expect(parseTrivyReport(JSON.stringify({ SchemaVersion: 2, ArtifactName: "scratch" })).total).toBe(0);
+    expect(
+      parseTrivyReport(JSON.stringify({ SchemaVersion: 2, ArtifactName: "scratch" })).total,
+    ).toBe(0);
   });
 
   it("a mesma CVE no mesmo pacote e versão em dois alvos conta uma vez", () => {
-    const vuln = { VulnerabilityID: "CVE-1", PkgName: "lodash", InstalledVersion: "4.17.20", Severity: "HIGH" };
-    const report = JSON.stringify({ SchemaVersion: 2, Results: [{ Target: "a/package-lock.json", Vulnerabilities: [vuln] }, { Target: "b/package-lock.json", Vulnerabilities: [vuln] }] });
+    const vuln = {
+      VulnerabilityID: "CVE-1",
+      PkgName: "lodash",
+      InstalledVersion: "4.17.20",
+      Severity: "HIGH",
+    };
+    const report = JSON.stringify({
+      SchemaVersion: 2,
+      Results: [
+        { Target: "a/package-lock.json", Vulnerabilities: [vuln] },
+        { Target: "b/package-lock.json", Vulnerabilities: [vuln] },
+      ],
+    });
     expect(parseTrivyReport(report).counts.HIGH).toBe(1);
   });
 
   it("severidade fora da escala do Trivy cai em UNKNOWN", () => {
-    const report = JSON.stringify({ SchemaVersion: 2, Results: [{ Target: "t", Vulnerabilities: [{ VulnerabilityID: "CVE-2", PkgName: "p", InstalledVersion: "1", Severity: "WHATEVER" }] }] });
+    const report = JSON.stringify({
+      SchemaVersion: 2,
+      Results: [
+        {
+          Target: "t",
+          Vulnerabilities: [
+            { VulnerabilityID: "CVE-2", PkgName: "p", InstalledVersion: "1", Severity: "WHATEVER" },
+          ],
+        },
+      ],
+    });
     expect(parseTrivyReport(report).counts.UNKNOWN).toBe(1);
   });
 
   it("JSON inválido ou fora do formato vira TrivyReportError", () => {
     expect(() => parseTrivyReport("{ quebrado")).toThrow(TrivyReportError);
-    expect(() => parseTrivyReport(JSON.stringify({ Results: "nao-e-lista" }))).toThrow(TrivyReportError);
+    expect(() => parseTrivyReport(JSON.stringify({ Results: "nao-e-lista" }))).toThrow(
+      TrivyReportError,
+    );
   });
 });
 
 describe("extractTrivyReport", () => {
   it("recorta o JSON entre os marcadores, ignorando o resto do log", () => {
-    const logs = ["2026-11-04T14:02:00Z INFO Downloading vulnerability DB...", TRIVY_REPORT_BEGIN, '{"SchemaVersion":2}', TRIVY_REPORT_END, ""].join("\n");
+    const logs = [
+      "2026-11-04T14:02:00Z INFO Downloading vulnerability DB...",
+      TRIVY_REPORT_BEGIN,
+      '{"SchemaVersion":2}',
+      TRIVY_REPORT_END,
+      "",
+    ].join("\n");
     expect(extractTrivyReport(logs)).toBe('{"SchemaVersion":2}');
   });
 

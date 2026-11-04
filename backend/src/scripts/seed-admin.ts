@@ -15,7 +15,10 @@ const name = process.env.ADMIN_NAME ?? "Administrador";
 const organizationName = process.env.ADMIN_ORG ?? "Capiva";
 
 const slugify = (value: string): string =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 async function ensureOrganization(userId: string): Promise<void> {
   const membership = await prisma.membership.findFirst({ where: { userId } });
@@ -39,7 +42,9 @@ async function seed(): Promise<void> {
     create: { email, name, passwordHash },
   });
   await ensureOrganization(user.id);
-  console.log(`✅ Admin pronto: ${email} (senha ${process.env.ADMIN_PASSWORD ? "definida via ADMIN_PASSWORD" : `padrão "${password}" — troque!`})`);
+  console.log(
+    `✅ Admin pronto: ${email} (senha ${process.env.ADMIN_PASSWORD ? "definida via ADMIN_PASSWORD" : `padrão "${password}" — troque!`})`,
+  );
 }
 
 seed()

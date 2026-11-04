@@ -14,6 +14,10 @@ export function runAction(action: () => Promise<unknown>): void {
 }
 
 /** Atalho: confirma e, se o usuário aceitar, executa com feedback de erro. */
-export function confirmAndRun(title: string, message: string, action: () => Promise<unknown>): void {
+export function confirmAndRun(
+  title: string,
+  message: string,
+  action: () => Promise<unknown>,
+): void {
   confirmThen(title, message, () => runAction(action));
 }

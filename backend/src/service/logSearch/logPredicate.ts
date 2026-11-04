@@ -24,6 +24,8 @@ const PREDICATES: Array<(filtros: LogFiltros) => LinePredicate | undefined> = [
 ];
 
 export const buildLogPredicate = (filtros: LogFiltros): LinePredicate => {
-  const active = PREDICATES.map((build) => build(filtros)).filter((p): p is LinePredicate => Boolean(p));
+  const active = PREDICATES.map((build) => build(filtros)).filter((p): p is LinePredicate =>
+    Boolean(p),
+  );
   return (line) => active.every((predicate) => predicate(line));
 };

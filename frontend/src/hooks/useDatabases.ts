@@ -49,9 +49,19 @@ export function useDatabases(projectId?: string | null) {
     enabled: Boolean(projectId),
   });
 
-  const createMut = useMutation({ mutationKey: ["databases", "create"], mutationFn: (dto: CreateDatabaseDTO) => api.post<ManagedDatabase>("/databases", dto) });
-  const updateMut = useMutation({ mutationKey: ["databases", "update"], mutationFn: ({ id, patch }: { id: string; patch: Record<string, unknown> }) => api.patch(`/databases/${id}`, patch) });
-  const removeMut = useMutation({ mutationKey: ["databases", "remove"], mutationFn: (id: string) => api.del(`/databases/${id}`) });
+  const createMut = useMutation({
+    mutationKey: ["databases", "create"],
+    mutationFn: (dto: CreateDatabaseDTO) => api.post<ManagedDatabase>("/databases", dto),
+  });
+  const updateMut = useMutation({
+    mutationKey: ["databases", "update"],
+    mutationFn: ({ id, patch }: { id: string; patch: Record<string, unknown> }) =>
+      api.patch(`/databases/${id}`, patch),
+  });
+  const removeMut = useMutation({
+    mutationKey: ["databases", "remove"],
+    mutationFn: (id: string) => api.del(`/databases/${id}`),
+  });
 
   return {
     databases: list.data ?? [],

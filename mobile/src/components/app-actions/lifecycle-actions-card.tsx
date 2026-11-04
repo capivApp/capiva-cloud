@@ -23,7 +23,12 @@ const isParada = (app: Application): boolean => app.desiredStatus.toLowerCase() 
 function PowerButton({ app, ciclo }: { app: Application; ciclo: Ciclo }) {
   if (isParada(app)) {
     return (
-      <Button className="flex-1 rounded-xl" variant="outline" disabled={ciclo.isStarting} onPress={() => runAction(ciclo.start)}>
+      <Button
+        className="flex-1 rounded-xl"
+        variant="outline"
+        disabled={ciclo.isStarting}
+        onPress={() => runAction(ciclo.start)}
+      >
         <Play color={nativeTheme.foreground} size={16} />
         <Text>{ciclo.isStarting ? "Iniciando…" : "Iniciar"}</Text>
       </Button>
@@ -58,7 +63,13 @@ export function LifecycleActionsCard({ app, ciclo, permissoes }: LifecycleAction
         <Button
           className="flex-1 rounded-xl"
           disabled={ciclo.isDeploying}
-          onPress={() => confirmAndRun("Redeploy", `Publicar de novo o último commit ou imagem de ${app.name}?`, ciclo.deploy)}
+          onPress={() =>
+            confirmAndRun(
+              "Redeploy",
+              `Publicar de novo o último commit ou imagem de ${app.name}?`,
+              ciclo.deploy,
+            )
+          }
         >
           <Rocket color="#fff" size={16} />
           <Text>{ciclo.isDeploying ? "Enviando…" : "Redeploy"}</Text>
@@ -68,7 +79,13 @@ export function LifecycleActionsCard({ app, ciclo, permissoes }: LifecycleAction
             className="flex-1 rounded-xl"
             variant="secondary"
             disabled={ciclo.isRestarting}
-            onPress={() => confirmAndRun("Reiniciar pods", `Os pods de ${app.name} serão recriados.`, ciclo.restart)}
+            onPress={() =>
+              confirmAndRun(
+                "Reiniciar pods",
+                `Os pods de ${app.name} serão recriados.`,
+                ciclo.restart,
+              )
+            }
           >
             <RefreshCw color="#fff" size={16} />
             <Text>{ciclo.isRestarting ? "Reiniciando…" : "Reiniciar pods"}</Text>

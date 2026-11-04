@@ -16,32 +16,61 @@ export interface NotificationAdapter {
   send(config: Record<string, unknown>, message: NotificationMessage): Promise<void>;
 }
 
-const post = async (url: string, body: unknown, headers: Record<string, string> = {}): Promise<void> => {
-  await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+const post = async (
+  url: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<void> => {
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
 };
 
 const text = (m: NotificationMessage) => `*${m.title}*\n${m.body}`;
 
 /** Discord/Slack/Teams/Lark/webhook genérico: cada um tem um shape de payload. */
-const discord: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl), { content: text(m) }) };
-const slack: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl), { text: text(m) }) };
-const teams: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl), { text: text(m) }) };
-const lark: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl), { msg_type: "text", content: { text: text(m) } }) };
-const webhook: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl), { event: m.event, title: m.title, body: m.body }) };
+const discord: NotificationAdapter = {
+  send: (c, m) => post(String(c.webhookUrl), { content: text(m) }),
+};
+const slack: NotificationAdapter = {
+  send: (c, m) => post(String(c.webhookUrl), { text: text(m) }),
+};
+const teams: NotificationAdapter = {
+  send: (c, m) => post(String(c.webhookUrl), { text: text(m) }),
+};
+const lark: NotificationAdapter = {
+  send: (c, m) => post(String(c.webhookUrl), { msg_type: "text", content: { text: text(m) } }),
+};
+const webhook: NotificationAdapter = {
+  send: (c, m) => post(String(c.webhookUrl), { event: m.event, title: m.title, body: m.body }),
+};
 
 /** Telegram Bot API: botToken + chatId. */
 const telegram: NotificationAdapter = {
-  send: (c, m) => post(`https://api.telegram.org/bot${textOf(c.botToken)}/sendMessage`, { chat_id: c.chatId, text: text(m), parse_mode: "Markdown" }),
+  send: (c, m) =>
+    post(`https://api.telegram.org/bot${textOf(c.botToken)}/sendMessage`, {
+      chat_id: c.chatId,
+      text: text(m),
+      parse_mode: "Markdown",
+    }),
 };
 
 /** Resend (email transacional): apiKey + from + to. */
 const resend: NotificationAdapter = {
-  send: (c, m) => post("https://api.resend.com/emails", { from: c.from, to: c.to, subject: m.title, text: m.body }, { Authorization: `Bearer ${textOf(c.apiKey)}` }),
+  send: (c, m) =>
+    post(
+      "https://api.resend.com/emails",
+      { from: c.from, to: c.to, subject: m.title, text: m.body },
+      { Authorization: `Bearer ${textOf(c.apiKey)}` },
+    ),
 };
 
 /** Email simples: reaproveita o webhook de um gateway SMTP→HTTP (config.webhookUrl). */
 const email: NotificationAdapter = {
-  send: (c, m) => post(textOf(c.webhookUrl, "http://localhost"), { to: c.to, subject: m.title, text: m.body }),
+  send: (c, m) =>
+    post(textOf(c.webhookUrl, "http://localhost"), { to: c.to, subject: m.title, text: m.body }),
 };
 
 /** Expo push (app mobile): tokens[] → exp.host. Pronto para o app Expo. */
@@ -49,7 +78,15 @@ const push: NotificationAdapter = {
   send: async (c, m) => {
     const tokens = (c.expoTokens as string[] | undefined) ?? [];
     if (tokens.length === 0) return;
-    await post("https://exp.host/--/api/v2/push/send", tokens.map((to) => ({ to, title: m.title, body: m.body, data: { ...m.data, event: m.event } })));
+    await post(
+      "https://exp.host/--/api/v2/push/send",
+      tokens.map((to) => ({
+        to,
+        title: m.title,
+        body: m.body,
+        data: { ...m.data, event: m.event },
+      })),
+    );
   },
 };
 

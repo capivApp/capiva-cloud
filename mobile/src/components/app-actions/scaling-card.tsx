@@ -39,7 +39,13 @@ function ManualScaling({ status, scaling, canScale }: ModoProps) {
 
   return (
     <>
-      <ReplicaStepper label="Réplicas" value={replicas} limites={buildLimitesManuais()} disabled={!canScale} onChange={setDraft} />
+      <ReplicaStepper
+        label="Réplicas"
+        value={replicas}
+        limites={buildLimitesManuais()}
+        disabled={!canScale}
+        onChange={setDraft}
+      />
       {canScale && (
         <Button className="rounded-xl" disabled={!isChanged || scaling.isScaling} onPress={apply}>
           <Text>{scaling.isScaling ? "Aplicando…" : "Aplicar"}</Text>
@@ -68,10 +74,26 @@ function HpaScaling({ status, scaling, canScale }: ModoProps) {
   return (
     <>
       <Text variant="muted">Réplicas agora: {status.currentReplicas}</Text>
-      <ReplicaStepper label="Mínimo" value={minimo} limites={limites.minimo} disabled={!canScale} onChange={setDraftMin} />
-      <ReplicaStepper label="Máximo" value={maximo} limites={limites.maximo} disabled={!canScale} onChange={setDraftMax} />
+      <ReplicaStepper
+        label="Mínimo"
+        value={minimo}
+        limites={limites.minimo}
+        disabled={!canScale}
+        onChange={setDraftMin}
+      />
+      <ReplicaStepper
+        label="Máximo"
+        value={maximo}
+        limites={limites.maximo}
+        disabled={!canScale}
+        onChange={setDraftMax}
+      />
       {canScale && (
-        <Button className="rounded-xl" disabled={!isChanged || scaling.isSavingPolicy} onPress={save}>
+        <Button
+          className="rounded-xl"
+          disabled={!isChanged || scaling.isSavingPolicy}
+          onPress={save}
+        >
           <Text>{scaling.isSavingPolicy ? "Salvando…" : "Salvar limites"}</Text>
         </Button>
       )}
@@ -90,7 +112,13 @@ const ROTULO_MODO: Record<ModoEscala, string> = {
 };
 
 /** Escala da aplicação: réplicas fixas ou mínimo e máximo do HPA. */
-export function ScalingCard({ applicationId, canScale }: { applicationId: string; canScale: boolean }) {
+export function ScalingCard({
+  applicationId,
+  canScale,
+}: {
+  applicationId: string;
+  canScale: boolean;
+}) {
   const scaling = useScaling(applicationId);
   const modo = resolveModoEscala(scaling.status);
   const Modo = MODOS[modo];
@@ -106,7 +134,11 @@ export function ScalingCard({ applicationId, canScale }: { applicationId: string
         </Badge>
       }
     >
-      {scaling.status ? <Modo key={modo} status={scaling.status} scaling={scaling} canScale={canScale} /> : <Skeleton className="h-10 w-full rounded-xl" />}
+      {scaling.status ? (
+        <Modo key={modo} status={scaling.status} scaling={scaling} canScale={canScale} />
+      ) : (
+        <Skeleton className="h-10 w-full rounded-xl" />
+      )}
     </SectionCard>
   );
 }

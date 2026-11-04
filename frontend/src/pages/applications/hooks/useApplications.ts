@@ -67,13 +67,35 @@ export function useApplications(projectId?: string | null) {
     enabled: Boolean(projectId),
   });
 
-  const createMut = useMutation({ mutationKey: ["applications", "create"], mutationFn: (dto: CreateApplicationDTO) => api.post<Application>("/applications", dto) });
-  const deployMut = useMutation({ mutationKey: ["applications", "deploy"], mutationFn: (id: string) => api.post(`/applications/${id}/deploy`, {}) });
-  const stopMut = useMutation({ mutationKey: ["applications", "stop"], mutationFn: (id: string) => api.post(`/applications/${id}/stop`, {}) });
-  const startMut = useMutation({ mutationKey: ["applications", "start"], mutationFn: (id: string) => api.post(`/applications/${id}/start`, {}) });
-  const restartMut = useMutation({ mutationKey: ["applications", "restart"], mutationFn: (id: string) => api.post(`/applications/${id}/restart`, {}) });
-  const removeMut = useMutation({ mutationKey: ["applications", "remove"], mutationFn: (id: string) => api.del(`/applications/${id}`) });
-  const tagsMut = useMutation({ mutationKey: ["applications", "tags"], mutationFn: ({ id, tags }: { id: string; tags: string[] }) => api.patch(`/applications/${id}/tags`, { tags }) });
+  const createMut = useMutation({
+    mutationKey: ["applications", "create"],
+    mutationFn: (dto: CreateApplicationDTO) => api.post<Application>("/applications", dto),
+  });
+  const deployMut = useMutation({
+    mutationKey: ["applications", "deploy"],
+    mutationFn: (id: string) => api.post(`/applications/${id}/deploy`, {}),
+  });
+  const stopMut = useMutation({
+    mutationKey: ["applications", "stop"],
+    mutationFn: (id: string) => api.post(`/applications/${id}/stop`, {}),
+  });
+  const startMut = useMutation({
+    mutationKey: ["applications", "start"],
+    mutationFn: (id: string) => api.post(`/applications/${id}/start`, {}),
+  });
+  const restartMut = useMutation({
+    mutationKey: ["applications", "restart"],
+    mutationFn: (id: string) => api.post(`/applications/${id}/restart`, {}),
+  });
+  const removeMut = useMutation({
+    mutationKey: ["applications", "remove"],
+    mutationFn: (id: string) => api.del(`/applications/${id}`),
+  });
+  const tagsMut = useMutation({
+    mutationKey: ["applications", "tags"],
+    mutationFn: ({ id, tags }: { id: string; tags: string[] }) =>
+      api.patch(`/applications/${id}/tags`, { tags }),
+  });
 
   return {
     applications: list.data ?? [],

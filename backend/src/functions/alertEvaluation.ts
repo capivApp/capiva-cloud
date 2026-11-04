@@ -20,7 +20,10 @@ const COMPARATORS: Record<AlertOperator, (value: number, threshold: number) => b
 };
 
 /** `null` quando a fonte não devolveu dado: sem veredito, não é "dentro do limite". */
-export const isRuleBreached = (rule: Pick<EvaluableRule, "operator" | "threshold">, value: number | null): boolean | null => {
+export const isRuleBreached = (
+  rule: Pick<EvaluableRule, "operator" | "threshold">,
+  value: number | null,
+): boolean | null => {
   if (value === null) return null;
   return COMPARATORS[rule.operator](value, rule.threshold);
 };

@@ -52,7 +52,8 @@ export function useScaling(applicationId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
   const setMut = useMutation({
-    mutationFn: (input: SetScalingInput) => api.put<ScalingPolicy>(`/applications/${applicationId}/scaling`, input),
+    mutationFn: (input: SetScalingInput) =>
+      api.put<ScalingPolicy>(`/applications/${applicationId}/scaling`, input),
     onSuccess: invalidate,
   });
   const disableMut = useMutation({
@@ -60,7 +61,11 @@ export function useScaling(applicationId: string) {
     onSuccess: invalidate,
   });
   const scaleMut = useMutation({
-    mutationFn: (replicas: number) => api.post<{ replicas: number; autoscalerActive: boolean }>(`/applications/${applicationId}/scaling/replicas`, { replicas }),
+    mutationFn: (replicas: number) =>
+      api.post<{ replicas: number; autoscalerActive: boolean }>(
+        `/applications/${applicationId}/scaling/replicas`,
+        { replicas },
+      ),
   });
 
   return {

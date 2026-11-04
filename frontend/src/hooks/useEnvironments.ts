@@ -29,15 +29,17 @@ export function useEnvironments() {
 
   const createMut = useMutation({
     mutationKey: ["environments", "create"],
-    mutationFn: (input: EnvironmentInput) =>
-      api.post<Environment>("/environments", input),
+    mutationFn: (input: EnvironmentInput) => api.post<Environment>("/environments", input),
   });
   const updateMut = useMutation({
     mutationKey: ["environments", "update"],
     mutationFn: ({ id, patch }: { id: string; patch: Partial<EnvironmentInput> }) =>
       api.patch(`/environments/${id}`, patch),
   });
-  const removeMut = useMutation({ mutationKey: ["environments", "remove"], mutationFn: (id: string) => api.del(`/environments/${id}`) });
+  const removeMut = useMutation({
+    mutationKey: ["environments", "remove"],
+    mutationFn: (id: string) => api.del(`/environments/${id}`),
+  });
 
   return {
     environments: list.data ?? [],

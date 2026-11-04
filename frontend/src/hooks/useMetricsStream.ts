@@ -10,5 +10,8 @@ export interface AppMetrics {
 
 /** Métricas em tempo real via SSE (NUNCA polling). */
 export function useMetricsStream(applicationId: string | null) {
-  return useEventSource<AppMetrics>(applicationId ? `/streams/applications/${applicationId}/metrics` : null, "metrics");
+  return useEventSource<AppMetrics>(
+    applicationId ? `/streams/applications/${applicationId}/metrics` : null,
+    "metrics",
+  );
 }

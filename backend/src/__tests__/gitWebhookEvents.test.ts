@@ -17,7 +17,8 @@ const github = readFixtures("github");
 const gitlab = readFixtures("gitlab");
 const gitea = readFixtures("gitea");
 
-const parse = (provider: "GITHUB" | "GITLAB" | "GITEA", fixture: Fixture) => parseGitWebhook(provider, fixture.event, fixture.body);
+const parse = (provider: "GITHUB" | "GITLAB" | "GITEA", fixture: Fixture) =>
+  parseGitWebhook(provider, fixture.event, fixture.body);
 
 describe("readGitEventName", () => {
   it("lê o header de evento de cada provedor", () => {
@@ -28,7 +29,9 @@ describe("readGitEventName", () => {
 
   // O Gitea manda também X-GitHub-Event por compatibilidade; o header próprio vence.
   it("prefere o header do Gitea quando vierem os dois", () => {
-    expect(readGitEventName({ "x-github-event": "pull_request", "x-gitea-event": "pull_request_sync" })).toBe("pull_request_sync");
+    expect(
+      readGitEventName({ "x-github-event": "pull_request", "x-gitea-event": "pull_request_sync" }),
+    ).toBe("pull_request_sync");
   });
 
   it("sem header devolve undefined", () => {
@@ -117,7 +120,12 @@ describe("parseGitWebhook: tag", () => {
 
 describe("parseGitWebhook: release", () => {
   it("GitHub (published)", () => {
-    expect(parse("GITHUB", github.release)).toEqual({ kind: "release", tag: "v1.4.0", name: "v1.4.0 Saude", repo: "acme/api" });
+    expect(parse("GITHUB", github.release)).toEqual({
+      kind: "release",
+      tag: "v1.4.0",
+      name: "v1.4.0 Saude",
+      repo: "acme/api",
+    });
   });
 
   it("GitLab (create, com o commit da tag)", () => {
@@ -131,7 +139,12 @@ describe("parseGitWebhook: release", () => {
   });
 
   it("Gitea (published)", () => {
-    expect(parse("GITEA", gitea.release)).toEqual({ kind: "release", tag: "release-2026.11", name: "Release 2026.11", repo: "gitea/webhooks" });
+    expect(parse("GITEA", gitea.release)).toEqual({
+      kind: "release",
+      tag: "release-2026.11",
+      name: "Release 2026.11",
+      repo: "gitea/webhooks",
+    });
   });
 
   // Rascunho, edição e remoção de release não publicam versão nova.
@@ -156,16 +169,32 @@ describe("parseGitWebhook: pull request / merge request", () => {
   it("GitHub opened", () => {
     expect(parse("GITHUB", github.pullRequestOpened)).toEqual({
       kind: "pull_request",
-      pullRequest: { ...githubPr, action: "opened", headSha: "c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6" },
+      pullRequest: {
+        ...githubPr,
+        action: "opened",
+        headSha: "c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6",
+      },
     });
   });
 
   it("GitHub synchronize, reopened, closed e merged", () => {
     const headSha = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
-    expect(parse("GITHUB", github.pullRequestSynchronize)).toEqual({ kind: "pull_request", pullRequest: { ...githubPr, action: "synchronized", headSha } });
-    expect(parse("GITHUB", github.pullRequestReopened)).toEqual({ kind: "pull_request", pullRequest: { ...githubPr, action: "reopened", headSha } });
-    expect(parse("GITHUB", github.pullRequestClosed)).toEqual({ kind: "pull_request", pullRequest: { ...githubPr, action: "closed", headSha } });
-    expect(parse("GITHUB", github.pullRequestMerged)).toEqual({ kind: "pull_request", pullRequest: { ...githubPr, action: "merged", headSha } });
+    expect(parse("GITHUB", github.pullRequestSynchronize)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...githubPr, action: "synchronized", headSha },
+    });
+    expect(parse("GITHUB", github.pullRequestReopened)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...githubPr, action: "reopened", headSha },
+    });
+    expect(parse("GITHUB", github.pullRequestClosed)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...githubPr, action: "closed", headSha },
+    });
+    expect(parse("GITHUB", github.pullRequestMerged)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...githubPr, action: "merged", headSha },
+    });
   });
 
   it("GitHub ignora ações que não mudam o código (labeled) e o ping", () => {
@@ -186,7 +215,11 @@ describe("parseGitWebhook: pull request / merge request", () => {
   it("GitLab open", () => {
     expect(parse("GITLAB", gitlab.mergeRequestOpened)).toEqual({
       kind: "pull_request",
-      pullRequest: { ...gitlabMr, action: "opened", headSha: "da1560886d4f094c3e6c9ef40349f7d38b5d27d7" },
+      pullRequest: {
+        ...gitlabMr,
+        action: "opened",
+        headSha: "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+      },
     });
   });
 
@@ -194,16 +227,29 @@ describe("parseGitWebhook: pull request / merge request", () => {
   it("GitLab update com push vira synchronized; update só de metadados é ignorado", () => {
     expect(parse("GITLAB", gitlab.mergeRequestUpdatedWithPush)).toEqual({
       kind: "pull_request",
-      pullRequest: { ...gitlabMr, action: "synchronized", headSha: "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+      pullRequest: {
+        ...gitlabMr,
+        action: "synchronized",
+        headSha: "7b5c3cc8be40ee161ae89a06bba6229da1032a0c",
+      },
     });
     expect(parse("GITLAB", gitlab.mergeRequestUpdatedMetadata)).toBeNull();
   });
 
   it("GitLab reopen, close e merge", () => {
     const headSha = "7b5c3cc8be40ee161ae89a06bba6229da1032a0c";
-    expect(parse("GITLAB", gitlab.mergeRequestReopened)).toEqual({ kind: "pull_request", pullRequest: { ...gitlabMr, action: "reopened", headSha } });
-    expect(parse("GITLAB", gitlab.mergeRequestClosed)).toEqual({ kind: "pull_request", pullRequest: { ...gitlabMr, action: "closed", headSha } });
-    expect(parse("GITLAB", gitlab.mergeRequestMerged)).toEqual({ kind: "pull_request", pullRequest: { ...gitlabMr, action: "merged", headSha } });
+    expect(parse("GITLAB", gitlab.mergeRequestReopened)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...gitlabMr, action: "reopened", headSha },
+    });
+    expect(parse("GITLAB", gitlab.mergeRequestClosed)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...gitlabMr, action: "closed", headSha },
+    });
+    expect(parse("GITLAB", gitlab.mergeRequestMerged)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...gitlabMr, action: "merged", headSha },
+    });
   });
 
   it("GitLab ignora approved", () => {
@@ -223,25 +269,47 @@ describe("parseGitWebhook: pull request / merge request", () => {
   it("Gitea opened", () => {
     expect(parse("GITEA", gitea.pullRequestOpened)).toEqual({
       kind: "pull_request",
-      pullRequest: { ...giteaPr, action: "opened", headSha: "bffeb74224043ba2feb48d137756c8a9331c449a" },
+      pullRequest: {
+        ...giteaPr,
+        action: "opened",
+        headSha: "bffeb74224043ba2feb48d137756c8a9331c449a",
+      },
     });
   });
 
   it("Gitea synchronized, reopened, closed e merged", () => {
     const headSha = "9a8b7c6d5e4f30211234567890abcdef12345678";
-    expect(parse("GITEA", gitea.pullRequestSynchronized)).toEqual({ kind: "pull_request", pullRequest: { ...giteaPr, action: "synchronized", headSha } });
-    expect(parse("GITEA", gitea.pullRequestReopened)).toEqual({ kind: "pull_request", pullRequest: { ...giteaPr, action: "reopened", headSha } });
-    expect(parse("GITEA", gitea.pullRequestClosed)).toEqual({ kind: "pull_request", pullRequest: { ...giteaPr, action: "closed", headSha } });
-    expect(parse("GITEA", gitea.pullRequestMerged)).toEqual({ kind: "pull_request", pullRequest: { ...giteaPr, action: "merged", headSha } });
+    expect(parse("GITEA", gitea.pullRequestSynchronized)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...giteaPr, action: "synchronized", headSha },
+    });
+    expect(parse("GITEA", gitea.pullRequestReopened)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...giteaPr, action: "reopened", headSha },
+    });
+    expect(parse("GITEA", gitea.pullRequestClosed)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...giteaPr, action: "closed", headSha },
+    });
+    expect(parse("GITEA", gitea.pullRequestMerged)).toEqual({
+      kind: "pull_request",
+      pullRequest: { ...giteaPr, action: "merged", headSha },
+    });
   });
 
   it("Gitea aceita o tipo detalhado no header (pull_request_sync)", () => {
-    expect(parseGitWebhook("GITEA", "pull_request_sync", gitea.pullRequestSynchronized.body)?.kind).toBe("pull_request");
+    expect(
+      parseGitWebhook("GITEA", "pull_request_sync", gitea.pullRequestSynchronized.body)?.kind,
+    ).toBe("pull_request");
   });
 
   it("sem header de evento, deduz PR/MR pelo corpo", () => {
-    expect(parseGitWebhook("GITHUB", undefined, github.pullRequestOpened.body)?.kind).toBe("pull_request");
-    expect(parseGitWebhook("GITLAB", undefined, gitlab.mergeRequestOpened.body)?.kind).toBe("pull_request");
+    expect(parseGitWebhook("GITHUB", undefined, github.pullRequestOpened.body)?.kind).toBe(
+      "pull_request",
+    );
+    expect(parseGitWebhook("GITLAB", undefined, gitlab.mergeRequestOpened.body)?.kind).toBe(
+      "pull_request",
+    );
     expect(parseGitWebhook("GITLAB", undefined, gitlab.tag.body)?.kind).toBe("tag");
     expect(parseGitWebhook("GITEA", undefined, gitea.release.body)?.kind).toBe("release");
   });
@@ -258,7 +326,17 @@ describe("parseGitWebhook: entradas inválidas", () => {
   it("nome de evento ou ação igual a propriedade do protótipo é ignorado", () => {
     expect(parseGitWebhook("GITHUB", "constructor", github.push.body)).toBeNull();
     const mr = gitlab.mergeRequestOpened.body as { object_attributes: Record<string, unknown> };
-    expect(parseGitWebhook("GITLAB", "Merge Request Hook", { ...mr, object_attributes: { ...mr.object_attributes, action: "constructor" } })).toBeNull();
-    expect(parseGitWebhook("GITHUB", "pull_request", { ...(github.pullRequestOpened.body as object), action: "toString" })).toBeNull();
+    expect(
+      parseGitWebhook("GITLAB", "Merge Request Hook", {
+        ...mr,
+        object_attributes: { ...mr.object_attributes, action: "constructor" },
+      }),
+    ).toBeNull();
+    expect(
+      parseGitWebhook("GITHUB", "pull_request", {
+        ...(github.pullRequestOpened.body as object),
+        action: "toString",
+      }),
+    ).toBeNull();
   });
 });

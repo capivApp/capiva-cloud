@@ -26,14 +26,33 @@ export const formatCustoMensal = (custo: FaixaDeCusto, currency: string): string
   return `${formatMoeda(custo.min, currency)} a ${formatMoeda(custo.max, currency)}/mês`;
 };
 
-const formatDecimal = (valor: number): string => valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const formatDecimal = (valor: number): string =>
+  valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
 /** Rótulo e conversão de cada recurso entre a unidade da API e a da tela. */
-export const RECURSOS_DE_QUOTA: Record<RecursoDeQuota, { rotulo: string; unidade: string; fromApi: (v: number) => number; toApi: (v: number) => number }> = {
-  cpuMillicores: { rotulo: "CPU", unidade: "vCPU", fromApi: (m) => m / 1000, toApi: (v) => Math.round(v * 1000) },
-  memoryMib: { rotulo: "Memória", unidade: "GiB", fromApi: (mib) => mib / 1024, toApi: (v) => Math.round(v * 1024) },
+export const RECURSOS_DE_QUOTA: Record<
+  RecursoDeQuota,
+  { rotulo: string; unidade: string; fromApi: (v: number) => number; toApi: (v: number) => number }
+> = {
+  cpuMillicores: {
+    rotulo: "CPU",
+    unidade: "vCPU",
+    fromApi: (m) => m / 1000,
+    toApi: (v) => Math.round(v * 1000),
+  },
+  memoryMib: {
+    rotulo: "Memória",
+    unidade: "GiB",
+    fromApi: (mib) => mib / 1024,
+    toApi: (v) => Math.round(v * 1024),
+  },
   pods: { rotulo: "Pods", unidade: "pods", fromApi: (n) => n, toApi: (v) => Math.round(v) },
-  storageGi: { rotulo: "Armazenamento", unidade: "GiB", fromApi: (gi) => gi, toApi: (v) => Math.round(v) },
+  storageGi: {
+    rotulo: "Armazenamento",
+    unidade: "GiB",
+    fromApi: (gi) => gi,
+    toApi: (v) => Math.round(v),
+  },
 };
 
 export const QUOTA_RECURSOS = Object.keys(RECURSOS_DE_QUOTA) as RecursoDeQuota[];

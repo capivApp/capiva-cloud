@@ -6,14 +6,20 @@ import type { Prisma, Deployment, DeploymentEvent } from "@prisma-generated/clie
 export class DeploymentRepository extends BaseRepository {
   async create(data: Prisma.DeploymentUncheckedCreateInput): Promise<Deployment> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: data.applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
     return this.tx.deployment.create({ data });
   }
 
   findById(id: string): Promise<Deployment | null> {
-    return this.tx.deployment.findFirst({ where: { id, ...this.scope("deployment") }, include: { events: true } });
+    return this.tx.deployment.findFirst({
+      where: { id, ...this.scope("deployment") },
+      include: { events: true },
+    });
   }
 
   listByApplication(applicationId: string): Promise<Deployment[]> {

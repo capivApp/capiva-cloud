@@ -6,7 +6,11 @@ import { describe, expect, it } from "bun:test";
 import { buildNetworkPolicyInput } from "@service/NetworkPolicyService";
 import type { NetworkPolicyPlatform } from "@infra/kubernetes/networkPolicyManifests";
 
-const PLATFORM: NetworkPolicyPlatform = { ingressNamespaces: ["kube-system"], monitoringNamespaces: [], operatorNamespaces: [] };
+const PLATFORM: NetworkPolicyPlatform = {
+  ingressNamespaces: ["kube-system"],
+  monitoringNamespaces: [],
+  operatorNamespaces: [],
+};
 
 describe("buildNetworkPolicyInput", () => {
   it("usa namespace e isolamento do ambiente e lista as apps dele", () => {
@@ -26,7 +30,9 @@ describe("buildNetworkPolicyInput", () => {
     const input = buildNetworkPolicyInput({
       environment: { namespace: "ns-a", networkIsolation: true },
       apps: [{ name: "api" }],
-      dependencies: [{ source: { name: "web", environment: { namespace: "ns-b" } }, target: { name: "api" } }],
+      dependencies: [
+        { source: { name: "web", environment: { namespace: "ns-b" } }, target: { name: "api" } },
+      ],
       platform: PLATFORM,
     });
     expect(input.peers).toEqual([{ target: "api", source: "web", sourceNamespace: "ns-b" }]);

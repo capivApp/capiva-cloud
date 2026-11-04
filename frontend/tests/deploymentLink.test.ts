@@ -5,7 +5,12 @@
  * Rodar com `bun test` dentro de `frontend/`.
  */
 import { describe, expect, it } from "bun:test";
-import { isDeploymentDestacado, readApplicationTab, readDeploymentDestacado, writeApplicationTab } from "@/pages/applications/detail/deploymentLink";
+import {
+  isDeploymentDestacado,
+  readApplicationTab,
+  readDeploymentDestacado,
+  writeApplicationTab,
+} from "@/pages/applications/detail/deploymentLink";
 
 const params = (qs: string) => new URLSearchParams(qs);
 

@@ -34,13 +34,18 @@ export function RestoreVolumeDrawer({
       description={`Volume ${volumeName}, backup de ${backupLabel}`}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={confirm} disabled={isSubmitting}>Criar volume</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={confirm} disabled={isSubmitting}>
+            Criar volume
+          </Button>
         </div>
       }
     >
       <p className="text-sm text-muted-foreground">
-        Um volume novo será criado com os dados do backup. O volume em uso pela aplicação continua igual.
+        Um volume novo será criado com os dados do backup. O volume em uso pela aplicação continua
+        igual.
       </p>
     </Drawer>
   );

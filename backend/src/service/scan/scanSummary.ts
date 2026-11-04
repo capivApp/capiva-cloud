@@ -1,6 +1,13 @@
 import { TRIVY_IMAGE } from "@infra/security/trivyJob";
 import { createBlockStrategy } from "@service/scan/scanPolicy.strategy";
-import { ScanStatus, type ScanPolicy, type ScanSummary, type Severity, type SeverityCounts, type TrivyFindings } from "@interface/scan";
+import {
+  ScanStatus,
+  type ScanPolicy,
+  type ScanSummary,
+  type Severity,
+  type SeverityCounts,
+  type TrivyFindings,
+} from "@interface/scan";
 
 const ROTULO_SEVERIDADE: Record<Severity, { singular: string; plural: string }> = {
   CRITICAL: { singular: "crítica", plural: "críticas" },
@@ -10,7 +17,8 @@ const ROTULO_SEVERIDADE: Record<Severity, { singular: string; plural: string }> 
   UNKNOWN: { singular: "sem classificação", plural: "sem classificação" },
 };
 
-const pluralize = (n: number, rotulo: { singular: string; plural: string }): string => `${n} ${n === 1 ? rotulo.singular : rotulo.plural}`;
+const pluralize = (n: number, rotulo: { singular: string; plural: string }): string =>
+  `${n} ${n === 1 ? rotulo.singular : rotulo.plural}`;
 
 /** "2 críticas, 4 altas, 1 baixa" (só as severidades presentes). */
 const formatCounts = (counts: SeverityCounts): string =>
@@ -20,7 +28,9 @@ const formatCounts = (counts: SeverityCounts): string =>
     .join(", ");
 
 const passedMessage = (findings: TrivyFindings): string =>
-  findings.total === 0 ? "Scan concluído: nenhuma vulnerabilidade encontrada." : `Scan concluído: ${formatCounts(findings.counts)}.`;
+  findings.total === 0
+    ? "Scan concluído: nenhuma vulnerabilidade encontrada."
+    : `Scan concluído: ${formatCounts(findings.counts)}.`;
 
 const blockedMessage = (count: number, rotulo: { singular: string; plural: string }): string =>
   `Deploy bloqueado: a imagem tem ${count} ${count === 1 ? `vulnerabilidade ${rotulo.singular}` : `vulnerabilidades ${rotulo.plural}`}. Corrija a imagem ou ajuste a política em Configurações.`;
@@ -45,7 +55,9 @@ export function buildScanSummary(input: SummaryInput & { findings: TrivyFindings
     imageRef: input.imageRef,
     scannedAt: input.scannedAt.toISOString(),
     blockOnSeverity: input.policy.blockOnSeverity,
-    message: blocked ? blockedMessage(strategy.blockingCount(input.findings.counts), strategy.rotulo) : passedMessage(input.findings),
+    message: blocked
+      ? blockedMessage(strategy.blockingCount(input.findings.counts), strategy.rotulo)
+      : passedMessage(input.findings),
   };
 }
 

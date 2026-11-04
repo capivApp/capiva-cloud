@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { resizeFrame, stripAnsi, terminalWsUrl } from "@/lib/terminal";
-import { type TerminalConnection, type TerminalStatus, buildConnectionKey, resolveTerminalStatus } from "@/lib/terminalStatus";
+import {
+  type TerminalConnection,
+  type TerminalStatus,
+  buildConnectionKey,
+  resolveTerminalStatus,
+} from "@/lib/terminalStatus";
 import { cn } from "@/lib/utils";
 
 const MAX_BUFFER = 100_000;
@@ -63,7 +75,10 @@ export function TerminalView({ wsPath }: { wsPath: string }) {
   const [input, setInput] = useState("");
   const [session, setSession] = useState(0);
   const connectionKey = buildConnectionKey(wsPath, session, width);
-  const [connection, setConnection] = useState<TerminalConnection>({ key: connectionKey, status: "connecting" });
+  const [connection, setConnection] = useState<TerminalConnection>({
+    key: connectionKey,
+    status: "connecting",
+  });
   const status = resolveTerminalStatus(connection, connectionKey);
 
   useEffect(() => {
@@ -115,7 +130,9 @@ export function TerminalView({ wsPath }: { wsPath: string }) {
     >
       <View className="flex-1 gap-2 p-3">
         <View className="flex-row items-center justify-between">
-          <Text className={cn("text-xs font-medium", STATUS_CLASS[status])}>● {STATUS_LABEL[status]}</Text>
+          <Text className={cn("text-xs font-medium", STATUS_CLASS[status])}>
+            ● {STATUS_LABEL[status]}
+          </Text>
           <View className="flex-row gap-3">
             <Pressable onPress={() => setOutput("")}>
               <Text className="text-xs text-muted-foreground">Limpar</Text>
@@ -129,7 +146,11 @@ export function TerminalView({ wsPath }: { wsPath: string }) {
         </View>
 
         <ScrollView ref={scrollRef} className="flex-1 rounded-lg bg-[#0a0a0a] p-3">
-          <Text selectable className="pb-6 font-mono leading-4 text-neutral-200" style={{ fontSize: FONT_SIZE }}>
+          <Text
+            selectable
+            className="pb-6 font-mono leading-4 text-neutral-200"
+            style={{ fontSize: FONT_SIZE }}
+          >
             {output || " "}
           </Text>
         </ScrollView>

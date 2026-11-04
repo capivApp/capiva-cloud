@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { SEVERITIES, type ScanVulnerability, type Severity, type SeverityCounts, type TrivyFindings } from "@interface/scan";
+import {
+  SEVERITIES,
+  type ScanVulnerability,
+  type Severity,
+  type SeverityCounts,
+  type TrivyFindings,
+} from "@interface/scan";
 
 /**
  * Marcadores que o Job imprime em volta do JSON. O log do pod mistura stderr do
@@ -32,13 +38,25 @@ const vulnerabilitySchema = z.object({
 
 const reportSchema = z.object({
   Results: z
-    .array(z.object({ Target: z.string().default(""), Vulnerabilities: z.array(vulnerabilitySchema).nullish() }))
+    .array(
+      z.object({
+        Target: z.string().default(""),
+        Vulnerabilities: z.array(vulnerabilitySchema).nullish(),
+      }),
+    )
     .nullish(),
 });
 
-const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, UNKNOWN: 0 };
+const SEVERITY_RANK: Record<Severity, number> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+  UNKNOWN: 0,
+};
 
-const toSeverity = (value: string): Severity => (SEVERITIES as readonly string[]).includes(value) ? (value as Severity) : "UNKNOWN";
+const toSeverity = (value: string): Severity =>
+  (SEVERITIES as readonly string[]).includes(value) ? (value as Severity) : "UNKNOWN";
 
 const emptyCounts = (): SeverityCounts => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 });
 
@@ -84,7 +102,11 @@ const countBySeverity = (vulns: ScanVulnerability[]): SeverityCounts =>
 /** Lê o JSON de `trivy image --format json` e resume por severidade + as `limit` principais CVEs. */
 export function parseTrivyReport(raw: string, limit = DEFAULT_TOP_LIMIT): TrivyFindings {
   const vulns = dedupe(readVulnerabilities(raw)).sort(bySeverityThenId);
-  return { counts: countBySeverity(vulns), total: vulns.length, topVulnerabilities: vulns.slice(0, limit) };
+  return {
+    counts: countBySeverity(vulns),
+    total: vulns.length,
+    topVulnerabilities: vulns.slice(0, limit),
+  };
 }
 
 /** Recorta o relatório de dentro do log do pod. `null` se o Job não chegou a imprimi-lo inteiro. */

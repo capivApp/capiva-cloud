@@ -21,10 +21,20 @@ export function DeploymentScanBadge({
   if (!summary) return null;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <VulnerabilityBadge summary={summary} className="cursor-pointer" />
       </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title="Vulnerabilidades da imagem" description={`Deploy ${version}`} width="max-w-lg">
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Vulnerabilidades da imagem"
+        description={`Deploy ${version}`}
+        width="max-w-lg"
+      >
         <ScanDetails summary={summary} />
       </Drawer>
     </>

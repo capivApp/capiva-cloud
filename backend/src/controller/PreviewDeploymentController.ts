@@ -16,7 +16,11 @@ export class PreviewDeploymentController {
     const applicationId = String(req.params.id);
     const previewId = String(req.params.previewId);
     await this.previews.destroyPreview(applicationId, previewId, tenantOf(req));
-    this.audit.fromRequest(req, "application.preview.destroy", { targetType: "application", targetId: applicationId, detail: previewId });
+    this.audit.fromRequest(req, "application.preview.destroy", {
+      targetType: "application",
+      targetId: applicationId,
+      detail: previewId,
+    });
     res.status(204).end();
   };
 }

@@ -6,7 +6,11 @@ import type { K8sManifest } from "@interface/integrations";
  * o cluster é compartilhado entre organizações e um store de cluster ficaria
  * visível a qualquer namespace. As credenciais do cofre vão num Secret ao lado.
  */
-export const SECRET_STORE_PROVIDERS = ["AWS_SECRETS_MANAGER", "VAULT", "GCP_SECRET_MANAGER"] as const;
+export const SECRET_STORE_PROVIDERS = [
+  "AWS_SECRETS_MANAGER",
+  "VAULT",
+  "GCP_SECRET_MANAGER",
+] as const;
 export type SecretStoreProviderKind = (typeof SECRET_STORE_PROVIDERS)[number];
 
 const ESO_API_VERSION = "external-secrets.io/v1";
@@ -38,7 +42,10 @@ const secretKey = (name: string, key: string) => ({ name, key });
 /** Strategy por provedor: o formato do bloco `provider` e as chaves do Secret de credenciais. */
 const PROVIDER_STRATEGIES: Record<SecretStoreProviderKind, SecretStoreProviderStrategy> = {
   AWS_SECRETS_MANAGER: {
-    credentialsData: (c) => ({ "access-key-id": c.accessKeyId ?? "", "secret-access-key": c.secretAccessKey ?? "" }),
+    credentialsData: (c) => ({
+      "access-key-id": c.accessKeyId ?? "",
+      "secret-access-key": c.secretAccessKey ?? "",
+    }),
     provider: (config, auth) => ({
       aws: {
         service: "SecretsManager",
@@ -68,7 +75,9 @@ const PROVIDER_STRATEGIES: Record<SecretStoreProviderKind, SecretStoreProviderSt
     provider: (config, auth) => ({
       gcpsm: {
         projectID: config.projectId,
-        auth: { secretRef: { secretAccessKeySecretRef: secretKey(auth, "secret-access-credentials") } },
+        auth: {
+          secretRef: { secretAccessKeySecretRef: secretKey(auth, "secret-access-credentials") },
+        },
       },
     }),
   },
@@ -82,7 +91,10 @@ export function externalSecretName(app: string): string {
   return `${app}-external`;
 }
 
-const storeRef = (storeId: string) => ({ name: secretStoreResourceName(storeId), kind: "SecretStore" });
+const storeRef = (storeId: string) => ({
+  name: secretStoreResourceName(storeId),
+  kind: "SecretStore",
+});
 
 /** [Secret de credenciais, SecretStore], nessa ordem: o store referencia o Secret. */
 export function secretStoreManifests(input: SecretStoreManifestInput): K8sManifest[] {
@@ -149,7 +161,9 @@ export function externalEnvVar(app: string, envKey: string) {
  * Instalação do operator via HelmChart do k3s (o controller de Helm embutido
  * baixa e instala o chart). `CAPIVA_ESO_CHART_VERSION` fixa a versão do chart.
  */
-export function externalSecretsOperatorManifest(version = process.env.CAPIVA_ESO_CHART_VERSION): K8sManifest {
+export function externalSecretsOperatorManifest(
+  version = process.env.CAPIVA_ESO_CHART_VERSION,
+): K8sManifest {
   return {
     apiVersion: "helm.cattle.io/v1",
     kind: "HelmChart",

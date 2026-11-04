@@ -10,7 +10,10 @@ import type { DeploymentProgress } from "@/lib/deployments";
  */
 export function useDeploymentProgress(applicationId: string | null, deploymentId: string | null) {
   const queryClient = useQueryClient();
-  const progress = useEventSource<DeploymentProgress>(deploymentId ? `/streams/deployments/${deploymentId}` : null, "progress");
+  const progress = useEventSource<DeploymentProgress>(
+    deploymentId ? `/streams/deployments/${deploymentId}` : null,
+    "progress",
+  );
   const isDone = Boolean(progress?.done);
 
   useEffect(() => {

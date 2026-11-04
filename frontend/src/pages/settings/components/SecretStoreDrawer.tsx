@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SECRET_STORE_PROVIDERS, useSecretStores, type SecretStoreProvider } from "@/hooks/useSecretStores";
+import {
+  SECRET_STORE_PROVIDERS,
+  useSecretStores,
+  type SecretStoreProvider,
+} from "@/hooks/useSecretStores";
 
 interface Field {
   name: string;
@@ -34,13 +38,24 @@ const PROVIDER_FIELDS: Record<SecretStoreProvider, { config: Field[]; credential
   },
   GCP_SECRET_MANAGER: {
     config: [{ name: "projectId", label: "ID do projeto", placeholder: "meu-projeto" }],
-    credentials: [{ name: "serviceAccountJson", label: "JSON da service account", multiline: true }],
+    credentials: [
+      { name: "serviceAccountJson", label: "JSON da service account", multiline: true },
+    ],
   },
 };
 
-const initialValues = (fields: Field[]) => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? ""]));
+const initialValues = (fields: Field[]) =>
+  Object.fromEntries(fields.map((f) => [f.name, f.initial ?? ""]));
 
-function FieldInput({ field, value, onChange }: { field: Field; value: string; onChange: (value: string) => void }) {
+function FieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   if (field.multiline) {
     return (
       <textarea
@@ -51,7 +66,14 @@ function FieldInput({ field, value, onChange }: { field: Field; value: string; o
       />
     );
   }
-  return <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} type={field.secret ? "password" : "text"} />;
+  return (
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={field.placeholder}
+      type={field.secret ? "password" : "text"}
+    />
+  );
 }
 
 export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -59,7 +81,9 @@ export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: (
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<SecretStoreProvider>("AWS_SECRETS_MANAGER");
   const [config, setConfig] = useState(() => initialValues(PROVIDER_FIELDS[provider].config));
-  const [credentials, setCredentials] = useState(() => initialValues(PROVIDER_FIELDS[provider].credentials));
+  const [credentials, setCredentials] = useState(() =>
+    initialValues(PROVIDER_FIELDS[provider].credentials),
+  );
   const fields = PROVIDER_FIELDS[provider];
 
   // Config e credenciais recomeçam a cada troca de provedor e a cada abertura; nome e provedor ficam.
@@ -95,23 +119,64 @@ export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: (
       open={open}
       onClose={close}
       title="Novo cofre externo"
-      footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={close}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>Cadastrar</Button></div>}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={close}>
+            Cancelar
+          </Button>
+          <Button variant="gradient" onClick={submit} disabled={isCreating}>
+            Cadastrar
+          </Button>
+        </div>
+      }
     >
       <div className="space-y-3">
-        <div className="space-y-1.5"><Label>Nome</Label><Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Cofre de produção" /></div>
+        <div className="space-y-1.5">
+          <Label>Nome</Label>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Cofre de produção"
+          />
+        </div>
         <div className="space-y-1.5">
           <Label>Provedor</Label>
-          <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={provider} onChange={(e) => selectProvider(e.target.value as SecretStoreProvider)}>
-            {Object.entries(SECRET_STORE_PROVIDERS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          <select
+            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            value={provider}
+            onChange={(e) => selectProvider(e.target.value as SecretStoreProvider)}
+          >
+            {Object.entries(SECRET_STORE_PROVIDERS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </div>
         {fields.config.map((f) => (
-          <div key={f.name} className="space-y-1.5"><Label>{f.label}</Label><FieldInput field={f} value={config[f.name] ?? ""} onChange={(v) => setConfig({ ...config, [f.name]: v })} /></div>
+          <div key={f.name} className="space-y-1.5">
+            <Label>{f.label}</Label>
+            <FieldInput
+              field={f}
+              value={config[f.name] ?? ""}
+              onChange={(v) => setConfig({ ...config, [f.name]: v })}
+            />
+          </div>
         ))}
         {fields.credentials.map((f) => (
-          <div key={f.name} className="space-y-1.5"><Label>{f.label}</Label><FieldInput field={f} value={credentials[f.name] ?? ""} onChange={(v) => setCredentials({ ...credentials, [f.name]: v })} /></div>
+          <div key={f.name} className="space-y-1.5">
+            <Label>{f.label}</Label>
+            <FieldInput
+              field={f}
+              value={credentials[f.name] ?? ""}
+              onChange={(v) => setCredentials({ ...credentials, [f.name]: v })}
+            />
+          </div>
         ))}
-        <p className="text-xs text-muted-foreground">As credenciais ficam cifradas e não são exibidas depois de salvas.</p>
+        <p className="text-xs text-muted-foreground">
+          As credenciais ficam cifradas e não são exibidas depois de salvas.
+        </p>
       </div>
     </Drawer>
   );

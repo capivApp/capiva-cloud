@@ -7,7 +7,11 @@ import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { BuildStrategyResolver } from "@infra/build/strategies";
 import { NotificationService } from "@service/NotificationService";
-import { CommitStatusService, type DeployCommit, type DeployPhase } from "@service/CommitStatusService";
+import {
+  CommitStatusService,
+  type DeployCommit,
+  type DeployPhase,
+} from "@service/CommitStatusService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
@@ -39,10 +43,12 @@ interface ReadyResult {
 /** Param antes de tocar no que está no ar (arquivo, build impossível, scan): não há o que reverter. */
 const ERRORS_BEFORE_LIVE = [CapivaConfigError, BuildConfigError, ImageScanBlockedError];
 
-const isBeforeLive = (error: unknown): boolean => ERRORS_BEFORE_LIVE.some((E) => error instanceof E);
+const isBeforeLive = (error: unknown): boolean =>
+  ERRORS_BEFORE_LIVE.some((E) => error instanceof E);
 
 /** Bloqueio pelo scan reprova o commit (failure); o resto é erro da plataforma. */
-const phaseOfError = (error: unknown): DeployPhase => (error instanceof ImageScanBlockedError ? "failed" : "errored");
+const phaseOfError = (error: unknown): DeployPhase =>
+  error instanceof ImageScanBlockedError ? "failed" : "errored";
 
 /**
  * Orquestra o ciclo de deploy: build → push → deploy → health, registrando a
@@ -68,7 +74,10 @@ export class DeploymentService {
     private readonly capivaConfig: CapivaConfigService,
   ) {}
 
-  listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
+  listByApplication(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<Deployment[]> {
     return withTransaction(() => this.deployments.listByApplication(applicationId), { tenant });
   }
 
@@ -78,9 +87,13 @@ export class DeploymentService {
 
   /** Logs crus do Job de build (Kaniko) de um deploy, pelo label do deployment. */
   async buildLogs(deploymentId: string, tenant: { organizationId: string }): Promise<string> {
-    const deployment = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
+    const deployment = await withTransaction(() => this.deployments.findById(deploymentId), {
+      tenant,
+    });
     if (!deployment) throw HttpError.notFound("Deploy não encontrado.");
-    const app = await withTransaction(() => this.apps.findById(deployment.applicationId), { tenant });
+    const app = await withTransaction(() => this.apps.findById(deployment.applicationId), {
+      tenant,
+    });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     return this.k8s.podLogsByLabel(ctx, `capiva.cloud/deployment=${deploymentId}`);
@@ -125,7 +138,10 @@ export class DeploymentService {
     tenant: { organizationId: string },
   ): Promise<{ username: string; password: string } | undefined> {
     try {
-      const { token } = await this.gitConnections.credentials(tenant.organizationId, gitConnectionId);
+      const { token } = await this.gitConnections.credentials(
+        tenant.organizationId,
+        gitConnectionId,
+      );
       return { username: "oauth2", password: token };
     } catch (error) {
       console.error("[deploy] credenciais Git indisponíveis:", (error as Error).message);
@@ -145,15 +161,20 @@ export class DeploymentService {
     void this.commitStatus.report(declared, commit, "started", tenant);
 
     const step = (label: string, status: Deployment["status"], progress: number) =>
-      withTransaction(async () => {
-        await this.deployments.addEvent({ deploymentId, label });
-        await this.deployments.update(deploymentId, { status, progress });
-        deploymentEvents.emit(deploymentId, { label, status, progress });
-      }, { tenant });
+      withTransaction(
+        async () => {
+          await this.deployments.addEvent({ deploymentId, label });
+          await this.deployments.update(deploymentId, { status, progress });
+          deploymentEvents.emit(deploymentId, { label, status, progress });
+        },
+        { tenant },
+      );
 
     // capiva.json no commit do deploy (ou na tag da release): aplicado pelos services da tela antes do build.
     const ref = origin?.commitSha ?? origin?.gitRef ?? commitId;
-    const app = await this.capivaConfig.applyForDeploy(declared, ref, tenant, (label) => step(label, "QUEUED", 5));
+    const app = await this.capivaConfig.applyForDeploy(declared, ref, tenant, (label) =>
+      step(label, "QUEUED", 5),
+    );
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     await step("Build iniciado", "BUILDING", 10);
@@ -162,13 +183,33 @@ export class DeploymentService {
     const registryHost = pushTarget?.host ?? "registry.capiva.cloud";
     const target = `${registryHost}/${app.name}:${version}`;
     // Conexão Git → credenciais para clonar repositório privado no build (Kaniko).
-    const gitAuth = app.gitConnectionId ? await this.resolveGitAuth(app.gitConnectionId, tenant) : undefined;
+    const gitAuth = app.gitConnectionId
+      ? await this.resolveGitAuth(app.gitConnectionId, tenant)
+      : undefined;
     // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
     // própria imagem informada; para origens por código é a imagem publicada.
-    const push = pushTarget ? { insecure: pushTarget.insecure, credentials: pushTarget.credentials } : undefined;
-    const built = await this.builds.resolve(app.source).build({ source: app.source, config: { ...(app.sourceConfig as Record<string, unknown>), ...(origin?.gitRef ? { gitRef: origin.gitRef } : {}) }, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push, port: app.port ?? undefined });
+    const push = pushTarget
+      ? { insecure: pushTarget.insecure, credentials: pushTarget.credentials }
+      : undefined;
+    const built = await this.builds.resolve(app.source).build({
+      source: app.source,
+      config: {
+        ...(app.sourceConfig as Record<string, unknown>),
+        ...(origin?.gitRef ? { gitRef: origin.gitRef } : {}),
+      },
+      imageRef: target,
+      ctx,
+      app: app.name,
+      deploymentId,
+      gitAuth,
+      push,
+      port: app.port ?? undefined,
+    });
     // Origens por código geram um Job de build (Kaniko) — aplica para rodar e expor logs.
-    if (built.manifest) await this.k8s.apply(ctx, built.manifest).catch((e) => console.error("[build] apply:", (e as Error).message));
+    if (built.manifest)
+      await this.k8s
+        .apply(ctx, built.manifest)
+        .catch((e) => console.error("[build] apply:", (e as Error).message));
     const imageRef = built.imageRef;
 
     await step("Imagem publicada", "PUSHING", 40);
@@ -185,12 +226,26 @@ export class DeploymentService {
     const result = await this.awaitReady(ctx, app, deploymentId, tenant);
     if (!result.ready) return this.failNotReady(app, commit, imageRef, result, tenant);
 
-    await withTransaction(async () => {
-      const label = "Health Check OK";
-      await this.deployments.addEvent({ deploymentId, label });
-      await this.deployments.update(deploymentId, { status: "HEALTHY", progress: 100, imageRef, podCount: result.replicas, finishedAt: new Date() });
-      deploymentEvents.emit(deploymentId, { label, status: "HEALTHY", progress: 100, done: true });
-    }, { tenant });
+    await withTransaction(
+      async () => {
+        const label = "Health Check OK";
+        await this.deployments.addEvent({ deploymentId, label });
+        await this.deployments.update(deploymentId, {
+          status: "HEALTHY",
+          progress: 100,
+          imageRef,
+          podCount: result.replicas,
+          finishedAt: new Date(),
+        });
+        deploymentEvents.emit(deploymentId, {
+          label,
+          status: "HEALTHY",
+          progress: 100,
+          done: true,
+        });
+      },
+      { tenant },
+    );
     void this.commitStatus.report(app, commit, "succeeded", tenant);
     void this.notifications.dispatch(tenant.organizationId, {
       event: "deploy.succeeded",
@@ -205,20 +260,32 @@ export class DeploymentService {
    * (deploy.failed + rollback). Rollout abortado pelo Argo já manteve a versão estável:
    * um segundo rollback sobraria.
    */
-  private async failNotReady(app: Application, commit: DeployCommit, imageRef: string, result: ReadyResult, tenant: { organizationId: string }): Promise<void> {
+  private async failNotReady(
+    app: Application,
+    commit: DeployCommit,
+    imageRef: string,
+    result: ReadyResult,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const { deploymentId } = commit;
     void this.commitStatus.report(app, commit, "failed", tenant);
-    const label = result.issues.length ? `Falha ao subir pods: ${result.issues.join(" | ")}` : "Os pods não ficaram prontos a tempo.";
-    await withTransaction(async () => {
-      await this.deployments.addEvent({ deploymentId, label });
-      await this.deployments.update(deploymentId, { imageRef, podCount: result.podsTotal });
-      deploymentEvents.emit(deploymentId, { label, status: "DEPLOYING", progress: 95 });
-    }, { tenant });
+    const label = result.issues.length
+      ? `Falha ao subir pods: ${result.issues.join(" | ")}`
+      : "Os pods não ficaram prontos a tempo.";
+    await withTransaction(
+      async () => {
+        await this.deployments.addEvent({ deploymentId, label });
+        await this.deployments.update(deploymentId, { imageRef, podCount: result.podsTotal });
+        deploymentEvents.emit(deploymentId, { label, status: "DEPLOYING", progress: 95 });
+      },
+      { tenant },
+    );
     await this.fail(deploymentId, tenant, !result.rolledBack);
   }
 
   /** Motivos de pod que NÃO se resolvem sozinhos → falha o deploy de imediato. */
-  private static readonly FATAL_POD = /ImagePullBackOff|ErrImagePull|InvalidImageName|CrashLoopBackOff|CreateContainerConfigError|CreateContainerError|RunContainerError/;
+  private static readonly FATAL_POD =
+    /ImagePullBackOff|ErrImagePull|InvalidImageName|CrashLoopBackOff|CreateContainerConfigError|CreateContainerError|RunContainerError/;
 
   /**
    * Aguarda os pods ficarem prontos (timeout), emitindo o estado no timeline.
@@ -230,7 +297,10 @@ export class DeploymentService {
     deploymentId: string,
     tenant: { organizationId: string },
   ): Promise<ReadyResult> {
-    const [apiVersion, kind] = app.rolloutStrategy === "ROLLING" ? ["apps/v1", "Deployment"] : ["argoproj.io/v1alpha1", "Rollout"];
+    const [apiVersion, kind] =
+      app.rolloutStrategy === "ROLLING"
+        ? ["apps/v1", "Deployment"]
+        : ["argoproj.io/v1alpha1", "Rollout"];
     const deadline = Date.now() + 180_000;
     let lastReport = "";
 
@@ -244,19 +314,41 @@ export class DeploymentService {
           body: "A nova versão falhou na análise e a versão estável foi mantida.",
           data: { applicationId: app.id, deploymentId },
         });
-        return { ready: false, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: ["Rollout abortado pela análise, versão estável mantida"], rolledBack: true };
+        return {
+          ready: false,
+          replicas: obs.replicas ?? 0,
+          podsTotal: obs.replicas ?? 0,
+          issues: ["Rollout abortado pela análise, versão estável mantida"],
+          rolledBack: true,
+        };
       }
-      if (obs.ready) return { ready: true, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: [] };
+      if (obs.ready)
+        return {
+          ready: true,
+          replicas: obs.replicas ?? 0,
+          podsTotal: obs.replicas ?? 0,
+          issues: [],
+        };
 
       const health = await this.k8s.podHealth(ctx, app.name);
       const fatal = health.issues.filter((i) => DeploymentService.FATAL_POD.test(i));
-      if (fatal.length) return { ready: false, replicas: health.ready, podsTotal: health.total, issues: fatal };
+      if (fatal.length)
+        return { ready: false, replicas: health.ready, podsTotal: health.total, issues: fatal };
 
-      const report = health.issues.length ? health.issues.join(" | ") : `${health.ready}/${health.total} pods prontos`;
+      const report = health.issues.length
+        ? health.issues.join(" | ")
+        : `${health.ready}/${health.total} pods prontos`;
       if (report !== lastReport) {
         lastReport = report;
-        await withTransaction(() => this.deployments.addEvent({ deploymentId, label: `Pods: ${report}` }), { tenant }).catch(() => {});
-        deploymentEvents.emit(deploymentId, { label: `Pods: ${report}`, status: "DEPLOYING", progress: 85 });
+        await withTransaction(
+          () => this.deployments.addEvent({ deploymentId, label: `Pods: ${report}` }),
+          { tenant },
+        ).catch(() => {});
+        deploymentEvents.emit(deploymentId, {
+          label: `Pods: ${report}`,
+          status: "DEPLOYING",
+          progress: 85,
+        });
       }
       await new Promise((r) => setTimeout(r, 5000));
     }
@@ -265,12 +357,24 @@ export class DeploymentService {
     return { ready: false, replicas: health.ready, podsTotal: health.total, issues: health.issues };
   }
 
-  private async fail(deploymentId: string, tenant: { organizationId: string }, rollback = true): Promise<void> {
-    await withTransaction(async () => {
-      await this.deployments.addEvent({ deploymentId, label: "Deploy falhou" });
-      await this.deployments.update(deploymentId, { status: "FAILED", finishedAt: new Date() });
-      deploymentEvents.emit(deploymentId, { label: "Deploy falhou", status: "FAILED", progress: 100, done: true });
-    }, { tenant });
+  private async fail(
+    deploymentId: string,
+    tenant: { organizationId: string },
+    rollback = true,
+  ): Promise<void> {
+    await withTransaction(
+      async () => {
+        await this.deployments.addEvent({ deploymentId, label: "Deploy falhou" });
+        await this.deployments.update(deploymentId, { status: "FAILED", finishedAt: new Date() });
+        deploymentEvents.emit(deploymentId, {
+          label: "Deploy falhou",
+          status: "FAILED",
+          progress: 100,
+          done: true,
+        });
+      },
+      { tenant },
+    );
 
     const failed = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
     void this.notifications.dispatch(tenant.organizationId, {
@@ -285,10 +389,14 @@ export class DeploymentService {
     if (!rollback) return;
     if (!failed) return;
     const app = await withTransaction(() => this.apps.findById(failed.applicationId), { tenant });
-    const autoRollback = (app?.rolloutConfig as Record<string, unknown> | null)?.autoRollback !== false;
+    const autoRollback =
+      (app?.rolloutConfig as Record<string, unknown> | null)?.autoRollback !== false;
     if (!app || !autoRollback) return;
 
-    const previous = await withTransaction(() => this.deployments.lastHealthy(app.id, deploymentId), { tenant });
+    const previous = await withTransaction(
+      () => this.deployments.lastHealthy(app.id, deploymentId),
+      { tenant },
+    );
     if (previous?.imageRef) {
       await this.rollbackTo(app.id, previous.id, tenant, true);
     }
@@ -302,7 +410,8 @@ export class DeploymentService {
     automatic = false,
   ): Promise<Deployment> {
     const target = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
-    if (!target?.imageRef) throw HttpError.badRequest("Deploy alvo não possui imagem para restaurar.");
+    if (!target?.imageRef)
+      throw HttpError.badRequest("Deploy alvo não possui imagem para restaurar.");
     const app = await withTransaction(() => this.apps.findById(applicationId), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
 
@@ -321,17 +430,20 @@ export class DeploymentService {
 
     const status = await this.appService.reconcile(app, tenant, undefined, target.imageRef);
 
-    await withTransaction(async () => {
-      const label = automatic ? "Rollback automático concluído" : "Rollback concluído";
-      await this.deployments.addEvent({ deploymentId: rollback.id, label });
-      await this.deployments.update(rollback.id, {
-        status: "HEALTHY",
-        progress: 100,
-        podCount: status.replicas ?? 0,
-        finishedAt: new Date(),
-      });
-      deploymentEvents.emit(rollback.id, { label, status: "HEALTHY", progress: 100, done: true });
-    }, { tenant });
+    await withTransaction(
+      async () => {
+        const label = automatic ? "Rollback automático concluído" : "Rollback concluído";
+        await this.deployments.addEvent({ deploymentId: rollback.id, label });
+        await this.deployments.update(rollback.id, {
+          status: "HEALTHY",
+          progress: 100,
+          podCount: status.replicas ?? 0,
+          finishedAt: new Date(),
+        });
+        deploymentEvents.emit(rollback.id, { label, status: "HEALTHY", progress: 100, done: true });
+      },
+      { tenant },
+    );
 
     void this.notifications.dispatch(tenant.organizationId, {
       event: "deploy.rollback",

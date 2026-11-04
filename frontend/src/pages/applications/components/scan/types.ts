@@ -52,10 +52,14 @@ const isBlockOnSeverity = (value: unknown): value is BlockOnSeverity =>
   (Object.values(BlockOnSeverity) as unknown[]).includes(value);
 
 /** Política gravada em `sourceConfig.security`, com os mesmos defaults do backend. */
-export function readScanPolicy(sourceConfig: Record<string, unknown> | null | undefined): ScanPolicy {
+export function readScanPolicy(
+  sourceConfig: Record<string, unknown> | null | undefined,
+): ScanPolicy {
   const security = (sourceConfig?.security ?? {}) as Partial<Record<keyof ScanPolicy, unknown>>;
   return {
     scanEnabled: typeof security.scanEnabled === "boolean" ? security.scanEnabled : true,
-    blockOnSeverity: isBlockOnSeverity(security.blockOnSeverity) ? security.blockOnSeverity : BlockOnSeverity.NONE,
+    blockOnSeverity: isBlockOnSeverity(security.blockOnSeverity)
+      ? security.blockOnSeverity
+      : BlockOnSeverity.NONE,
   };
 }

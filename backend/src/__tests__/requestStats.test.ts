@@ -3,14 +3,32 @@
  * taxa de 5xx e percentil de latência. Funções puras, sem Loki.
  */
 import { describe, expect, it } from "bun:test";
-import { computeErrorRate5xx, computePercentile, parseTraefikAccessLog } from "@functions/requestStats";
+import {
+  computeErrorRate5xx,
+  computePercentile,
+  parseTraefikAccessLog,
+} from "@functions/requestStats";
 
-const entry = (status: number, durationMs = 10) => ({ time: "", method: "GET", host: "a", path: "/", status, durationMs });
+const entry = (status: number, durationMs = 10) => ({
+  time: "",
+  method: "GET",
+  host: "a",
+  path: "/",
+  status,
+  durationMs,
+});
 
 describe("parseTraefikAccessLog", () => {
   it("lê o JSON do Traefik mesmo com prefixo antes da chave", () => {
     const line = `2026-11-04T10:00:00Z {"RequestMethod":"POST","RequestHost":"app.x","RequestPath":"/a","DownstreamStatus":502,"Duration":250000000,"StartUTC":"t"}`;
-    expect(parseTraefikAccessLog(line)).toEqual({ time: "t", method: "POST", host: "app.x", path: "/a", status: 502, durationMs: 250 });
+    expect(parseTraefikAccessLog(line)).toEqual({
+      time: "t",
+      method: "POST",
+      host: "app.x",
+      path: "/a",
+      status: 502,
+      durationMs: 250,
+    });
   });
 
   it("ignora linha que não é access log", () => {

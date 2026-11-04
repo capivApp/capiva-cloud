@@ -16,7 +16,10 @@ export function LogViewer({ logs }: { logs: LogLine[] | null }) {
     <ScrollView ref={scrollRef} className="flex-1 rounded-lg bg-[#0a0a0a] p-3">
       <View className="gap-0.5 pb-6">
         {(logs ?? []).map((log, index) => (
-          <Text key={`${log.ts}-${index}`} className="font-mono text-[11px] leading-4 text-neutral-200">
+          <Text
+            key={`${log.ts}-${index}`}
+            className="font-mono text-[11px] leading-4 text-neutral-200"
+          >
             <Text className="font-mono text-[11px] text-neutral-500">
               {new Date(log.ts).toLocaleTimeString()}{" "}
             </Text>

@@ -41,7 +41,8 @@ afterEach(() => {
 describe("compose-plan", () => {
   it("usa o primeiro serviço com build quando nenhum é informado", () => {
     const workspace = makeWorkspace({
-      "docker-compose.yml": "services:\n  db:\n    image: postgres:16\n  api:\n    build:\n      context: ./api\n      dockerfile: Dockerfile.prod\n",
+      "docker-compose.yml":
+        "services:\n  db:\n    image: postgres:16\n  api:\n    build:\n      context: ./api\n      dockerfile: Dockerfile.prod\n",
       "api/Dockerfile.prod": "FROM alpine\n",
       "api/index.js": "1",
     });
@@ -63,7 +64,8 @@ describe("compose-plan", () => {
 
   it("aceita Dockerfile fora do contexto, desde que dentro do repositório", () => {
     const workspace = makeWorkspace({
-      "deploy/compose.yml": "services:\n  api:\n    build:\n      context: ../app\n      dockerfile: ../deploy/api.Dockerfile\n",
+      "deploy/compose.yml":
+        "services:\n  api:\n    build:\n      context: ../app\n      dockerfile: ../deploy/api.Dockerfile\n",
       "deploy/api.Dockerfile": "FROM deploy\n",
       "app/main.go": "package main",
     });
@@ -74,14 +76,17 @@ describe("compose-plan", () => {
 
   it("usa o dockerfile_inline quando o compose traz a receita embutida", () => {
     const workspace = makeWorkspace({
-      "docker-compose.yml": "services:\n  api:\n    build:\n      context: .\n      dockerfile_inline: |\n        FROM inline\n",
+      "docker-compose.yml":
+        "services:\n  api:\n    build:\n      context: .\n      dockerfile_inline: |\n        FROM inline\n",
     });
     expect(runPlan(workspace).exitCode).toBe(0);
     expect(readFileSync(join(workspace, "Dockerfile.compose"), "utf8")).toBe("FROM inline\n");
   });
 
   it("falha quando o serviço não tem build", () => {
-    const workspace = makeWorkspace({ "docker-compose.yml": "services:\n  db:\n    image: postgres:16\n" });
+    const workspace = makeWorkspace({
+      "docker-compose.yml": "services:\n  db:\n    image: postgres:16\n",
+    });
     const result = runPlan(workspace, "docker-compose.yml", "db");
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr.toString()).toContain("db");
@@ -89,13 +94,17 @@ describe("compose-plan", () => {
 
   // O contexto vem do repositório do usuário: não pode apontar para fora do clone.
   it("recusa contexto fora do repositório", () => {
-    const workspace = makeWorkspace({ "docker-compose.yml": "services:\n  api:\n    build: ../../etc\n" });
+    const workspace = makeWorkspace({
+      "docker-compose.yml": "services:\n  api:\n    build: ../../etc\n",
+    });
     expect(runPlan(workspace).exitCode).not.toBe(0);
     expect(existsSync(join(workspace, "context"))).toBe(false);
   });
 
   it("recusa contexto remoto (URL Git)", () => {
-    const workspace = makeWorkspace({ "docker-compose.yml": "services:\n  api:\n    build: https://github.com/acme/api.git\n" });
+    const workspace = makeWorkspace({
+      "docker-compose.yml": "services:\n  api:\n    build: https://github.com/acme/api.git\n",
+    });
     expect(runPlan(workspace).exitCode).not.toBe(0);
   });
 });

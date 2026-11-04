@@ -28,7 +28,9 @@ export function ChipSelector({ options, selectedId, onSelect }: ChipSelectorProp
               active && "border-primary bg-primary",
             )}
           >
-            <Text className={cn("text-sm font-medium", active && "text-primary-foreground")}>{option.label}</Text>
+            <Text className={cn("text-sm font-medium", active && "text-primary-foreground")}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}

@@ -33,28 +33,41 @@ export class StorageProviderService {
   constructor(private readonly providers: StorageProviderRepository) {}
 
   list(organizationId: string): Promise<StorageProvider[]> {
-    return withTransaction(() => this.providers.listByOrganization(organizationId), { tenant: { organizationId } });
+    return withTransaction(() => this.providers.listByOrganization(organizationId), {
+      tenant: { organizationId },
+    });
   }
 
   create(organizationId: string, input: CreateStorageProviderInput): Promise<StorageProvider> {
-    return withTransaction(async () => {
-      if (input.isDefault) await this.providers.clearDefault(organizationId);
-      return this.providers.create({
-        organizationId,
-        name: input.name,
-        type: input.type ?? "S3",
-        endpoint: input.endpoint,
-        bucket: input.bucket,
-        region: input.region,
-        credentialsCipher: encrypt(JSON.stringify({ accessKeyId: input.accessKeyId, secretAccessKey: input.secretAccessKey })),
-        isDefault: input.isDefault ?? false,
-      });
-    }, { tenant: { organizationId } });
+    return withTransaction(
+      async () => {
+        if (input.isDefault) await this.providers.clearDefault(organizationId);
+        return this.providers.create({
+          organizationId,
+          name: input.name,
+          type: input.type ?? "S3",
+          endpoint: input.endpoint,
+          bucket: input.bucket,
+          region: input.region,
+          credentialsCipher: encrypt(
+            JSON.stringify({
+              accessKeyId: input.accessKeyId,
+              secretAccessKey: input.secretAccessKey,
+            }),
+          ),
+          isDefault: input.isDefault ?? false,
+        });
+      },
+      { tenant: { organizationId } },
+    );
   }
 
   async getById(organizationId: string, id: string): Promise<StorageProvider> {
-    const provider = await withTransaction(() => this.providers.findById(id), { tenant: { organizationId } });
-    if (!provider || provider.organizationId !== organizationId) throw HttpError.notFound("Provedor de storage não encontrado.");
+    const provider = await withTransaction(() => this.providers.findById(id), {
+      tenant: { organizationId },
+    });
+    if (!provider || provider.organizationId !== organizationId)
+      throw HttpError.notFound("Provedor de storage não encontrado.");
     return provider;
   }
 
@@ -62,10 +75,20 @@ export class StorageProviderService {
   async resolveCredentials(organizationId: string, id?: string): Promise<StorageCredentials> {
     const provider = id
       ? await this.getById(organizationId, id)
-      : await withTransaction(() => this.providers.findDefault(organizationId), { tenant: { organizationId } });
+      : await withTransaction(() => this.providers.findDefault(organizationId), {
+          tenant: { organizationId },
+        });
     if (!provider) throw HttpError.badRequest("Nenhum provedor de storage configurado.");
-    const creds = JSON.parse(decrypt(provider.credentialsCipher)) as { accessKeyId: string; secretAccessKey: string };
-    return { endpoint: provider.endpoint, bucket: provider.bucket, region: provider.region, ...creds };
+    const creds = JSON.parse(decrypt(provider.credentialsCipher)) as {
+      accessKeyId: string;
+      secretAccessKey: string;
+    };
+    return {
+      endpoint: provider.endpoint,
+      bucket: provider.bucket,
+      region: provider.region,
+      ...creds,
+    };
   }
 
   async remove(organizationId: string, id: string): Promise<void> {

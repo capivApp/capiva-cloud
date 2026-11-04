@@ -43,8 +43,11 @@ export class MonitoringService {
   ) {}
 
   async forCluster(organizationId: string, clusterId: string): Promise<ClusterMonitoring> {
-    const cluster = await withTransaction(() => this.clusters.findById(clusterId), { tenant: { organizationId } });
-    if (!cluster || cluster.organizationId !== organizationId) throw HttpError.notFound("Cluster não encontrado.");
+    const cluster = await withTransaction(() => this.clusters.findById(clusterId), {
+      tenant: { organizationId },
+    });
+    if (!cluster || cluster.organizationId !== organizationId)
+      throw HttpError.notFound("Cluster não encontrado.");
 
     const kubeconfig = cluster.kubeconfigCipher ? safeDecrypt(cluster.kubeconfigCipher) : "";
     const nodes = await this.k8s.topNodes(kubeconfig);

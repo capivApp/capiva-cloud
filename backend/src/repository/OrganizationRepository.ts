@@ -42,11 +42,16 @@ export class OrganizationRepository extends BaseRepository {
   }
 
   updateMemberRole(userId: string, organizationId: string, role: Role): Promise<Membership> {
-    return this.tx.membership.update({ where: { userId_organizationId: { userId, organizationId } }, data: { role } });
+    return this.tx.membership.update({
+      where: { userId_organizationId: { userId, organizationId } },
+      data: { role },
+    });
   }
 
   removeMember(userId: string, organizationId: string): Promise<Membership> {
-    return this.tx.membership.delete({ where: { userId_organizationId: { userId, organizationId } } });
+    return this.tx.membership.delete({
+      where: { userId_organizationId: { userId, organizationId } },
+    });
   }
 
   countOwners(organizationId: string): Promise<number> {

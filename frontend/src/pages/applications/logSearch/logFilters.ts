@@ -79,7 +79,10 @@ const toUrlEntries = (state: Partial<LogFilterState>): Array<[string, string | u
   ["end", state.end],
 ];
 
-export const writeLogFilters = (params: URLSearchParams, patch: Partial<LogFilterState>): URLSearchParams => {
+export const writeLogFilters = (
+  params: URLSearchParams,
+  patch: Partial<LogFilterState>,
+): URLSearchParams => {
   const next = new URLSearchParams(params);
   for (const [key, value] of toUrlEntries(patch)) {
     if (value === undefined) continue;
@@ -127,6 +130,13 @@ export const splitHighlight = (line: string, term: string): HighlightPart[] => {
   if (!term) return [{ text: line, match: false }];
   return line
     .split(term)
-    .flatMap((text, i) => (i === 0 ? [{ text, match: false }] : [{ text: term, match: true }, { text, match: false }]))
+    .flatMap((text, i) =>
+      i === 0
+        ? [{ text, match: false }]
+        : [
+            { text: term, match: true },
+            { text, match: false },
+          ],
+    )
     .filter((part) => part.text !== "");
 };

@@ -18,7 +18,9 @@ const parseTtlDays = (raw: string | undefined): number => {
   return days;
 };
 
-export const readPreviewSettings = (env: Record<string, string | undefined> = process.env): PreviewSettings => ({
+export const readPreviewSettings = (
+  env: Record<string, string | undefined> = process.env,
+): PreviewSettings => ({
   domain: env.CAPIVA_PREVIEW_DOMAIN?.trim() || undefined,
   ttlDays: parseTtlDays(env.CAPIVA_PREVIEW_TTL_DAYS),
 });

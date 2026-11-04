@@ -21,7 +21,11 @@ export class ApiKeyController {
     const dto = createApiKeySchema.parse(req.body);
     const { apiKey, secret } = await this.keys.create(tenantOf(req).organizationId, dto);
     const { keyHash, ...rest } = apiKey;
-    this.audit.fromRequest(req, "apikey.create", { targetType: "api_key", targetId: rest.id, detail: rest.name });
+    this.audit.fromRequest(req, "apikey.create", {
+      targetType: "api_key",
+      targetId: rest.id,
+      detail: rest.name,
+    });
     // `secret` é mostrado UMA vez (não é recuperável depois).
     res.status(201).json({ ...rest, secret });
   };

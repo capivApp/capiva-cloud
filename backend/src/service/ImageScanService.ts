@@ -57,7 +57,8 @@ export class ImageScanService {
   /** Roda o scan do deploy. Lança ImageScanBlockedError quando a política barra a imagem. */
   async guard(step: ImageScanStep): Promise<void> {
     const policy = readScanPolicy(step.app.sourceConfig);
-    if (!policy.scanEnabled) return this.record(step, "Scan de vulnerabilidades desligado nesta aplicação");
+    if (!policy.scanEnabled)
+      return this.record(step, "Scan de vulnerabilidades desligado nesta aplicação");
 
     await this.record(step, "Scan de vulnerabilidades iniciado");
     const summary = await this.scan(step, policy);
@@ -68,19 +69,30 @@ export class ImageScanService {
 
   /** Grava a política em `sourceConfig.security`. Vale a partir do próximo deploy. */
   savePolicy(applicationId: string, policy: ScanPolicy, tenant: Tenant): Promise<Application> {
-    return withTransaction(async () => {
-      const app = await this.apps.findById(applicationId);
-      if (!app) throw HttpError.notFound("Aplicação não encontrada.");
-      const sourceConfig = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), security: { ...policy } };
-      return this.apps.update(applicationId, { sourceConfig: sourceConfig });
-    }, { tenant });
+    return withTransaction(
+      async () => {
+        const app = await this.apps.findById(applicationId);
+        if (!app) throw HttpError.notFound("Aplicação não encontrada.");
+        const sourceConfig = {
+          ...((app.sourceConfig as Record<string, unknown>) ?? {}),
+          security: { ...policy },
+        };
+        return this.apps.update(applicationId, { sourceConfig: sourceConfig });
+      },
+      { tenant },
+    );
   }
 
   private async scan(step: ImageScanStep, policy: ScanPolicy): Promise<ScanSummary> {
     const base = { imageRef: step.imageRef, scannedAt: new Date(), policy };
     try {
       const registry = await this.resolveRegistryAuth(step.app, step.tenant);
-      const findings = await this.scanner.scan({ ctx: step.ctx, imageRef: step.imageRef, deploymentId: step.deploymentId, ...registry });
+      const findings = await this.scanner.scan({
+        ctx: step.ctx,
+        imageRef: step.imageRef,
+        deploymentId: step.deploymentId,
+        ...registry,
+      });
       return buildScanSummary({ ...base, findings });
     } catch (error) {
       console.error("[scan] scanner falhou:", (error as Error).message);
@@ -98,7 +110,10 @@ export class ImageScanService {
     return { insecure: target?.insecure ?? false, auth: target?.credentials };
   }
 
-  private async explicitRegistryAuth(organizationId: string, registryId: string): Promise<RegistryAuth> {
+  private async explicitRegistryAuth(
+    organizationId: string,
+    registryId: string,
+  ): Promise<RegistryAuth> {
     const registry = await this.registries.getById(organizationId, registryId);
     const credentials = await this.registries.credentials(organizationId, registryId);
     return { insecure: registry.insecure, auth: credentials.username ? credentials : undefined };
@@ -106,13 +121,19 @@ export class ImageScanService {
 
   private persist(step: ImageScanStep, summary: ScanSummary): Promise<unknown> {
     return withTransaction(
-      () => this.deployments.update(step.deploymentId, { scanSummary: summary as unknown as Prisma.InputJsonValue }),
+      () =>
+        this.deployments.update(step.deploymentId, {
+          scanSummary: summary as unknown as Prisma.InputJsonValue,
+        }),
       { tenant: step.tenant },
     );
   }
 
   private async record(step: ImageScanStep, label: string, detail?: string): Promise<void> {
-    await withTransaction(() => this.deployments.addEvent({ deploymentId: step.deploymentId, label, detail }), { tenant: step.tenant });
+    await withTransaction(
+      () => this.deployments.addEvent({ deploymentId: step.deploymentId, label, detail }),
+      { tenant: step.tenant },
+    );
     deploymentEvents.emit(step.deploymentId, { label, ...SCAN_PROGRESS });
   }
 }

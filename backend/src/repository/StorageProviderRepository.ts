@@ -9,7 +9,10 @@ export class StorageProviderRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<StorageProvider[]> {
-    return this.tx.storageProvider.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.storageProvider.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<StorageProvider | null> {
@@ -22,7 +25,10 @@ export class StorageProviderRepository extends BaseRepository {
 
   /** Garante um único default por org. */
   clearDefault(organizationId: string): Promise<Prisma.BatchPayload> {
-    return this.tx.storageProvider.updateMany({ where: { organizationId, isDefault: true }, data: { isDefault: false } });
+    return this.tx.storageProvider.updateMany({
+      where: { organizationId, isDefault: true },
+      data: { isDefault: false },
+    });
   }
 
   async delete(id: string): Promise<StorageProvider> {

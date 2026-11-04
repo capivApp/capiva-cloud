@@ -17,9 +17,13 @@ export interface AlertMessageInput {
   value: number;
 }
 
-const formatValue = (value: number, unit: string): string => `${Math.round(value * 10) / 10}${unit}`;
+const formatValue = (value: number, unit: string): string =>
+  `${Math.round(value * 10) / 10}${unit}`;
 
-const ALERT_MESSAGES: Record<AlertEvent, (input: AlertMessageInput) => Omit<NotificationMessage, "event">> = {
+const ALERT_MESSAGES: Record<
+  AlertEvent,
+  (input: AlertMessageInput) => Omit<NotificationMessage, "event">
+> = {
   "alert.triggered": ({ app, rule, value }) => {
     const { label, unit } = ALERT_METRIC_LABELS[rule.metric];
     return {
@@ -36,7 +40,10 @@ const ALERT_MESSAGES: Record<AlertEvent, (input: AlertMessageInput) => Omit<Noti
   },
 };
 
-export const buildAlertMessage = (event: AlertEvent, input: AlertMessageInput): NotificationMessage => ({
+export const buildAlertMessage = (
+  event: AlertEvent,
+  input: AlertMessageInput,
+): NotificationMessage => ({
   event,
   ...ALERT_MESSAGES[event](input),
 });
@@ -48,7 +55,10 @@ export interface UptimeMessageInput {
   latencyMs?: number;
 }
 
-const UPTIME_MESSAGES: Record<UptimeEvent, (input: UptimeMessageInput) => Omit<NotificationMessage, "event">> = {
+const UPTIME_MESSAGES: Record<
+  UptimeEvent,
+  (input: UptimeMessageInput) => Omit<NotificationMessage, "event">
+> = {
   downtime: ({ app, url, statusCode }) => ({
     title: `Aplicação fora do ar: ${app}`,
     body: statusCode ? `${url} respondeu ${statusCode}.` : `${url} não respondeu.`,
@@ -59,7 +69,10 @@ const UPTIME_MESSAGES: Record<UptimeEvent, (input: UptimeMessageInput) => Omit<N
   }),
 };
 
-export const buildUptimeMessage = (event: UptimeEvent, input: UptimeMessageInput): NotificationMessage => ({
+export const buildUptimeMessage = (
+  event: UptimeEvent,
+  input: UptimeMessageInput,
+): NotificationMessage => ({
   event,
   ...UPTIME_MESSAGES[event](input),
 });

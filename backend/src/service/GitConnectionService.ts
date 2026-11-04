@@ -43,12 +43,16 @@ export class GitConnectionService {
     const conn = await withTransaction(() => this.connections.findById(id), {
       tenant: { organizationId },
     });
-    if (!conn || conn.organizationId !== organizationId) throw HttpError.notFound("Conexão Git não encontrada.");
+    if (!conn || conn.organizationId !== organizationId)
+      throw HttpError.notFound("Conexão Git não encontrada.");
     return conn;
   }
 
   /** Credenciais decifradas para clonar repositórios privados no build. */
-  async credentials(organizationId: string, id: string): Promise<{ token: string; provider: GitProviderKind }> {
+  async credentials(
+    organizationId: string,
+    id: string,
+  ): Promise<{ token: string; provider: GitProviderKind }> {
     const conn = await this.getById(organizationId, id);
     return { token: decrypt(conn.accessTokenCipher), provider: conn.provider };
   }

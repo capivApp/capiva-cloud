@@ -14,9 +14,7 @@
       "sha256:d4fc045c9e3a848011de66f34b81f052d4f2c15a17bb196d637e526349601820",
       "sha256:9f3b8c7a1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90"
     ],
-    "RepoTags": [
-      "registry.local:5000/api:1.4.0"
-    ],
+    "RepoTags": ["registry.local:5000/api:1.4.0"],
     "RepoDigests": [
       "registry.local:5000/api@sha256:1c0a4b8f2e6d9a3c5b7e1f0d2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c"
     ],
@@ -33,7 +31,10 @@
       },
       "config": {
         "Cmd": ["node", "dist/index.js"],
-        "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "NODE_VERSION=20.11.1"],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "NODE_VERSION=20.11.1"
+        ],
         "WorkingDir": "/app"
       }
     }

@@ -6,7 +6,10 @@ import type { Prisma, Volume } from "@prisma-generated/client";
 export class VolumeRepository extends BaseRepository {
   async create(data: Prisma.VolumeUncheckedCreateInput): Promise<Volume> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: data.applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
     return this.tx.volume.create({ data });

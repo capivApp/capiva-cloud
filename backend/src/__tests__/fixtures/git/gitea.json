@@ -48,8 +48,17 @@
       "after": "bffeb74224043ba2feb48d137756c8a9331c449a",
       "compare_url": "",
       "commits": [],
-      "head_commit": { "id": "bffeb74224043ba2feb48d137756c8a9331c449a", "message": "Webhooks Yay!" },
-      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "private": false, "default_branch": "master" },
+      "head_commit": {
+        "id": "bffeb74224043ba2feb48d137756c8a9331c449a",
+        "message": "Webhooks Yay!"
+      },
+      "repository": {
+        "id": 140,
+        "name": "webhooks",
+        "full_name": "gitea/webhooks",
+        "private": false,
+        "default_branch": "master"
+      },
       "pusher": { "id": 1, "login": "gitea", "username": "gitea" },
       "sender": { "id": 1, "login": "gitea", "username": "gitea" }
     }
@@ -83,7 +92,12 @@
         "published_at": "2026-11-04T10:15:32-04:00",
         "author": { "id": 1, "login": "gitea", "username": "gitea" }
       },
-      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "default_branch": "master" },
+      "repository": {
+        "id": 140,
+        "name": "webhooks",
+        "full_name": "gitea/webhooks",
+        "default_branch": "master"
+      },
       "sender": { "id": 1, "login": "gitea", "username": "gitea" }
     }
   },
@@ -91,7 +105,13 @@
     "event": "release",
     "body": {
       "action": "deleted",
-      "release": { "id": 5, "tag_name": "release-2026.11", "target_commitish": "master", "name": "Release 2026.11", "draft": false },
+      "release": {
+        "id": 5,
+        "tag_name": "release-2026.11",
+        "target_commitish": "master",
+        "name": "Release 2026.11",
+        "draft": false
+      },
       "repository": { "id": 140, "full_name": "gitea/webhooks" }
     }
   },
@@ -128,7 +148,12 @@
           "repo": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks" }
         }
       },
-      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "default_branch": "master" },
+      "repository": {
+        "id": 140,
+        "name": "webhooks",
+        "full_name": "gitea/webhooks",
+        "default_branch": "master"
+      },
       "sender": { "id": 1, "login": "gitea", "username": "gitea" }
     }
   },

@@ -21,8 +21,15 @@ export function useProjects() {
     mutationKey: ["projects", "create"],
     mutationFn: (name: string) => api.post<Project>("/projects", { name }),
   });
-  const updateMut = useMutation({ mutationKey: ["projects", "update"], mutationFn: ({ id, name }: { id: string; name: string }) => api.patch(`/projects/${id}`, { name }) });
-  const removeMut = useMutation({ mutationKey: ["projects", "remove"], mutationFn: (id: string) => api.del(`/projects/${id}`) });
+  const updateMut = useMutation({
+    mutationKey: ["projects", "update"],
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch(`/projects/${id}`, { name }),
+  });
+  const removeMut = useMutation({
+    mutationKey: ["projects", "remove"],
+    mutationFn: (id: string) => api.del(`/projects/${id}`),
+  });
 
   return {
     projects: list.data ?? [],

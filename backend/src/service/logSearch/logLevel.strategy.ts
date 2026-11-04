@@ -61,9 +61,13 @@ export const LOG_FORMATS: readonly LogFormatStrategy[] = [jsonFormat, logfmtForm
 const patternOf = (level: LogLevel) => LOG_FORMATS.map((format) => format.pattern(level)).join("|");
 
 /** Um único regex que casa qualquer um dos níveis pedidos, em qualquer formato. */
-export const buildLevelPattern = (levels: readonly LogLevel[]): string => `(?:${levels.map(patternOf).join("|")})`;
+export const buildLevelPattern = (levels: readonly LogLevel[]): string =>
+  `(?:${levels.map(patternOf).join("|")})`;
 
-const DETECTORES: Array<[LogLevel, RegExp]> = LOG_LEVELS.map((level) => [level, new RegExp(patternOf(level))]);
+const DETECTORES: Array<[LogLevel, RegExp]> = LOG_LEVELS.map((level) => [
+  level,
+  new RegExp(patternOf(level)),
+]);
 
 /** Primeiro nível que casa, na ordem de gravidade. `null` quando a linha não diz. */
 export const detectLogLevel = (line: string): LogLevel | null =>

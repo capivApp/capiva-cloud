@@ -20,7 +20,9 @@ export const registry = (router: Router): void => {
       await prismaClient.$queryRaw`SELECT 1`;
       res.json({ status: "ready", database: "up", time: new Date().toISOString() });
     } catch (error) {
-      res.status(503).json({ status: "unready", database: "down", error: (error as Error).message });
+      res
+        .status(503)
+        .json({ status: "unready", database: "down", error: (error as Error).message });
     }
   });
 

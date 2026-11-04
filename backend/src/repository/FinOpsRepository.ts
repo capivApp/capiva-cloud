@@ -34,8 +34,16 @@ const SELECT_BANCO = {
 export class FinOpsRepository extends BaseRepository {
   private async findInventario(where: Record<string, unknown>): Promise<Inventario> {
     const [aplicacoes, bancos] = await Promise.all([
-      this.tx.application.findMany({ where: { ...where, ...this.scope("application") }, select: SELECT_APLICACAO, orderBy: { createdAt: "asc" } }),
-      this.tx.managedDatabase.findMany({ where: { ...where, ...this.scope("managedDatabase") }, select: SELECT_BANCO, orderBy: { createdAt: "asc" } }),
+      this.tx.application.findMany({
+        where: { ...where, ...this.scope("application") },
+        select: SELECT_APLICACAO,
+        orderBy: { createdAt: "asc" },
+      }),
+      this.tx.managedDatabase.findMany({
+        where: { ...where, ...this.scope("managedDatabase") },
+        select: SELECT_BANCO,
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
     return { aplicacoes, bancos };
   }
@@ -48,11 +56,22 @@ export class FinOpsRepository extends BaseRepository {
     return this.findInventario({});
   }
 
-  findNomesDaOrganizacao(): Promise<{ projetos: { id: string; name: string }[]; ambientes: { id: string; name: string }[] }> {
+  findNomesDaOrganizacao(): Promise<{
+    projetos: { id: string; name: string }[];
+    ambientes: { id: string; name: string }[];
+  }> {
     const select = { id: true, name: true } as const;
     return Promise.all([
-      this.tx.project.findMany({ where: this.scope("project"), select, orderBy: { createdAt: "asc" } }),
-      this.tx.environment.findMany({ where: this.scope("environment"), select, orderBy: { createdAt: "asc" } }),
+      this.tx.project.findMany({
+        where: this.scope("project"),
+        select,
+        orderBy: { createdAt: "asc" },
+      }),
+      this.tx.environment.findMany({
+        where: this.scope("environment"),
+        select,
+        orderBy: { createdAt: "asc" },
+      }),
     ]).then(([projetos, ambientes]) => ({ projetos, ambientes }));
   }
 }

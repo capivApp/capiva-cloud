@@ -31,12 +31,33 @@ export function useReports(applicationId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["reports", applicationId] });
   };
 
-  const checks = useQuery({ queryKey: ["uptime-checks", applicationId], queryFn: () => api.get<UptimeCheck[]>(`/applications/${applicationId}/uptime-checks`), enabled });
-  const reports = useQuery({ queryKey: ["reports", applicationId], queryFn: () => api.get<UptimeReport[]>(`/applications/${applicationId}/reports`), enabled, refetchInterval: 15_000 });
+  const checks = useQuery({
+    queryKey: ["uptime-checks", applicationId],
+    queryFn: () => api.get<UptimeCheck[]>(`/applications/${applicationId}/uptime-checks`),
+    enabled,
+  });
+  const reports = useQuery({
+    queryKey: ["reports", applicationId],
+    queryFn: () => api.get<UptimeReport[]>(`/applications/${applicationId}/reports`),
+    enabled,
+    refetchInterval: 15_000,
+  });
 
-  const createMut = useMutation({ mutationFn: (input: { url: string; intervalSec?: number }) => api.post<UptimeCheck>(`/applications/${applicationId}/uptime-checks`, input), onSuccess: invalidate });
-  const runMut = useMutation({ mutationFn: (checkId: string) => api.post(`/applications/${applicationId}/uptime-checks/${checkId}/run`, {}), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (checkId: string) => api.del(`/applications/${applicationId}/uptime-checks/${checkId}`), onSuccess: invalidate });
+  const createMut = useMutation({
+    mutationFn: (input: { url: string; intervalSec?: number }) =>
+      api.post<UptimeCheck>(`/applications/${applicationId}/uptime-checks`, input),
+    onSuccess: invalidate,
+  });
+  const runMut = useMutation({
+    mutationFn: (checkId: string) =>
+      api.post(`/applications/${applicationId}/uptime-checks/${checkId}/run`, {}),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (checkId: string) =>
+      api.del(`/applications/${applicationId}/uptime-checks/${checkId}`),
+    onSuccess: invalidate,
+  });
 
   return {
     checks: checks.data ?? [],

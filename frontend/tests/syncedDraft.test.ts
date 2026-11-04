@@ -15,7 +15,10 @@ describe("nextDraftState", () => {
 
   it("chave nova recomeça o rascunho a partir do servidor", () => {
     const state = { key: "a", draft: ["editado"] };
-    expect(nextDraftState(state, "b", () => ["servidor"])).toEqual({ key: "b", draft: ["servidor"] });
+    expect(nextDraftState(state, "b", () => ["servidor"])).toEqual({
+      key: "b",
+      draft: ["servidor"],
+    });
   });
 
   it("o build recebe o rascunho anterior, para manter o que o servidor não trouxe", () => {

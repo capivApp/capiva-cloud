@@ -55,7 +55,9 @@ export function OrgSwitcher() {
               <span className="grid size-6 shrink-0 place-items-center rounded-md gradient-bg text-[10px] font-bold text-white">
                 {(active?.name ?? "?").slice(0, 1).toUpperCase()}
               </span>
-              <span className="truncate text-sm font-medium">{active?.name ?? "Selecionar org"}</span>
+              <span className="truncate text-sm font-medium">
+                {active?.name ?? "Selecionar org"}
+              </span>
             </span>
             <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
           </button>
@@ -79,11 +81,26 @@ export function OrgSwitcher() {
         onClose={() => setNewOrg(false)}
         title="Nova organização"
         description="Um tenant isolado com seus próprios projetos, clusters e membros."
-        footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setNewOrg(false)}>Cancelar</Button><Button variant="gradient" onClick={createOrg}>Criar</Button></div>}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setNewOrg(false)}>
+              Cancelar
+            </Button>
+            <Button variant="gradient" onClick={createOrg}>
+              Criar
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-1.5">
           <Label>Nome</Label>
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Minha Empresa" onKeyDown={(e) => e.key === "Enter" && createOrg()} />
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Minha Empresa"
+            onKeyDown={(e) => e.key === "Enter" && createOrg()}
+          />
         </div>
       </Drawer>
     </>

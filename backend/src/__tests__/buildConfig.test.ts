@@ -1,9 +1,18 @@
 import { describe, expect, it } from "bun:test";
-import { createApplicationSchema, repoPathSchema, updateApplicationSchema } from "@schemas/application.schema";
+import {
+  createApplicationSchema,
+  repoPathSchema,
+  updateApplicationSchema,
+} from "@schemas/application.schema";
 
 describe("repoPathSchema", () => {
   it("aceita caminhos relativos, inclusive em subpastas", () => {
-    for (const path of ["Dockerfile", "Dockerfile.prod", "docker/Dockerfile", "apps/api/Dockerfile.api"]) {
+    for (const path of [
+      "Dockerfile",
+      "Dockerfile.prod",
+      "docker/Dockerfile",
+      "apps/api/Dockerfile.api",
+    ]) {
       expect(repoPathSchema.safeParse(path).success).toBe(true);
     }
   });
@@ -48,7 +57,10 @@ describe("createApplicationSchema — sourceConfig", () => {
   });
 
   it("não exige as chaves de build (origens sem Dockerfile)", () => {
-    expect(createApplicationSchema.safeParse({ ...baseApp, source: "NIXPACKS", sourceConfig: {} }).success).toBe(true);
+    expect(
+      createApplicationSchema.safeParse({ ...baseApp, source: "NIXPACKS", sourceConfig: {} })
+        .success,
+    ).toBe(true);
   });
 });
 

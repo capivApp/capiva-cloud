@@ -20,7 +20,9 @@ function fakeSource(all: LogLine[]): LogSource & { calls: LogRangeRequest[] } {
     calls,
     async range(req) {
       calls.push(req);
-      const inWindow = all.filter((l) => BigInt(l.ts) >= BigInt(req.start) && BigInt(l.ts) < BigInt(req.end));
+      const inWindow = all.filter(
+        (l) => BigInt(l.ts) >= BigInt(req.start) && BigInt(l.ts) < BigInt(req.end),
+      );
       const ordered = req.direction === "forward" ? inWindow : [...inWindow].reverse();
       return ordered.slice(0, req.limit);
     },
@@ -67,7 +69,9 @@ describe("LogSearch.export", () => {
 
   it("pagina para trás (mais recente primeiro) até o máximo de linhas", async () => {
     const source = fakeSource(lines);
-    const out = await collect(new LogSearch(source, () => NOW, 10).export(scope, { since: "1h" }, 23));
+    const out = await collect(
+      new LogSearch(source, () => NOW, 10).export(scope, { since: "1h" }, 23),
+    );
     expect(out).toHaveLength(23);
     expect(out[0]?.line).toBe("linha 24");
     expect(out[22]?.line).toBe("linha 2");
@@ -76,7 +80,13 @@ describe("LogSearch.export", () => {
 
   it("pagina para frente (mais antiga primeiro) sem repetir linha", async () => {
     const source = fakeSource(lines);
-    const out = await collect(new LogSearch(source, () => NOW, 10).export(scope, { since: "1h", direction: "forward" }, 1000));
+    const out = await collect(
+      new LogSearch(source, () => NOW, 10).export(
+        scope,
+        { since: "1h", direction: "forward" },
+        1000,
+      ),
+    );
     expect(out.map((l) => l.line)).toEqual(lines.map((l) => l.line));
   });
 
@@ -89,14 +99,21 @@ describe("LogSearch.export", () => {
 });
 
 describe("formatos de exportação", () => {
-  const line: LogLine = { ts: String(BigInt(NOW) * 1_000_000n), line: 'ERROR deu "ruim"', pod: "api-1", level: "error" };
+  const line: LogLine = {
+    ts: String(BigInt(NOW) * 1_000_000n),
+    line: 'ERROR deu "ruim"',
+    pod: "api-1",
+    level: "error",
+  };
 
   it("txt: data ISO, pod e a linha crua", () => {
     const txt = createLogExportFormat("txt");
     expect(txt.contentType).toBe("text/plain; charset=utf-8");
     expect(txt.extension).toBe("txt");
     expect(txt.serialize(line)).toBe('2026-11-04T12:00:00.000Z [api-1] ERROR deu "ruim"\n');
-    expect(txt.serialize({ ts: line.ts, line: "sem pod" })).toBe("2026-11-04T12:00:00.000Z sem pod\n");
+    expect(txt.serialize({ ts: line.ts, line: "sem pod" })).toBe(
+      "2026-11-04T12:00:00.000Z sem pod\n",
+    );
   });
 
   it("ndjson: um objeto JSON por linha", () => {
@@ -105,13 +122,25 @@ describe("formatos de exportação", () => {
     expect(ndjson.extension).toBe("ndjson");
     const out = ndjson.serialize(line);
     expect(out.endsWith("\n")).toBe(true);
-    expect(JSON.parse(out)).toEqual({ time: "2026-11-04T12:00:00.000Z", ts: line.ts, pod: "api-1", level: "error", line: 'ERROR deu "ruim"' });
+    expect(JSON.parse(out)).toEqual({
+      time: "2026-11-04T12:00:00.000Z",
+      ts: line.ts,
+      pod: "api-1",
+      level: "error",
+      line: 'ERROR deu "ruim"',
+    });
   });
 });
 
 describe("buildLogPredicate (filtro em memória, usado sem Loki)", () => {
-  const linhas = ["INFO GET /health 200", "WARN slow query 812ms", "ERROR timeout ao chamar /orders", "INFO POST /orders 201"];
-  const filtra = (filtros: Parameters<typeof buildLogPredicate>[0]) => linhas.filter((l) => buildLogPredicate(filtros)({ ts: "0", line: l }));
+  const linhas = [
+    "INFO GET /health 200",
+    "WARN slow query 812ms",
+    "ERROR timeout ao chamar /orders",
+    "INFO POST /orders 201",
+  ];
+  const filtra = (filtros: Parameters<typeof buildLogPredicate>[0]) =>
+    linhas.filter((l) => buildLogPredicate(filtros)({ ts: "0", line: l }));
 
   it("sem filtro, passa tudo", () => {
     expect(filtra({})).toEqual(linhas);

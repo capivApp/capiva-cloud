@@ -23,7 +23,9 @@ function Glow({ className }: { className: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="gap-2">
-      <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Text>
+      <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </Text>
       {children}
     </View>
   );
@@ -80,7 +82,10 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       {/* Glows decorativos da marca (índigo/rosa), como no hero da landing. */}
       <Glow className="-left-24 -top-24 h-72 w-72 bg-primary/15" />
       <Glow className="-left-10 -top-10 h-40 w-40 bg-primary/10" />
@@ -97,7 +102,8 @@ export default function LoginScreen() {
           />
           <View className="items-center gap-1">
             <Text className="text-3xl font-extrabold tracking-tight">
-              Capiva <Text className="text-3xl font-extrabold tracking-tight text-primary">Cloud</Text>
+              Capiva{" "}
+              <Text className="text-3xl font-extrabold tracking-tight text-primary">Cloud</Text>
             </Text>
             <Text variant="muted">Kubernetes without Kubernetes</Text>
           </View>
@@ -155,7 +161,13 @@ export default function LoginScreen() {
                 colors={brandGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={{ borderRadius: 12, height: 48, alignItems: "center", justifyContent: "center", opacity: submitting ? 0.7 : 1 }}
+                style={{
+                  borderRadius: 12,
+                  height: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: submitting ? 0.7 : 1,
+                }}
               >
                 <Text className="text-base font-semibold text-white">
                   {submitting ? "Entrando…" : "Entrar"}

@@ -15,7 +15,12 @@ export interface KubeContext {
 export interface K8sManifest {
   apiVersion: string;
   kind: string;
-  metadata: { name: string; namespace?: string; labels?: Record<string, string>; [k: string]: unknown };
+  metadata: {
+    name: string;
+    namespace?: string;
+    labels?: Record<string, string>;
+    [k: string]: unknown;
+  };
   [k: string]: unknown;
 }
 
@@ -30,7 +35,12 @@ export interface IKubernetesAdapter {
   /** Aplica (server-side apply, idempotente) o estado desejado. */
   apply(ctx: KubeContext, manifest: K8sManifest): Promise<void>;
   /** Lê o estado observado de um recurso. */
-  observe(ctx: KubeContext, apiVersion: string, kind: string, name: string): Promise<ObservedStatus>;
+  observe(
+    ctx: KubeContext,
+    apiVersion: string,
+    kind: string,
+    name: string,
+  ): Promise<ObservedStatus>;
   /** Remove um recurso. */
   remove(ctx: KubeContext, apiVersion: string, kind: string, name: string): Promise<void>;
   /** Testa conectividade com um cluster (kubeconfig YAML decifrado). */

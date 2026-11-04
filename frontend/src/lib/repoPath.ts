@@ -8,7 +8,8 @@
 export function validateRepoPath(value: string): string | null {
   const path = value.trim();
   if (!path) return null; // vazio = campo não informado; quem exige valida à parte
-  if (path.startsWith("/")) return "Use um caminho relativo à raiz do repositório (sem barra inicial).";
+  if (path.startsWith("/"))
+    return "Use um caminho relativo à raiz do repositório (sem barra inicial).";
   if (path.split("/").includes("..")) return "Caminho não pode subir de diretório ('..').";
   if (path.length > 255) return "Caminho muito longo.";
   return null;

@@ -51,9 +51,19 @@ export class UptimeService {
     return withTransaction(() => this.uptime.listChecks(applicationId), { tenant });
   }
 
-  createCheck(applicationId: string, input: CreateUptimeCheckInput, tenant: { organizationId: string }): Promise<UptimeCheck> {
+  createCheck(
+    applicationId: string,
+    input: CreateUptimeCheckInput,
+    tenant: { organizationId: string },
+  ): Promise<UptimeCheck> {
     return withTransaction(
-      () => this.uptime.createCheck({ applicationId, url: input.url, intervalSec: input.intervalSec ?? 60, enabled: input.enabled ?? true }),
+      () =>
+        this.uptime.createCheck({
+          applicationId,
+          url: input.url,
+          intervalSec: input.intervalSec ?? 60,
+          enabled: input.enabled ?? true,
+        }),
       { tenant },
     );
   }
@@ -75,13 +85,19 @@ export class UptimeService {
     if (!recorded) return;
     const event = uptimeEventFor(recorded.previousOk, sample.ok);
     if (!event) return;
-    const message = buildUptimeMessage(event, { app: check.application.name, url: check.url, ...sample });
+    const message = buildUptimeMessage(event, {
+      app: check.application.name,
+      url: check.url,
+      ...sample,
+    });
     await this.notifications.dispatch(check.application.project.organizationId, message);
   }
 
   /** Executa todas as verificações habilitadas (chamado pelo scheduler). */
   async runAllDue(): Promise<number> {
-    const checks = await withTransaction(() => this.uptime.listEnabled(), {}).catch(() => [] as UptimeCheckWithOwner[]);
+    const checks = await withTransaction(() => this.uptime.listEnabled(), {}).catch(
+      () => [] as UptimeCheckWithOwner[],
+    );
     await Promise.all(checks.map((c) => this.runCheck(c).catch(() => undefined)));
     return checks.length;
   }

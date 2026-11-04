@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from "bun:test";
 import { resolveReplicasFixas } from "@functions/finops/consumo";
-import { buildUsoDoInventario, toRecursoDaAplicacao, type Inventario } from "@functions/finops/inventario";
+import {
+  buildUsoDoInventario,
+  toRecursoDaAplicacao,
+  type Inventario,
+} from "@functions/finops/inventario";
 
 describe("resolveReplicasFixas", () => {
   it("usa as réplicas gravadas na configuração", () => {
@@ -24,7 +28,12 @@ describe("resolveReplicasFixas", () => {
 
 describe("toRecursoDaAplicacao com réplicas fixas", () => {
   it("sem HPA, as réplicas gravadas viram mínimo e máximo", () => {
-    const recurso = toRecursoDaAplicacao({ profile: "SMALL", customResources: null, scaling: null, sourceConfig: { replicas: 50 } });
+    const recurso = toRecursoDaAplicacao({
+      profile: "SMALL",
+      customResources: null,
+      scaling: null,
+      sourceConfig: { replicas: 50 },
+    });
     expect(recurso).toMatchObject({ minReplicas: 50, maxReplicas: 50 });
   });
 
@@ -58,6 +67,11 @@ describe("buildUsoDoInventario", () => {
       ],
       bancos: [],
     };
-    expect(buildUsoDoInventario(inventario)).toEqual({ cpuMillicores: 750, memoryMib: 1536, pods: 3, storageGi: 0 });
+    expect(buildUsoDoInventario(inventario)).toEqual({
+      cpuMillicores: 750,
+      memoryMib: 1536,
+      pods: 3,
+      storageGi: 0,
+    });
   });
 });

@@ -24,7 +24,9 @@ interface OperatorSpec {
 const OPERATORS: Record<string, OperatorSpec> = {
   POSTGRESQL: {
     crd: "clusters.postgresql.cnpg.io",
-    urls: ["https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.1.yaml"],
+    urls: [
+      "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.1.yaml",
+    ],
   },
   MYSQL: {
     crd: "innodbclusters.mysql.oracle.com",
@@ -35,11 +37,15 @@ const OPERATORS: Record<string, OperatorSpec> = {
   },
   REDIS: {
     crd: "redisfailovers.databases.spotahome.com",
-    urls: ["https://raw.githubusercontent.com/spotahome/redis-operator/master/example/operator/all-redis-operator-resources.yaml"],
+    urls: [
+      "https://raw.githubusercontent.com/spotahome/redis-operator/master/example/operator/all-redis-operator-resources.yaml",
+    ],
   },
   RABBITMQ: {
     crd: "rabbitmqclusters.rabbitmq.com",
-    urls: ["https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"],
+    urls: [
+      "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml",
+    ],
   },
   ELASTICSEARCH: {
     crd: "elasticsearches.elasticsearch.k8s.elastic.co",
@@ -50,7 +56,9 @@ const OPERATORS: Record<string, OperatorSpec> = {
   },
   CLICKHOUSE: {
     crd: "clickhouseinstallations.clickhouse.altinity.com",
-    urls: ["https://raw.githubusercontent.com/Altinity/clickhouse-operator/release-0.24.0/deploy/operator/clickhouse-operator-install-bundle.yaml"],
+    urls: [
+      "https://raw.githubusercontent.com/Altinity/clickhouse-operator/release-0.24.0/deploy/operator/clickhouse-operator-install-bundle.yaml",
+    ],
   },
   // Cofre externo (variáveis de ambiente vindas de AWS/Vault/GCP).
   EXTERNAL_SECRETS: {
@@ -72,8 +80,13 @@ export class OperatorInstallerService {
 
     for (const url of spec.urls) {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`Falha ao baixar o operator (${kind}) de ${url}: HTTP ${res.status}`);
-      const docs = loadAllYaml(await res.text()) as { kind?: string; apiVersion?: string; metadata?: { name?: string } }[];
+      if (!res.ok)
+        throw new Error(`Falha ao baixar o operator (${kind}) de ${url}: HTTP ${res.status}`);
+      const docs = loadAllYaml(await res.text()) as {
+        kind?: string;
+        apiVersion?: string;
+        metadata?: { name?: string };
+      }[];
       for (const doc of docs) {
         if (!doc?.kind) continue;
         // Recursos de observabilidade (ServiceMonitor/PodMonitor) são opcionais e

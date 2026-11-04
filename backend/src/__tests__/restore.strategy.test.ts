@@ -44,15 +44,24 @@ describe("createRestoreModeStrategy", () => {
 
   it("IN_PLACE exige que o usuário digite o nome do banco", () => {
     const strategy = createRestoreModeStrategy("IN_PLACE");
-    const error = captureError(() => strategy.validate({ mode: "IN_PLACE", confirmName: "outro" }, source));
+    const error = captureError(() =>
+      strategy.validate({ mode: "IN_PLACE", confirmName: "outro" }, source),
+    );
     expect(error.status).toBe(400);
-    expect(() => strategy.validate({ mode: "IN_PLACE", confirmName: "orders-db" }, source)).not.toThrow();
+    expect(() =>
+      strategy.validate({ mode: "IN_PLACE", confirmName: "orders-db" }, source),
+    ).not.toThrow();
   });
 
   it("AS_COPY exige um nome novo, diferente do banco de origem", () => {
     const strategy = createRestoreModeStrategy("AS_COPY");
-    expect(captureError(() => strategy.validate({ mode: "AS_COPY", newName: "orders-db" }, source)).status).toBe(400);
-    expect(() => strategy.validate({ mode: "AS_COPY", newName: "orders-copia" }, source)).not.toThrow();
+    expect(
+      captureError(() => strategy.validate({ mode: "AS_COPY", newName: "orders-db" }, source))
+        .status,
+    ).toBe(400);
+    expect(() =>
+      strategy.validate({ mode: "AS_COPY", newName: "orders-copia" }, source),
+    ).not.toThrow();
   });
 
   it("IN_PLACE restaura no próprio banco; AS_COPY cria a cópia", async () => {
@@ -60,10 +69,22 @@ describe("createRestoreModeStrategy", () => {
     const copy = { id: "db_2", name: "orders-copia" };
     const createCopy = mock(async () => copy);
 
-    expect(await createRestoreModeStrategy("IN_PLACE").resolveTarget(db, { mode: "IN_PLACE", confirmName: "orders-db" }, createCopy)).toBe(db);
+    expect(
+      await createRestoreModeStrategy("IN_PLACE").resolveTarget(
+        db,
+        { mode: "IN_PLACE", confirmName: "orders-db" },
+        createCopy,
+      ),
+    ).toBe(db);
     expect(createCopy).not.toHaveBeenCalled();
 
-    expect(await createRestoreModeStrategy("AS_COPY").resolveTarget(db, { mode: "AS_COPY", newName: "orders-copia" }, createCopy)).toBe(copy);
+    expect(
+      await createRestoreModeStrategy("AS_COPY").resolveTarget(
+        db,
+        { mode: "AS_COPY", newName: "orders-copia" },
+        createCopy,
+      ),
+    ).toBe(copy);
     expect(createCopy).toHaveBeenCalledWith(db, "orders-copia");
   });
 
@@ -74,8 +95,14 @@ describe("createRestoreModeStrategy", () => {
 
 describe("restoreBackupSchema", () => {
   it("aceita os dois modos", () => {
-    expect(restoreBackupSchema.parse({ mode: "IN_PLACE", confirmName: "orders-db" })).toEqual({ mode: "IN_PLACE", confirmName: "orders-db" });
-    expect(restoreBackupSchema.parse({ mode: "AS_COPY", newName: "orders-copia" })).toEqual({ mode: "AS_COPY", newName: "orders-copia" });
+    expect(restoreBackupSchema.parse({ mode: "IN_PLACE", confirmName: "orders-db" })).toEqual({
+      mode: "IN_PLACE",
+      confirmName: "orders-db",
+    });
+    expect(restoreBackupSchema.parse({ mode: "AS_COPY", newName: "orders-copia" })).toEqual({
+      mode: "AS_COPY",
+      newName: "orders-copia",
+    });
   });
 
   it("recusa sem confirmação e nome fora do padrão, com mensagem em português", () => {
@@ -83,7 +110,10 @@ describe("restoreBackupSchema", () => {
     expect(semConfirmacao.success).toBe(false);
     expect(semConfirmacao.error?.issues[0]?.message).toBe("Digite o nome do banco para confirmar.");
 
-    const nomeInvalido = restoreBackupSchema.safeParse({ mode: "AS_COPY", newName: "Orders Copia" });
+    const nomeInvalido = restoreBackupSchema.safeParse({
+      mode: "AS_COPY",
+      newName: "Orders Copia",
+    });
     expect(nomeInvalido.success).toBe(false);
     expect(nomeInvalido.error?.issues[0]?.message).toContain("letras minúsculas");
   });

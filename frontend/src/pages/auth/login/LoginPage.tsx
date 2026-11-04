@@ -31,7 +31,8 @@ export function LoginPage() {
   async function onSubmit(data: FormData) {
     try {
       if (mode === "login") await login({ email: data.email, password: data.password });
-      else await registerUser({ email: data.email, name: data.name ?? "", password: data.password });
+      else
+        await registerUser({ email: data.email, name: data.name ?? "", password: data.password });
       navigate("/");
     } catch (e) {
       toast.error((e as Error).message || "Falha na autenticação");
@@ -44,9 +45,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <Logo />
-          <p className="text-sm text-muted-foreground">
-            Democratizando o deploy em Kubernetes 🐹
-          </p>
+          <p className="text-sm text-muted-foreground">Democratizando o deploy em Kubernetes 🐹</p>
         </div>
         <Card>
           <CardContent className="pt-6">
@@ -60,15 +59,32 @@ export function LoginPage() {
               )}
               <div className="space-y-1.5">
                 <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" placeholder="voce@empresa.com" {...register("email")} />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="voce@empresa.com"
+                  {...register("email")}
+                />
                 {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Senha</Label>
-                <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
-                {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  {...register("password")}
+                />
+                {errors.password && (
+                  <p className="text-xs text-destructive">{errors.password.message}</p>
+                )}
               </div>
-              <Button type="submit" variant="gradient" className="w-full" disabled={isLoggingIn || isRegistering}>
+              <Button
+                type="submit"
+                variant="gradient"
+                className="w-full"
+                disabled={isLoggingIn || isRegistering}
+              >
                 {mode === "login" ? "Entrar" : "Criar conta"}
               </Button>
             </form>

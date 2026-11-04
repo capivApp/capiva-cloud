@@ -53,7 +53,9 @@ describe("databaseRestoreJobManifest", () => {
 describe("comandos de restore por tipo de banco", () => {
   it("PostgreSQL sobre o próprio banco zera o schema antes de reaplicar o dump", () => {
     const command = createRestoreKindStrategy("POSTGRESQL").command({ resetTarget: true });
-    expect(command).toContain('mc cat "s3/$S3_BUCKET/$OBJECT_KEY" | gunzip | psql -v ON_ERROR_STOP=1 "$SRC_URL"');
+    expect(command).toContain(
+      'mc cat "s3/$S3_BUCKET/$OBJECT_KEY" | gunzip | psql -v ON_ERROR_STOP=1 "$SRC_URL"',
+    );
     expect(command).toContain("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
     expect(command.indexOf("DROP SCHEMA")).toBeLessThan(command.indexOf("mc cat"));
   });
@@ -106,7 +108,9 @@ describe("interpretRestoreJob", () => {
 
   it("Job ativo ou ilegível → RUNNING", () => {
     expect(interpretRestoreJob({ ready: false, raw: { active: 1 } }).status).toBe("RUNNING");
-    expect(interpretRestoreJob({ ready: false, message: "connection refused" }).status).toBe("RUNNING");
+    expect(interpretRestoreJob({ ready: false, message: "connection refused" }).status).toBe(
+      "RUNNING",
+    );
   });
 });
 
@@ -142,8 +146,16 @@ describe("restore de volume Longhorn", () => {
 
   it("interpreta o andamento do Volume restaurado", () => {
     expect(interpretLonghornRestore({ ready: true, message: "dry-run" }).status).toBe("COMPLETED");
-    expect(interpretLonghornRestore({ ready: false, raw: { restoreRequired: true, state: "attached" } }).status).toBe("RUNNING");
-    expect(interpretLonghornRestore({ ready: false, raw: { restoreRequired: false, state: "detached" } }).status).toBe("COMPLETED");
-    expect(interpretLonghornRestore({ ready: false, raw: { robustness: "faulted" } }).status).toBe("FAILED");
+    expect(
+      interpretLonghornRestore({ ready: false, raw: { restoreRequired: true, state: "attached" } })
+        .status,
+    ).toBe("RUNNING");
+    expect(
+      interpretLonghornRestore({ ready: false, raw: { restoreRequired: false, state: "detached" } })
+        .status,
+    ).toBe("COMPLETED");
+    expect(interpretLonghornRestore({ ready: false, raw: { robustness: "faulted" } }).status).toBe(
+      "FAILED",
+    );
   });
 });

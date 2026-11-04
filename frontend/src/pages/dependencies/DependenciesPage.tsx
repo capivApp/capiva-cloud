@@ -8,7 +8,11 @@ import { ConnectDependencyDrawer } from "@/pages/dependencies/components/Connect
 import { useApplications } from "@/pages/applications/hooks/useApplications";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 
-interface Dep { id: string; sourceId: string; targetId: string }
+interface Dep {
+  id: string;
+  sourceId: string;
+  targetId: string;
+}
 
 const NODE_W = 150;
 const NODE_H = 56;
@@ -21,11 +25,15 @@ export function DependenciesPage() {
   // Posições (drag-and-drop) — layout inicial em grade.
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>({});
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
-  const [pending, setPending] = useState<{ sourceId: string; target: { id: string; name: string } } | null>(null);
+  const [pending, setPending] = useState<{
+    sourceId: string;
+    target: { id: string; name: string };
+  } | null>(null);
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
   const positionFor = useCallback(
-    (id: string, i: number) => pos[id] ?? { x: 40 + (i % 4) * 180, y: 40 + Math.floor(i / 4) * 120 },
+    (id: string, i: number) =>
+      pos[id] ?? { x: 40 + (i % 4) * 180, y: 40 + Math.floor(i / 4) * 120 },
     [pos],
   );
 
@@ -34,7 +42,9 @@ export function DependenciesPage() {
     queryKey: ["dependencies", projectId, applications.map((a) => a.id).join(",")],
     enabled: applications.length > 0,
     queryFn: async () => {
-      const all = await Promise.all(applications.map((a) => api.get<Dep[]>(`/applications/${a.id}/dependencies`)));
+      const all = await Promise.all(
+        applications.map((a) => api.get<Dep[]>(`/applications/${a.id}/dependencies`)),
+      );
       const map = new Map<string, Dep>();
       all.flat().forEach((d) => map.set(d.id, d));
       return [...map.values()];
@@ -50,7 +60,10 @@ export function DependenciesPage() {
   function onPointerMove(e: React.PointerEvent) {
     if (!dragRef.current) return;
     const { id, dx, dy } = dragRef.current;
-    setPos((s) => ({ ...s, [id]: { x: Math.max(0, e.clientX - dx), y: Math.max(0, e.clientY - dy) } }));
+    setPos((s) => ({
+      ...s,
+      [id]: { x: Math.max(0, e.clientX - dx), y: Math.max(0, e.clientY - dy) },
+    }));
   }
   function onPointerUp() {
     dragRef.current = null;
@@ -85,12 +98,18 @@ export function DependenciesPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dependências</h1>
         <p className="text-sm text-muted-foreground">
-          Arraste os serviços para organizar. Clique em um e depois em outro para conectar — DNS interno e variáveis (DATABASE_URL, REDIS_URL…) são gerados automaticamente.
+          Arraste os serviços para organizar. Clique em um e depois em outro para conectar — DNS
+          interno e variáveis (DATABASE_URL, REDIS_URL…) são gerados automaticamente.
         </p>
       </div>
 
       {applications.length === 0 ? (
-        <Card><CardContent className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground"><Network className="size-6" /><p className="text-sm">Crie aplicações para montar o grafo.</p></CardContent></Card>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+            <Network className="size-6" />
+            <p className="text-sm">Crie aplicações para montar o grafo.</p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -105,10 +124,31 @@ export function DependenciesPage() {
                   const a = centers[d.sourceId];
                   const b = centers[d.targetId];
                   if (!a || !b) return null;
-                  return <line key={d.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="hsl(var(--primary))" strokeWidth={2} markerEnd="url(#arrow)" opacity={0.6} />;
+                  return (
+                    <line
+                      key={d.id}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      markerEnd="url(#arrow)"
+                      opacity={0.6}
+                    />
+                  );
                 })}
                 <defs>
-                  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="hsl(var(--primary))" /></marker>
+                  <marker
+                    id="arrow"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L0,6 L9,3 z" fill="hsl(var(--primary))" />
+                  </marker>
                 </defs>
               </svg>
 
@@ -122,7 +162,9 @@ export function DependenciesPage() {
                     style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H }}
                     className={cn(
                       "absolute flex cursor-grab select-none items-center gap-2 rounded-lg border bg-card px-3 text-sm shadow-sm active:cursor-grabbing",
-                      connectFrom === a.id ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50",
+                      connectFrom === a.id
+                        ? "border-primary ring-2 ring-primary"
+                        : "border-border hover:border-primary/50",
                     )}
                   >
                     <Link2 className="size-4 text-primary" />

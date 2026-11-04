@@ -51,7 +51,8 @@ const STRATEGIES: Record<BlockOnSeverity, BlockStrategy> = {
   high: new BlockHigh(),
 };
 
-export const createBlockStrategy = (level?: BlockOnSeverity | null): BlockStrategy => STRATEGIES[level ?? BlockOnSeverity.NONE] ?? STRATEGIES.none;
+export const createBlockStrategy = (level?: BlockOnSeverity | null): BlockStrategy =>
+  STRATEGIES[level ?? BlockOnSeverity.NONE] ?? STRATEGIES.none;
 
 /** Política da aplicação, lida de `sourceConfig.security` com os defaults (scan ligado, sem bloqueio). */
 export function readScanPolicy(sourceConfig: unknown): ScanPolicy {

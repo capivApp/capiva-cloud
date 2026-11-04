@@ -20,16 +20,40 @@ const inventario: Inventario = {
       scaling: { minReplicas: 1, maxReplicas: 3 },
       volumes: [{ id: "v1", name: "data", sizeGi: 4 }],
     },
-    { id: "app-2", name: "web", projectId: "p2", environmentId: "dev", profile: "NANO", customResources: null, scaling: null, volumes: [] },
+    {
+      id: "app-2",
+      name: "web",
+      projectId: "p2",
+      environmentId: "dev",
+      profile: "NANO",
+      customResources: null,
+      scaling: null,
+      volumes: [],
+    },
   ],
-  bancos: [{ id: "db-1", name: "pg", projectId: "p1", environmentId: "prod", kind: "POSTGRESQL", size: "SMALL", highAvailability: true }],
+  bancos: [
+    {
+      id: "db-1",
+      name: "pg",
+      projectId: "p1",
+      environmentId: "prod",
+      kind: "POSTGRESQL",
+      size: "SMALL",
+      highAvailability: true,
+    },
+  ],
 };
 
 describe("buildUsoDoInventario", () => {
   it("soma o máximo de cada recurso (réplicas máximas do HPA, volumes e bancos)", () => {
     const soProd = { ...inventario, aplicacoes: [inventario.aplicacoes[0]] };
     // api LARGE x3 = 3000m / 6144Mi / 3 pods ; volume 4Gi ; pg SMALL HA = 1500m / 3072Mi / 3 pods / 30Gi
-    expect(buildUsoDoInventario(soProd)).toEqual({ cpuMillicores: 4500, memoryMib: 9216, pods: 6, storageGi: 34 });
+    expect(buildUsoDoInventario(soProd)).toEqual({
+      cpuMillicores: 4500,
+      memoryMib: 9216,
+      pods: 6,
+      storageGi: 34,
+    });
   });
 });
 
@@ -47,7 +71,10 @@ describe("buildRelatorioDeCusto", () => {
 
   it("custo da aplicação inclui os volumes dela", () => {
     // api: LARGE 87.6 por réplica (1 a 3) + volume 4 GiB = 2
-    expect(relatorio.aplicacoes[0]).toMatchObject({ id: "app-1", custo: { min: 89.6, max: 264.8 } });
+    expect(relatorio.aplicacoes[0]).toMatchObject({
+      id: "app-1",
+      custo: { min: 89.6, max: 264.8 },
+    });
     // web: NANO x2 (sem HPA) = 0.2 vCPU = 14.6 ; 0.25 GB = 1.825 -> 16.43 (arredondado)
     expect(relatorio.aplicacoes[1].custo).toEqual({ min: 16.43, max: 16.43 });
   });

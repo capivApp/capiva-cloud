@@ -2,13 +2,23 @@ import { externalEnvVar, type ExternalEnvEntry } from "@infra/kubernetes/externa
 import type { ContainerEnvVar } from "@infra/kubernetes/manifests";
 import type { EnvVar } from "@prisma-generated/client";
 
-export type StoredEnvVar = Pick<EnvVar, "key" | "value" | "secret" | "source" | "secretStoreId" | "remoteProperty">;
+export type StoredEnvVar = Pick<
+  EnvVar,
+  "key" | "value" | "secret" | "source" | "secretStoreId" | "remoteProperty"
+>;
 
-const isExternalWithStore = (e: StoredEnvVar) => e.source === "EXTERNAL" && Boolean(e.secretStoreId);
+const isExternalWithStore = (e: StoredEnvVar) =>
+  e.source === "EXTERNAL" && Boolean(e.secretStoreId);
 
-type EnvBuilder = (app: string, e: StoredEnvVar, reveal: (cipher: string) => string) => ContainerEnvVar[];
+type EnvBuilder = (
+  app: string,
+  e: StoredEnvVar,
+  reveal: (cipher: string) => string,
+) => ContainerEnvVar[];
 
-const literal: EnvBuilder = (_app, e, reveal) => [{ key: e.key, value: e.secret ? reveal(e.value) : e.value }];
+const literal: EnvBuilder = (_app, e, reveal) => [
+  { key: e.key, value: e.secret ? reveal(e.value) : e.value },
+];
 
 /**
  * Strategy por origem. Variável externa sem cofre (cofre removido) sai do
@@ -20,7 +30,11 @@ const ENV_BY_SOURCE: Record<StoredEnvVar["source"], EnvBuilder> = {
   EXTERNAL: (app, e) => (isExternalWithStore(e) ? [externalEnvVar(app, e.key)] : []),
 };
 
-export function buildContainerEnvVars(app: string, rows: StoredEnvVar[], reveal: (cipher: string) => string): ContainerEnvVar[] {
+export function buildContainerEnvVars(
+  app: string,
+  rows: StoredEnvVar[],
+  reveal: (cipher: string) => string,
+): ContainerEnvVar[] {
   return rows.flatMap((e) => ENV_BY_SOURCE[e.source](app, e, reveal));
 }
 

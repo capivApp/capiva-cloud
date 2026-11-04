@@ -27,7 +27,10 @@ const METRIC_INFO: Record<AlertMetric, { label: string; unit: string; hint?: str
 
 const OPERATOR_LABELS: Record<AlertOperator, string> = { GT: "acima de", LT: "abaixo de" };
 
-const STATE_BADGE: Record<"OK" | "FIRING" | "OFF", { label: string; variant: "success" | "danger" | "muted" }> = {
+const STATE_BADGE: Record<
+  "OK" | "FIRING" | "OFF",
+  { label: string; variant: "success" | "danger" | "muted" }
+> = {
   OK: { label: "Normal", variant: "success" },
   FIRING: { label: "Disparado", variant: "danger" },
   OFF: { label: "Desligado", variant: "muted" },
@@ -59,10 +62,20 @@ interface ApiIssue {
 /** Itens de validação devolvidos pela API (422), para voltar ao campo certo. */
 const readIssues = (error: unknown): ApiIssue[] => {
   if (!(error instanceof ApiError)) return [];
-  return ((error.body as { issues?: ApiIssue[] } | undefined)?.issues ?? []).filter((i) => i.path.length > 0);
+  return ((error.body as { issues?: ApiIssue[] } | undefined)?.issues ?? []).filter(
+    (i) => i.path.length > 0,
+  );
 };
 
-function RuleRow({ rule, onToggle, onRemove }: { rule: AlertRule; onToggle: () => void; onRemove: () => void }) {
+function RuleRow({
+  rule,
+  onToggle,
+  onRemove,
+}: {
+  rule: AlertRule;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
   const info = METRIC_INFO[rule.metric];
   const badge = STATE_BADGE[stateOf(rule)];
   return (
@@ -71,13 +84,23 @@ function RuleRow({ rule, onToggle, onRemove }: { rule: AlertRule; onToggle: () =
         <BellRing className="size-4 text-muted-foreground" />
         <span className="font-medium">{info.label}</span>
         <span className="text-muted-foreground">
-          {OPERATOR_LABELS[rule.operator]} {formatValue(rule.threshold, info.unit)} em {rule.windowMinutes} min
+          {OPERATOR_LABELS[rule.operator]} {formatValue(rule.threshold, info.unit)} em{" "}
+          {rule.windowMinutes} min
         </span>
       </div>
       <div className="flex items-center gap-2">
-        {rule.lastValue !== null && <span className="font-mono text-xs text-muted-foreground">{formatValue(rule.lastValue, info.unit)}</span>}
+        {rule.lastValue !== null && (
+          <span className="font-mono text-xs text-muted-foreground">
+            {formatValue(rule.lastValue, info.unit)}
+          </span>
+        )}
         <Badge variant={badge.variant}>{badge.label}</Badge>
-        <Button variant="ghost" size="icon" onClick={onToggle} title={rule.enabled ? "Desligar" : "Ligar"}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          title={rule.enabled ? "Desligar" : "Ligar"}
+        >
           <Power className="size-4" />
         </Button>
         <Button variant="ghost" size="icon" onClick={onRemove} title="Remover">
@@ -113,7 +136,9 @@ export function AlertsTab({ applicationId }: { applicationId: string }) {
       reset(DEFAULTS);
       toast.success("Regra de alerta criada.");
     } catch (e) {
-      readIssues(e).forEach((i) => setError(i.path.join(".") as FieldPath<FormData>, { message: i.message }));
+      readIssues(e).forEach((i) =>
+        setError(i.path.join(".") as FieldPath<FormData>, { message: i.message }),
+      );
       toast.error((e as Error).message);
     }
   };
@@ -141,7 +166,9 @@ export function AlertsTab({ applicationId }: { applicationId: string }) {
       <Card>
         <CardContent className="space-y-3 pt-5">
           {isLoading && <p className="text-sm text-muted-foreground">Carregando regras…</p>}
-          {!isLoading && rules.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma regra de alerta.</p>}
+          {!isLoading && rules.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma regra de alerta.</p>
+          )}
           {rules.map((r) => (
             <RuleRow key={r.id} rule={r} onToggle={() => toggle(r)} onRemove={() => del(r.id)} />
           ))}
@@ -155,35 +182,59 @@ export function AlertsTab({ applicationId }: { applicationId: string }) {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Métrica</Label>
-                <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" {...register("metric")}>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  {...register("metric")}
+                >
                   {ALERT_METRICS.map((m) => (
-                    <option key={m} value={m}>{METRIC_INFO[m].label}</option>
+                    <option key={m} value={m}>
+                      {METRIC_INFO[m].label}
+                    </option>
                   ))}
                 </select>
-                {errors.metric && <p className="text-xs text-destructive">{errors.metric.message}</p>}
+                {errors.metric && (
+                  <p className="text-xs text-destructive">{errors.metric.message}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Condição</Label>
-                <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" {...register("operator")}>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  {...register("operator")}
+                >
                   {ALERT_OPERATORS.map((o) => (
-                    <option key={o} value={o}>{OPERATOR_LABELS[o]}</option>
+                    <option key={o} value={o}>
+                      {OPERATOR_LABELS[o]}
+                    </option>
                   ))}
                 </select>
-                {errors.operator && <p className="text-xs text-destructive">{errors.operator.message}</p>}
+                {errors.operator && (
+                  <p className="text-xs text-destructive">{errors.operator.message}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Limite ({info.unit.trim()})</Label>
-                <Input type="number" step="any" {...register("threshold", { valueAsNumber: true })} />
-                {errors.threshold && <p className="text-xs text-destructive">{errors.threshold.message}</p>}
+                <Input
+                  type="number"
+                  step="any"
+                  {...register("threshold", { valueAsNumber: true })}
+                />
+                {errors.threshold && (
+                  <p className="text-xs text-destructive">{errors.threshold.message}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Janela (min)</Label>
                 <Input type="number" {...register("windowMinutes", { valueAsNumber: true })} />
-                {errors.windowMinutes && <p className="text-xs text-destructive">{errors.windowMinutes.message}</p>}
+                {errors.windowMinutes && (
+                  <p className="text-xs text-destructive">{errors.windowMinutes.message}</p>
+                )}
               </div>
             </div>
             {info.hint && <p className="text-xs text-muted-foreground">{info.hint}</p>}
-            <p className="text-xs text-muted-foreground">Os avisos vão para os canais com os eventos de alerta marcados em Notificações.</p>
+            <p className="text-xs text-muted-foreground">
+              Os avisos vão para os canais com os eventos de alerta marcados em Notificações.
+            </p>
             <Button type="submit" variant="gradient" size="sm" disabled={isCreating}>
               <Plus className="size-4" /> Criar regra
             </Button>

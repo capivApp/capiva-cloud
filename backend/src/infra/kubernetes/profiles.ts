@@ -16,7 +16,7 @@ export function resolveResources(profile: string, custom?: Record<string, unknow
   if (profile === "CUSTOM" && custom) {
     return custom as { cpu: string; memory: string };
   }
-  return RESOURCE_PROFILES[(profile as ProfileKey)] ?? RESOURCE_PROFILES.SMALL;
+  return RESOURCE_PROFILES[profile as ProfileKey] ?? RESOURCE_PROFILES.SMALL;
 }
 
 /**

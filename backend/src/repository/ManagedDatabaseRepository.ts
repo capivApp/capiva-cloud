@@ -22,7 +22,9 @@ export class ManagedDatabaseRepository extends BaseRepository {
    * organizationId retornado para abrir uma transação escopada por banco.
    */
   listAllWithOrg(): Promise<(ManagedDatabase & { project: { organizationId: string } })[]> {
-    return this.tx.managedDatabase.findMany({ include: { project: { select: { organizationId: true } } } });
+    return this.tx.managedDatabase.findMany({
+      include: { project: { select: { organizationId: true } } },
+    });
   }
 
   findById(id: string): Promise<ManagedDatabase | null> {
@@ -31,7 +33,9 @@ export class ManagedDatabaseRepository extends BaseRepository {
 
   /** Banco com o mesmo nome no ambiente: o nome vira o nome do recurso no namespace. */
   findByNameInEnvironment(environmentId: string, name: string): Promise<ManagedDatabase | null> {
-    return this.tx.managedDatabase.findFirst({ where: { environmentId, name, ...this.scope("managedDatabase") } });
+    return this.tx.managedDatabase.findFirst({
+      where: { environmentId, name, ...this.scope("managedDatabase") },
+    });
   }
 
   async updateStatus(id: string, observedStatus: string): Promise<ManagedDatabase> {

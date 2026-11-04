@@ -38,9 +38,13 @@ const DEV_ENCRYPTION_KEY = "change-me-32-bytes-key-000000000000";
  * de outro host — daí ser configurável.
  */
 const parseOrigins = (): string[] => {
-  const configured = process.env.ORIGIN_WHITELIST?.split(",").map((o) => o.trim()).filter(Boolean);
+  const configured = process.env.ORIGIN_WHITELIST?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
   if (configured?.length) return configured;
-  return process.env.NODE_ENV === "production" ? [] : ["http://localhost:5173", "http://localhost:5175"];
+  return process.env.NODE_ENV === "production"
+    ? []
+    : ["http://localhost:5173", "http://localhost:5175"];
 };
 
 export const config = {
@@ -80,16 +84,22 @@ export function assertProductionSecrets(): void {
 
   const problems: string[] = [];
   if (config.encryptionKey === DEV_ENCRYPTION_KEY) {
-    problems.push("ENCRYPTION_KEY está com o valor de exemplo — gere um novo: openssl rand -hex 32");
+    problems.push(
+      "ENCRYPTION_KEY está com o valor de exemplo — gere um novo: openssl rand -hex 32",
+    );
   }
   if (config.encryptionKey.length < 32) {
     problems.push("ENCRYPTION_KEY tem menos de 32 caracteres.");
   }
   if (!config.auth.cookieSecure && config.publicUrl.startsWith("https://")) {
-    problems.push("COOKIE_SECURE=false com PUBLIC_URL https — o refresh token trafegaria sem a flag Secure.");
+    problems.push(
+      "COOKIE_SECURE=false com PUBLIC_URL https — o refresh token trafegaria sem a flag Secure.",
+    );
   }
 
   if (problems.length) {
-    throw new Error(`[config] Configuração insegura para produção:\n  - ${problems.join("\n  - ")}`);
+    throw new Error(
+      `[config] Configuração insegura para produção:\n  - ${problems.join("\n  - ")}`,
+    );
   }
 }

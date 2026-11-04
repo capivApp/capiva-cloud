@@ -27,7 +27,9 @@ describe("startPreviewDeployments", () => {
 
   test("encaminha o evento de PR ao service", async () => {
     const handlePullRequest = mock(async () => 1);
-    container.register(PreviewDeploymentService, { handlePullRequest } as unknown as PreviewDeploymentService);
+    container.register(PreviewDeploymentService, {
+      handlePullRequest,
+    } as unknown as PreviewDeploymentService);
     stop = startPreviewDeployments();
 
     gitEvents.emitPullRequest(event);
@@ -38,7 +40,9 @@ describe("startPreviewDeployments", () => {
 
   test("falha do service não derruba o barramento", async () => {
     const handlePullRequest = mock(async () => Promise.reject(new Error("cluster fora")));
-    container.register(PreviewDeploymentService, { handlePullRequest } as unknown as PreviewDeploymentService);
+    container.register(PreviewDeploymentService, {
+      handlePullRequest,
+    } as unknown as PreviewDeploymentService);
     stop = startPreviewDeployments();
 
     expect(() => gitEvents.emitPullRequest(event)).not.toThrow();

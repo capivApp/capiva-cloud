@@ -1,4 +1,10 @@
-import { ALERT_EVENTS, UPTIME_EVENTS, type AlertEvent, type AlertState, type UptimeEvent } from "@interface/alerts";
+import {
+  ALERT_EVENTS,
+  UPTIME_EVENTS,
+  type AlertEvent,
+  type AlertState,
+  type UptimeEvent,
+} from "@interface/alerts";
 
 /**
  * Transição de um estado booleano. Uptime e alertas notificam só quando o
@@ -25,7 +31,10 @@ const UPTIME_EVENT_BY_TRANSITION: Record<Transition, UptimeEvent> = {
  * Evento de uptime entre a amostra anterior e a atual. Sem histórico, a
  * verificação parte de "no ar": a primeira falha já avisa, o primeiro sucesso não.
  */
-export const uptimeEventFor = (previousOk: boolean | undefined, currentOk: boolean): UptimeEvent | null => {
+export const uptimeEventFor = (
+  previousOk: boolean | undefined,
+  currentOk: boolean,
+): UptimeEvent | null => {
   const transition = detectTransition(previousOk ?? true, currentOk);
   return transition ? UPTIME_EVENT_BY_TRANSITION[transition] : null;
 };

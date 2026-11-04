@@ -11,13 +11,17 @@ describe("isRolloutAborted", () => {
   });
 
   it("fase Degraded por RolloutAborted também conta", () => {
-    expect(isRolloutAborted({ phase: "Degraded", message: "RolloutAborted: metric failed" })).toBe(true);
+    expect(isRolloutAborted({ phase: "Degraded", message: "RolloutAborted: metric failed" })).toBe(
+      true,
+    );
   });
 
   it("rollout saudável ou em progresso não é rollback", () => {
     expect(isRolloutAborted({ phase: "Healthy" })).toBe(false);
     expect(isRolloutAborted({ phase: "Progressing" })).toBe(false);
-    expect(isRolloutAborted({ phase: "Degraded", message: "ProgressDeadlineExceeded" })).toBe(false);
+    expect(isRolloutAborted({ phase: "Degraded", message: "ProgressDeadlineExceeded" })).toBe(
+      false,
+    );
   });
 
   it("sem status não é rollback", () => {

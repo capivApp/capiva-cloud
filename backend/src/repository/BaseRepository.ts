@@ -43,16 +43,23 @@ export abstract class BaseRepository {
    * criar sem conferir permitiria plantar uma aplicação (ou banco, worker, cron)
    * dentro do projeto ou do ambiente de OUTRA organização.
    */
-  protected async assertParents(parents: { project?: string; environment?: string }): Promise<void> {
+  protected async assertParents(parents: {
+    project?: string;
+    environment?: string;
+  }): Promise<void> {
     if (parents.project) {
       await this.ensureScoped(
-        () => this.tx.project.findFirst({ where: { id: parents.project, ...this.scope("project") } }),
+        () =>
+          this.tx.project.findFirst({ where: { id: parents.project, ...this.scope("project") } }),
         "Projeto",
       );
     }
     if (parents.environment) {
       await this.ensureScoped(
-        () => this.tx.environment.findFirst({ where: { id: parents.environment, ...this.scope("environment") } }),
+        () =>
+          this.tx.environment.findFirst({
+            where: { id: parents.environment, ...this.scope("environment") },
+          }),
         "Ambiente",
       );
     }

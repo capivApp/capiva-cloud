@@ -25,7 +25,8 @@ export function useVolumes(applicationId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
   const createMut = useMutation({
-    mutationFn: (dto: VolumeSpec) => api.post<Volume>(`/applications/${applicationId}/volumes`, dto),
+    mutationFn: (dto: VolumeSpec) =>
+      api.post<Volume>(`/applications/${applicationId}/volumes`, dto),
     onSuccess: invalidate,
   });
   const removeMut = useMutation({

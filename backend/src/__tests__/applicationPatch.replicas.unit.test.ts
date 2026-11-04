@@ -5,7 +5,9 @@
  */
 import { beforeAll, describe, expect, it, mock } from "bun:test";
 
-await mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
+await mock.module("@database/withTransaction", () => ({
+  withTransaction: (fn: () => unknown) => fn(),
+}));
 
 let ApplicationService: typeof import("@service/ApplicationService").ApplicationService;
 let QuotaService: typeof import("@service/QuotaService").QuotaService;
@@ -16,7 +18,12 @@ beforeAll(async () => {
 });
 
 const tenant = { organizationId: "org_1" };
-const SEM_QUOTA = { quotaCpuMillicores: null, quotaMemoryMib: null, quotaPods: null, quotaStorageGi: null };
+const SEM_QUOTA = {
+  quotaCpuMillicores: null,
+  quotaMemoryMib: null,
+  quotaPods: null,
+  quotaStorageGi: null,
+};
 
 interface Cenario {
   app?: Record<string, unknown>;
@@ -46,7 +53,9 @@ function makeService({ app: appOverrides = {}, hpa = null, quota = {} }: Cenario
       return { ...app, ...data };
     }),
   };
-  const scalingRepo = { findByApplication: mock(async () => (hpa ? { ...hpa, metric: "CPU", target: 70 } : null)) };
+  const scalingRepo = {
+    findByApplication: mock(async () => (hpa ? { ...hpa, metric: "CPU", target: 70 } : null)),
+  };
   const kube = { forEnvironment: mock(async () => ({ kubeconfig: "cfg", namespace: "prod" })) };
   const k8s = { scaleDeployment: mock(async () => undefined) };
   const finops = {
@@ -56,7 +65,12 @@ function makeService({ app: appOverrides = {}, hpa = null, quota = {} }: Cenario
     })),
   };
   const environments = { findById: mock(async () => ({ id: "env_1", ...SEM_QUOTA, ...quota })) };
-  const quotas = new QuotaService(finops as never, environments as never, {} as never, kube as never);
+  const quotas = new QuotaService(
+    finops as never,
+    environments as never,
+    {} as never,
+    kube as never,
+  );
   const service = new ApplicationService(
     apps as never,
     {} as never,
@@ -83,12 +97,19 @@ describe("ApplicationService.patch: réplicas", () => {
     const result = await service.patch("app_1", { replicas: 4 }, tenant);
 
     expect(updates[0]?.sourceConfig).toMatchObject({ replicas: 4 });
-    expect(k8s.scaleDeployment).toHaveBeenCalledWith({ kubeconfig: "cfg", namespace: "prod" }, "api", 4);
+    expect(k8s.scaleDeployment).toHaveBeenCalledWith(
+      { kubeconfig: "cfg", namespace: "prod" },
+      "api",
+      4,
+    );
     expect(result.aviso).toBeUndefined();
   });
 
   it("recusa com 422 as réplicas que estouram a quota, sem gravar nem escalar", async () => {
-    const { service, k8s, updates } = makeService({ app: { rolloutStrategy: "CANARY" }, quota: { quotaPods: 10 } });
+    const { service, k8s, updates } = makeService({
+      app: { rolloutStrategy: "CANARY" },
+      quota: { quotaPods: 10 },
+    });
 
     const erro = await service.patch("app_1", { replicas: 50 }, tenant).catch((e: unknown) => e);
     expect(erro).toMatchObject({
@@ -100,7 +121,10 @@ describe("ApplicationService.patch: réplicas", () => {
   });
 
   it("desconta as réplicas atuais da própria aplicação na quota", async () => {
-    const { service, k8s } = makeService({ app: { sourceConfig: { replicas: 3 } }, quota: { quotaPods: 4 } });
+    const { service, k8s } = makeService({
+      app: { sourceConfig: { replicas: 3 } },
+      quota: { quotaPods: 4 },
+    });
     await service.patch("app_1", { replicas: 4 }, tenant);
     expect(k8s.scaleDeployment).toHaveBeenCalledTimes(1);
   });
@@ -117,7 +141,9 @@ describe("ApplicationService.patch: réplicas", () => {
     const result = await service.patch("app_1", { replicas: 6 }, tenant);
 
     expect(k8s.scaleDeployment).not.toHaveBeenCalled();
-    expect(result.aviso).toBe("O autoscaling está ativo e controla as réplicas. Para usar réplicas fixas, desative o autoscaling.");
+    expect(result.aviso).toBe(
+      "O autoscaling está ativo e controla as réplicas. Para usar réplicas fixas, desative o autoscaling.",
+    );
   });
 
   it("aplicação parada continua parada", async () => {

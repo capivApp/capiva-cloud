@@ -32,13 +32,16 @@ export class ProjectService {
     const project = await withTransaction(() => this.projects.findById(id), {
       tenant: { organizationId },
     });
-    if (!project || project.organizationId !== organizationId) throw HttpError.notFound("Projeto não encontrado.");
+    if (!project || project.organizationId !== organizationId)
+      throw HttpError.notFound("Projeto não encontrado.");
     return project;
   }
 
   async update(organizationId: string, id: string, name: string): Promise<Project> {
     await this.getById(organizationId, id);
-    return withTransaction(() => this.projects.update(id, { name, slug: slugify(name) }), { tenant: { organizationId } });
+    return withTransaction(() => this.projects.update(id, { name, slug: slugify(name) }), {
+      tenant: { organizationId },
+    });
   }
 
   async remove(organizationId: string, id: string): Promise<void> {

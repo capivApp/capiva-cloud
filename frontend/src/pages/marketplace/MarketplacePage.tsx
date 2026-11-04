@@ -21,18 +21,24 @@ export function MarketplacePage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Marketplace</h1>
-        <p className="text-sm text-muted-foreground">Adicione serviços ao seu projeto com 1 clique.</p>
+        <p className="text-sm text-muted-foreground">
+          Adicione serviços ao seu projeto com 1 clique.
+        </p>
       </div>
 
       {CATALOG.map(({ category, icon: Icon, items }) => (
         <div key={category} className="space-y-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Icon className="size-4" /> {category}</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+            <Icon className="size-4" /> {category}
+          </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {items.map((kind) => (
               <Card key={kind} className="transition-colors hover:border-primary/40">
                 <CardContent className="flex items-center justify-between pt-5">
                   <span className="font-medium">{kind}</span>
-                  <Button size="sm" variant="outline" onClick={() => setPreset(kind)}>+ Add</Button>
+                  <Button size="sm" variant="outline" onClick={() => setPreset(kind)}>
+                    + Add
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -41,14 +47,18 @@ export function MarketplacePage() {
       ))}
 
       <div className="space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground"><AppWindow className="size-4" /> Aplicações 1-clique</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+          <AppWindow className="size-4" /> Aplicações 1-clique
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {APP_TEMPLATES.map((t) => (
             <Card key={t.id} className="transition-colors hover:border-primary/40">
               <CardContent className="space-y-2 pt-5">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{t.name}</span>
-                  <Button asChild size="sm" variant="outline"><Link to={`/applications/new?template=${t.id}`}>+ Add</Link></Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/applications/new?template=${t.id}`}>+ Add</Link>
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">{t.description}</p>
                 <p className="font-mono text-[10px] text-muted-foreground">{t.image}</p>
@@ -58,7 +68,11 @@ export function MarketplacePage() {
         </div>
       </div>
 
-      <CreateDatabaseDrawer open={Boolean(preset)} onClose={() => setPreset(null)} presetKind={preset ?? undefined} />
+      <CreateDatabaseDrawer
+        open={Boolean(preset)}
+        onClose={() => setPreset(null)}
+        presetKind={preset ?? undefined}
+      />
     </div>
   );
 }

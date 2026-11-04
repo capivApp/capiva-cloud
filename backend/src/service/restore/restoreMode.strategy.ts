@@ -27,7 +27,10 @@ class InPlaceRestore implements RestoreModeStrategy {
 
   validate(input: RestoreBackupDTO, source: { name: string }): void {
     if (input.mode === "IN_PLACE" && input.confirmName.trim() === source.name) return;
-    throw HttpError.badRequest("O nome digitado não confere com o nome do banco.", "RESTORE_CONFIRMATION");
+    throw HttpError.badRequest(
+      "O nome digitado não confere com o nome do banco.",
+      "RESTORE_CONFIRMATION",
+    );
   }
 
   async resolveTarget<TDatabase extends { name: string }>(source: TDatabase): Promise<TDatabase> {
@@ -41,7 +44,10 @@ class AsCopyRestore implements RestoreModeStrategy {
 
   validate(input: RestoreBackupDTO, source: { name: string }): void {
     if (input.mode === "AS_COPY" && input.newName && input.newName !== source.name) return;
-    throw HttpError.badRequest("Informe um nome diferente do banco de origem.", "RESTORE_COPY_NAME");
+    throw HttpError.badRequest(
+      "Informe um nome diferente do banco de origem.",
+      "RESTORE_COPY_NAME",
+    );
   }
 
   resolveTarget<TDatabase extends { name: string }>(
@@ -61,5 +67,8 @@ const RESTORE_MODES: Record<string, RestoreModeStrategy> = {
 export const createRestoreModeStrategy = (mode: string): RestoreModeStrategy => {
   const strategy = RESTORE_MODES[mode];
   if (strategy) return strategy;
-  throw HttpError.badRequest("Escolha como restaurar: sobre o banco atual ou como cópia.", "RESTORE_MODE");
+  throw HttpError.badRequest(
+    "Escolha como restaurar: sobre o banco atual ou como cópia.",
+    "RESTORE_MODE",
+  );
 };

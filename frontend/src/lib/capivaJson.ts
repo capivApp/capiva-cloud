@@ -15,7 +15,9 @@ const isMarker = (value: unknown): value is CapivaMarker => {
   return typeof m?.path === "string" && Array.isArray(m.fields) && Array.isArray(m.envKeys);
 };
 
-export function readCapivaMarker(sourceConfig: Record<string, unknown> | null | undefined): CapivaMarker | null {
+export function readCapivaMarker(
+  sourceConfig: Record<string, unknown> | null | undefined,
+): CapivaMarker | null {
   const value = sourceConfig?.capivaJson;
   return isMarker(value) ? value : null;
 }
@@ -29,6 +31,7 @@ const ACTION = "Para mudar, edite o arquivo no repositório.";
 /** Texto do aviso para uma seção da tela, ou null quando o arquivo não a declara. */
 export function buildCapivaNotice(marker: CapivaMarker | null, fields: string[]): string | null {
   if (!marker || !fields.some((f) => isCapivaManaged(marker, f))) return null;
-  if (fields.includes("env") && marker.envKeys.length) return `${marker.envKeys.join(", ")} são definidas pelo ${marker.path}. ${ACTION}`;
+  if (fields.includes("env") && marker.envKeys.length)
+    return `${marker.envKeys.join(", ")} são definidas pelo ${marker.path}. ${ACTION}`;
   return `Campos marcados são definidos pelo ${marker.path}. ${ACTION}`;
 }

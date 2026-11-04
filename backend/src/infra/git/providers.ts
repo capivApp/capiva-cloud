@@ -1,5 +1,11 @@
 import crypto from "crypto";
-import type { CommitStatusInput, CommitStatusState, GitRepo, IGitProvider, StackDetection } from "@interface/integrations";
+import type {
+  CommitStatusInput,
+  CommitStatusState,
+  GitRepo,
+  IGitProvider,
+  StackDetection,
+} from "@interface/integrations";
 
 /** Comentário de PR/MR como as três APIs devolvem (só o que o upsert usa). */
 interface PullRequestComment {
@@ -67,15 +73,30 @@ abstract class BaseGitProvider implements IGitProvider {
   abstract listBranches(repo: string): Promise<string[]>;
   abstract detectStack(repo: string, branch: string): Promise<StackDetection>;
   abstract setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void>;
-  protected abstract listPullRequestComments(repo: string, number: number): Promise<PullRequestComment[]>;
-  protected abstract createPullRequestComment(repo: string, number: number, body: string): Promise<void>;
-  protected abstract updatePullRequestComment(repo: string, number: number, commentId: string, body: string): Promise<void>;
+  protected abstract listPullRequestComments(
+    repo: string,
+    number: number,
+  ): Promise<PullRequestComment[]>;
+  protected abstract createPullRequestComment(
+    repo: string,
+    number: number,
+    body: string,
+  ): Promise<void>;
+  protected abstract updatePullRequestComment(
+    repo: string,
+    number: number,
+    commentId: string,
+    body: string,
+  ): Promise<void>;
 
   // --- capiva.json: leitura de arquivo no commit ---
   abstract readFile(repo: string, ref: string, path: string): Promise<string | null>;
 
   /** Conteúdo base64 das contents/files APIs. 404 = arquivo ausente (null). */
-  protected async fetchBase64Content(path: string, headers: Record<string, string>): Promise<string | null> {
+  protected async fetchBase64Content(
+    path: string,
+    headers: Record<string, string>,
+  ): Promise<string | null> {
     const res = await fetch(`${this.baseUrl}${path}`, { headers });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Git API ${res.status}: ${path}`);
@@ -91,7 +112,12 @@ abstract class BaseGitProvider implements IGitProvider {
   }
 
   /** Escrita (POST/PUT/PATCH) com corpo JSON. */
-  protected async send(method: "POST" | "PUT" | "PATCH", path: string, headers: Record<string, string>, body: unknown): Promise<void> {
+  protected async send(
+    method: "POST" | "PUT" | "PATCH",
+    path: string,
+    headers: Record<string, string>,
+    body: unknown,
+  ): Promise<void> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: { ...headers, "Content-Type": "application/json" },
@@ -105,7 +131,12 @@ abstract class BaseGitProvider implements IGitProvider {
    * atualiza; sem ele, cria. Assim cada push no PR edita o mesmo comentário em
    * vez de empilhar um novo.
    */
-  async commentOnPullRequest(repo: string, number: number, body: string, marker: string): Promise<void> {
+  async commentOnPullRequest(
+    repo: string,
+    number: number,
+    body: string,
+    marker: string,
+  ): Promise<void> {
     const text = body.includes(marker) ? body : `${marker}\n${body}`;
     const comments = await this.listPullRequestComments(repo, number);
     const existing = comments.find((c) => typeof c.body === "string" && c.body.includes(marker));
@@ -116,7 +147,8 @@ abstract class BaseGitProvider implements IGitProvider {
   /** HMAC-SHA256 (GitHub/Gitea: header `sha256=...`). */
   verifyWebhook(signature: string | undefined, rawBody: Buffer | string): boolean {
     if (!signature) return false;
-    const expected = "sha256=" + crypto.createHmac("sha256", this.webhookSecret).update(rawBody).digest("hex");
+    const expected =
+      "sha256=" + crypto.createHmac("sha256", this.webhookSecret).update(rawBody).digest("hex");
     try {
       return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
     } catch {
@@ -128,35 +160,73 @@ abstract class BaseGitProvider implements IGitProvider {
 export class GitHubProvider extends BaseGitProvider {
   // --- capiva.json ---
   readFile(repo: string, ref: string, path: string): Promise<string | null> {
-    return this.fetchBase64Content(`/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, this.headers());
+    return this.fetchBase64Content(
+      `/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
+      this.headers(),
+    );
   }
   private headers() {
-    return { Authorization: `Bearer ${this.accessToken}`, Accept: "application/vnd.github+json", "User-Agent": "capiva-cloud" };
+    return {
+      Authorization: `Bearer ${this.accessToken}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "capiva-cloud",
+    };
   }
   async listRepos(): Promise<GitRepo[]> {
-    const repos = await this.api<GitHubRepo[]>("/user/repos?per_page=100&sort=updated", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
+    const repos = await this.api<GitHubRepo[]>(
+      "/user/repos?per_page=100&sort=updated",
+      this.headers(),
+    );
+    return repos.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      fullName: r.full_name,
+      defaultBranch: r.default_branch,
+      private: r.private,
+      cloneUrl: r.clone_url,
+    }));
   }
   async listBranches(repo: string): Promise<string[]> {
-    const branches = await this.api<GitBranch[]>(`/repos/${repo}/branches?per_page=100`, this.headers());
+    const branches = await this.api<GitBranch[]>(
+      `/repos/${repo}/branches?per_page=100`,
+      this.headers(),
+    );
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<{ tree: GitTreeEntry[] }>(`/repos/${repo}/git/trees/${branch}?recursive=0`, this.headers());
+    const tree = await this.api<{ tree: GitTreeEntry[] }>(
+      `/repos/${repo}/git/trees/${branch}?recursive=0`,
+      this.headers(),
+    );
     return detectFromPaths(tree.tree.map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {
-    return this.send("POST", `/repos/${repo}/statuses/${sha}`, this.headers(), commitStatusBody(status));
+    return this.send(
+      "POST",
+      `/repos/${repo}/statuses/${sha}`,
+      this.headers(),
+      commitStatusBody(status),
+    );
   }
   // PR é issue no GitHub: os comentários da conversa ficam na API de issues.
   protected listPullRequestComments(repo: string, number: number): Promise<PullRequestComment[]> {
-    return this.api<PullRequestComment[]>(`/repos/${repo}/issues/${number}/comments?per_page=100`, this.headers());
+    return this.api<PullRequestComment[]>(
+      `/repos/${repo}/issues/${number}/comments?per_page=100`,
+      this.headers(),
+    );
   }
   protected createPullRequestComment(repo: string, number: number, body: string): Promise<void> {
     return this.send("POST", `/repos/${repo}/issues/${number}/comments`, this.headers(), { body });
   }
-  protected updatePullRequestComment(repo: string, _number: number, commentId: string, body: string): Promise<void> {
-    return this.send("PATCH", `/repos/${repo}/issues/comments/${commentId}`, this.headers(), { body });
+  protected updatePullRequestComment(
+    repo: string,
+    _number: number,
+    commentId: string,
+    body: string,
+  ): Promise<void> {
+    return this.send("PATCH", `/repos/${repo}/issues/comments/${commentId}`, this.headers(), {
+      body,
+    });
   }
 }
 
@@ -170,36 +240,67 @@ export class GitLabProvider extends BaseGitProvider {
     return { "PRIVATE-TOKEN": this.accessToken };
   }
   async listRepos(): Promise<GitRepo[]> {
-    const repos = await this.api<GitLabProject[]>("/api/v4/projects?membership=true&per_page=100", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.path_with_namespace, defaultBranch: r.default_branch, private: r.visibility !== "public", cloneUrl: r.http_url_to_repo }));
+    const repos = await this.api<GitLabProject[]>(
+      "/api/v4/projects?membership=true&per_page=100",
+      this.headers(),
+    );
+    return repos.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      fullName: r.path_with_namespace,
+      defaultBranch: r.default_branch,
+      private: r.visibility !== "public",
+      cloneUrl: r.http_url_to_repo,
+    }));
   }
   async listBranches(repo: string): Promise<string[]> {
-    const branches = await this.api<GitBranch[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/branches`, this.headers());
+    const branches = await this.api<GitBranch[]>(
+      `/api/v4/projects/${encodeURIComponent(repo)}/repository/branches`,
+      this.headers(),
+    );
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<GitTreeEntry[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/tree?ref=${branch}&per_page=100`, this.headers());
+    const tree = await this.api<GitTreeEntry[]>(
+      `/api/v4/projects/${encodeURIComponent(repo)}/repository/tree?ref=${branch}&per_page=100`,
+      this.headers(),
+    );
     return detectFromPaths(tree.map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {
-    return this.send("POST", `/api/v4/projects/${encodeURIComponent(repo)}/statuses/${sha}`, this.headers(), {
-      state: GITLAB_COMMIT_STATE[status.state],
-      description: status.description,
-      target_url: status.targetUrl,
-      name: status.context,
-    });
+    return this.send(
+      "POST",
+      `/api/v4/projects/${encodeURIComponent(repo)}/statuses/${sha}`,
+      this.headers(),
+      {
+        state: GITLAB_COMMIT_STATE[status.state],
+        description: status.description,
+        target_url: status.targetUrl,
+        name: status.context,
+      },
+    );
   }
   private notesPath(repo: string, number: number): string {
     return `/api/v4/projects/${encodeURIComponent(repo)}/merge_requests/${number}/notes`;
   }
   protected listPullRequestComments(repo: string, number: number): Promise<PullRequestComment[]> {
-    return this.api<PullRequestComment[]>(`${this.notesPath(repo, number)}?per_page=100`, this.headers());
+    return this.api<PullRequestComment[]>(
+      `${this.notesPath(repo, number)}?per_page=100`,
+      this.headers(),
+    );
   }
   protected createPullRequestComment(repo: string, number: number, body: string): Promise<void> {
     return this.send("POST", this.notesPath(repo, number), this.headers(), { body });
   }
-  protected updatePullRequestComment(repo: string, number: number, commentId: string, body: string): Promise<void> {
-    return this.send("PUT", `${this.notesPath(repo, number)}/${commentId}`, this.headers(), { body });
+  protected updatePullRequestComment(
+    repo: string,
+    number: number,
+    commentId: string,
+    body: string,
+  ): Promise<void> {
+    return this.send("PUT", `${this.notesPath(repo, number)}/${commentId}`, this.headers(), {
+      body,
+    });
   }
   /** GitLab usa header `X-Gitlab-Token` (comparação direta do secret). */
   override verifyWebhook(signature: string | undefined): boolean {
@@ -210,34 +311,67 @@ export class GitLabProvider extends BaseGitProvider {
 export class GiteaProvider extends BaseGitProvider {
   // --- capiva.json ---
   readFile(repo: string, ref: string, path: string): Promise<string | null> {
-    return this.fetchBase64Content(`/api/v1/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, this.headers());
+    return this.fetchBase64Content(
+      `/api/v1/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
+      this.headers(),
+    );
   }
   private headers() {
     return { Authorization: `token ${this.accessToken}` };
   }
   async listRepos(): Promise<GitRepo[]> {
     const repos = await this.api<GitHubRepo[]>("/api/v1/user/repos?limit=100", this.headers());
-    return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
+    return repos.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      fullName: r.full_name,
+      defaultBranch: r.default_branch,
+      private: r.private,
+      cloneUrl: r.clone_url,
+    }));
   }
   async listBranches(repo: string): Promise<string[]> {
     const branches = await this.api<GitBranch[]>(`/api/v1/repos/${repo}/branches`, this.headers());
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<{ tree: GitTreeEntry[] }>(`/api/v1/repos/${repo}/git/trees/${branch}?recursive=false`, this.headers());
+    const tree = await this.api<{ tree: GitTreeEntry[] }>(
+      `/api/v1/repos/${repo}/git/trees/${branch}?recursive=false`,
+      this.headers(),
+    );
     return detectFromPaths((tree.tree ?? []).map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {
-    return this.send("POST", `/api/v1/repos/${repo}/statuses/${sha}`, this.headers(), commitStatusBody(status));
+    return this.send(
+      "POST",
+      `/api/v1/repos/${repo}/statuses/${sha}`,
+      this.headers(),
+      commitStatusBody(status),
+    );
   }
   protected listPullRequestComments(repo: string, number: number): Promise<PullRequestComment[]> {
-    return this.api<PullRequestComment[]>(`/api/v1/repos/${repo}/issues/${number}/comments`, this.headers());
+    return this.api<PullRequestComment[]>(
+      `/api/v1/repos/${repo}/issues/${number}/comments`,
+      this.headers(),
+    );
   }
   protected createPullRequestComment(repo: string, number: number, body: string): Promise<void> {
-    return this.send("POST", `/api/v1/repos/${repo}/issues/${number}/comments`, this.headers(), { body });
+    return this.send("POST", `/api/v1/repos/${repo}/issues/${number}/comments`, this.headers(), {
+      body,
+    });
   }
-  protected updatePullRequestComment(repo: string, _number: number, commentId: string, body: string): Promise<void> {
-    return this.send("PATCH", `/api/v1/repos/${repo}/issues/comments/${commentId}`, this.headers(), { body });
+  protected updatePullRequestComment(
+    repo: string,
+    _number: number,
+    commentId: string,
+    body: string,
+  ): Promise<void> {
+    return this.send(
+      "PATCH",
+      `/api/v1/repos/${repo}/issues/comments/${commentId}`,
+      this.headers(),
+      { body },
+    );
   }
 }
 

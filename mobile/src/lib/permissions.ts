@@ -26,5 +26,9 @@ const isPapelSuficiente = (role: string | null | undefined, minimo: Role): boole
 };
 
 /** O que o papel pode fazer na aplicação. Papel ausente ou desconhecido não pode nada. */
-export const buildPermissoesDaAplicacao = (role: string | null | undefined): PermissoesDaAplicacao =>
-  Object.fromEntries(ACOES_APLICACAO.map((acao) => [acao, isPapelSuficiente(role, PAPEL_MINIMO[acao])])) as PermissoesDaAplicacao;
+export const buildPermissoesDaAplicacao = (
+  role: string | null | undefined,
+): PermissoesDaAplicacao =>
+  Object.fromEntries(
+    ACOES_APLICACAO.map((acao) => [acao, isPapelSuficiente(role, PAPEL_MINIMO[acao])]),
+  ) as PermissoesDaAplicacao;

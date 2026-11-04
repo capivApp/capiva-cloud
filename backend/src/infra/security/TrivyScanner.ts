@@ -1,7 +1,12 @@
 import { Injectable } from "@di/index";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { trivyCredentialsSecretManifest, trivyJobManifest } from "@infra/security/trivyJob";
-import { DEFAULT_TOP_LIMIT, TrivyReportError, extractTrivyReport, parseTrivyReport } from "@infra/security/trivyReport";
+import {
+  DEFAULT_TOP_LIMIT,
+  TrivyReportError,
+  extractTrivyReport,
+  parseTrivyReport,
+} from "@infra/security/trivyReport";
 import type { KubeContext } from "@interface/integrations";
 import type { TrivyFindings } from "@interface/scan";
 
@@ -41,35 +46,60 @@ export class TrivyScanner {
   async scan(req: TrivyScanRequest): Promise<TrivyFindings> {
     // Sem kubeconfig o adapter opera em simulação: observe() responde "pronto"
     // sem status de Job e o scan esperaria até o timeout por nada.
-    if (!req.ctx.kubeconfig) throw new ImageScannerError("Cluster em modo de simulação (sem kubeconfig).");
+    if (!req.ctx.kubeconfig)
+      throw new ImageScannerError("Cluster em modo de simulação (sem kubeconfig).");
 
     const name = `scan-${req.deploymentId}`.toLowerCase().slice(0, 52);
     const credentialsSecret = req.auth ? `${name}-auth` : undefined;
     try {
       if (req.auth && credentialsSecret) {
-        await this.k8s.apply(req.ctx, trivyCredentialsSecretManifest(credentialsSecret, req.ctx.namespace, req.auth));
+        await this.k8s.apply(
+          req.ctx,
+          trivyCredentialsSecretManifest(credentialsSecret, req.ctx.namespace, req.auth),
+        );
       }
-      await this.k8s.apply(req.ctx, trivyJobManifest({ name, namespace: req.ctx.namespace, imageRef: req.imageRef, deploymentId: req.deploymentId, credentialsSecret, insecure: req.insecure }));
+      await this.k8s.apply(
+        req.ctx,
+        trivyJobManifest({
+          name,
+          namespace: req.ctx.namespace,
+          imageRef: req.imageRef,
+          deploymentId: req.deploymentId,
+          credentialsSecret,
+          insecure: req.insecure,
+        }),
+      );
       await this.awaitJob(req.ctx, name);
       return await this.readFindings(req.ctx, name, req.limit ?? DEFAULT_TOP_LIMIT);
     } finally {
       // Credencial efêmera: não fica no namespace depois do scan.
-      if (credentialsSecret) await this.k8s.remove(req.ctx, "v1", "Secret", credentialsSecret).catch(() => {});
+      if (credentialsSecret)
+        await this.k8s.remove(req.ctx, "v1", "Secret", credentialsSecret).catch(() => {});
     }
   }
 
   private async awaitJob(ctx: KubeContext, name: string): Promise<void> {
     const deadline = Date.now() + this.timeoutMs;
     while (Date.now() < deadline) {
-      const raw = ((await this.k8s.observe(ctx, "batch/v1", "Job", name)).raw ?? {}) as { succeeded?: number; failed?: number };
+      const raw = ((await this.k8s.observe(ctx, "batch/v1", "Job", name)).raw ?? {}) as {
+        succeeded?: number;
+        failed?: number;
+      };
       if ((raw.succeeded ?? 0) > 0) return;
-      if ((raw.failed ?? 0) > 0) throw new ImageScannerError(`Job ${name} falhou. ${await this.lastLogLine(ctx, name)}`.trim());
+      if ((raw.failed ?? 0) > 0)
+        throw new ImageScannerError(
+          `Job ${name} falhou. ${await this.lastLogLine(ctx, name)}`.trim(),
+        );
       await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
     }
     throw new ImageScannerError(`Job ${name} expirou (timeout).`);
   }
 
-  private async readFindings(ctx: KubeContext, name: string, limit: number): Promise<TrivyFindings> {
+  private async readFindings(
+    ctx: KubeContext,
+    name: string,
+    limit: number,
+  ): Promise<TrivyFindings> {
     const report = extractTrivyReport(await this.logs(ctx, name));
     if (!report) throw new TrivyReportError(`Relatório do Trivy ausente no log do Job ${name}.`);
     return parseTrivyReport(report, limit);

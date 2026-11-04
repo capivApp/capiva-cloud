@@ -11,10 +11,17 @@ export const PREVIEW_CLEANUP_LOCK = "scheduler:preview-cleanup";
  * com N réplicas, N destroys concorrentes do mesmo preview falhariam em
  * cascata no cluster.
  */
-export function startPreviewCleanupScheduler(intervalMs = 60 * 60_000): ReturnType<typeof setInterval> {
+export function startPreviewCleanupScheduler(
+  intervalMs = 60 * 60_000,
+): ReturnType<typeof setInterval> {
   const tick = () =>
-    withLeadership(PREVIEW_CLEANUP_LOCK, intervalMs, () => container.get(PreviewDeploymentService).destroyExpired())
-      .then((n) => n !== null && n > 0 && console.log(`[preview] ${n} preview(s) expirado(s) destruído(s)`))
+    withLeadership(PREVIEW_CLEANUP_LOCK, intervalMs, () =>
+      container.get(PreviewDeploymentService).destroyExpired(),
+    )
+      .then(
+        (n) =>
+          n !== null && n > 0 && console.log(`[preview] ${n} preview(s) expirado(s) destruído(s)`),
+      )
       .catch((e) => console.error("[preview] scheduler:", (e as Error).message));
 
   setTimeout(tick, 60_000); // primeira avaliação um minuto após o boot

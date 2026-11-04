@@ -9,20 +9,28 @@ import type { ScalingPolicy, ScalingStatus, SetScalingInput } from "@/lib/scalin
  */
 export function useScaling(applicationId: string | null) {
   const queryClient = useQueryClient();
-  const status = useEventSource<ScalingStatus>(applicationId ? `/streams/applications/${applicationId}/scaling` : null, "scaling");
+  const status = useEventSource<ScalingStatus>(
+    applicationId ? `/streams/applications/${applicationId}/scaling` : null,
+    "scaling",
+  );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["application", applicationId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["application", applicationId] });
 
   const scaleMut = useMutation({
     mutationKey: ["application", applicationId, "scale"],
     mutationFn: (replicas: number) =>
-      api.post<{ replicas: number; autoscalerActive: boolean }>(`/applications/${applicationId}/scaling/replicas`, { replicas }),
+      api.post<{ replicas: number; autoscalerActive: boolean }>(
+        `/applications/${applicationId}/scaling/replicas`,
+        { replicas },
+      ),
     onSuccess: invalidate,
   });
 
   const policyMut = useMutation({
     mutationKey: ["application", applicationId, "scaling-policy"],
-    mutationFn: (input: SetScalingInput) => api.put<ScalingPolicy>(`/applications/${applicationId}/scaling`, input),
+    mutationFn: (input: SetScalingInput) =>
+      api.put<ScalingPolicy>(`/applications/${applicationId}/scaling`, input),
     onSuccess: invalidate,
   });
 

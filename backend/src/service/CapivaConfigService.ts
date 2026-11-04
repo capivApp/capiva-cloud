@@ -6,7 +6,11 @@ import { ScalingService } from "@service/ScalingService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { GitProviderFactory } from "@infra/git/GitProviderFactory";
 import { CapivaConfigError, parseCapivaConfig } from "@schemas/capivaConfig.schema";
-import { planCapivaConfig, type CapivaAction, type CapivaSnapshot } from "@service/capivaConfig.strategy";
+import {
+  planCapivaConfig,
+  type CapivaAction,
+  type CapivaSnapshot,
+} from "@service/capivaConfig.strategy";
 import { withoutReconcile } from "@functions/reconcileScope";
 import { repoOf } from "@functions/gitRepo";
 import type { IGitProvider } from "@interface/integrations";
@@ -46,7 +50,13 @@ export class CapivaConfigService {
   ) {}
 
   /** Executor por tipo de ação (strategy map): cada um chama o service da tela. */
-  private readonly executors: { [K in CapivaAction["kind"]]: (appId: string, action: Extract<CapivaAction, { kind: K }>, tenant: Tenant) => Promise<unknown> } = {
+  private readonly executors: {
+    [K in CapivaAction["kind"]]: (
+      appId: string,
+      action: Extract<CapivaAction, { kind: K }>,
+      tenant: Tenant,
+    ) => Promise<unknown>;
+  } = {
     patch: (appId, a, tenant) => this.apps.patch(appId, a.dto, tenant),
     buildArgs: (appId, a, tenant) => this.apps.replaceBuildArgs(appId, a.buildArgs, tenant),
     env: (appId, a, tenant) => this.envVars.replace(appId, a.vars, tenant),
@@ -61,21 +71,40 @@ export class CapivaConfigService {
    * arquivo mudou). Sem Git ou sem arquivo, devolve a aplicação como veio. Vale para
    * toda origem vinda de um repositório (GitHub, Nixpacks, Railpack, Compose...).
    */
-  async applyForDeploy(app: Application, commitId: string | undefined, tenant: Tenant, onEvent: DeployEventSink): Promise<Application> {
+  async applyForDeploy(
+    app: Application,
+    commitId: string | undefined,
+    tenant: Tenant,
+    onEvent: DeployEventSink,
+  ): Promise<Application> {
     const repo = repoOf(app.sourceConfig);
     if (!app.gitConnectionId || !repo) return app;
 
     const cfg = (app.sourceConfig ?? {}) as Record<string, unknown>;
     const ref = commitId || (cfg.branch as string | undefined) || "main";
-    const found = await this.reportFailure(() => this.readCapivaFile(app.gitConnectionId!, repo, cfg.subPath, ref, tenant), onEvent);
+    const found = await this.reportFailure(
+      () => this.readCapivaFile(app.gitConnectionId!, repo, cfg.subPath, ref, tenant),
+      onEvent,
+    );
     if (!found) {
       await this.clearMarker(app, cfg, tenant);
       return app;
     }
 
-    const plan = await this.reportFailure(async () => planCapivaConfig(parseCapivaConfig(found.content), await this.snapshotOf(app, tenant)), onEvent);
-    await this.reportFailure(() => withoutReconcile(() => this.executeAll(app.id, plan.actions, tenant)), onEvent);
-    await this.apps.saveCapivaMarker(app.id, { path: found.path, ref, fields: plan.fields, envKeys: plan.envKeys }, tenant);
+    const plan = await this.reportFailure(
+      async () =>
+        planCapivaConfig(parseCapivaConfig(found.content), await this.snapshotOf(app, tenant)),
+      onEvent,
+    );
+    await this.reportFailure(
+      () => withoutReconcile(() => this.executeAll(app.id, plan.actions, tenant)),
+      onEvent,
+    );
+    await this.apps.saveCapivaMarker(
+      app.id,
+      { path: found.path, ref, fields: plan.fields, envKeys: plan.envKeys },
+      tenant,
+    );
     await onEvent(`capiva.json aplicado (${found.path})`);
     return this.apps.getById(app.id, tenant);
   }
@@ -89,7 +118,11 @@ export class CapivaConfigService {
    * arquivo: vai para a timeline e não dispara rollback, porque nada foi ao ar ainda.
    */
   private async execute(appId: string, action: CapivaAction, tenant: Tenant): Promise<unknown> {
-    const executor = this.executors[action.kind] as (id: string, a: CapivaAction, t: Tenant) => Promise<unknown>;
+    const executor = this.executors[action.kind] as (
+      id: string,
+      a: CapivaAction,
+      t: Tenant,
+    ) => Promise<unknown>;
     try {
       return await executor(appId, action, tenant);
     } catch (error) {
@@ -117,7 +150,13 @@ export class CapivaConfigService {
     return { app, env, domains, volumes, scaling };
   }
 
-  private async readCapivaFile(connectionId: string, repo: string, subPath: unknown, ref: string, tenant: Tenant) {
+  private async readCapivaFile(
+    connectionId: string,
+    repo: string,
+    subPath: unknown,
+    ref: string,
+    tenant: Tenant,
+  ) {
     const provider = await this.providerFor(connectionId, tenant);
     for (const path of candidatePaths(subPath)) {
       const content = await this.readOrFail(provider, repo, ref, path);
@@ -126,12 +165,19 @@ export class CapivaConfigService {
     return null;
   }
 
-  private async readOrFail(provider: IGitProvider, repo: string, ref: string, path: string): Promise<string | null> {
+  private async readOrFail(
+    provider: IGitProvider,
+    repo: string,
+    ref: string,
+    path: string,
+  ): Promise<string | null> {
     try {
       return await provider.readFile(repo, ref, path);
     } catch (error) {
       console.error("[capiva.json] leitura falhou:", (error as Error).message);
-      throw new CapivaConfigError("Não foi possível ler o capiva.json do repositório. Tente o deploy de novo.");
+      throw new CapivaConfigError(
+        "Não foi possível ler o capiva.json do repositório. Tente o deploy de novo.",
+      );
     }
   }
 
@@ -140,11 +186,20 @@ export class CapivaConfigService {
       this.gitConnections.getById(tenant.organizationId, connectionId),
       this.gitConnections.credentials(tenant.organizationId, connectionId),
     ]);
-    return this.gitProviders.build({ provider: conn.provider, accessToken: token, webhookSecret: conn.webhookSecret, baseUrl: conn.baseUrl });
+    return this.gitProviders.build({
+      provider: conn.provider,
+      accessToken: token,
+      webhookSecret: conn.webhookSecret,
+      baseUrl: conn.baseUrl,
+    });
   }
 
   /** Arquivo removido do repositório: a tela volta a editar tudo. */
-  private async clearMarker(app: Application, cfg: Record<string, unknown>, tenant: Tenant): Promise<void> {
+  private async clearMarker(
+    app: Application,
+    cfg: Record<string, unknown>,
+    tenant: Tenant,
+  ): Promise<void> {
     if (!cfg.capivaJson) return;
     await this.apps.saveCapivaMarker(app.id, null, tenant);
   }

@@ -8,8 +8,19 @@ import { withoutReconcile } from "@functions/reconcileScope";
 import type { Application } from "@prisma-generated/client";
 
 const app = { id: "app1", environmentId: "env1", sourceConfig: {} } as unknown as Application;
-const untouched = new Proxy({}, { get: () => { throw new Error("dependência acessada"); } });
-const service = new ApplicationService(...(Array.from({ length: 13 }, () => untouched) as ConstructorParameters<typeof ApplicationService>));
+const untouched = new Proxy(
+  {},
+  {
+    get: () => {
+      throw new Error("dependência acessada");
+    },
+  },
+);
+const service = new ApplicationService(
+  ...(Array.from({ length: 13 }, () => untouched) as ConstructorParameters<
+    typeof ApplicationService
+  >),
+);
 
 describe("ApplicationService.reconcile adiado", () => {
   it("no escopo do capiva.json não aplica nada", async () => {
@@ -18,6 +29,8 @@ describe("ApplicationService.reconcile adiado", () => {
   });
 
   it("fora do escopo segue reconciliando", async () => {
-    expect(service.reconcile(app, { organizationId: "org1" })).rejects.toThrow("dependência acessada");
+    expect(service.reconcile(app, { organizationId: "org1" })).rejects.toThrow(
+      "dependência acessada",
+    );
   });
 });

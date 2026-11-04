@@ -53,7 +53,8 @@ async function attachOrganization(req: Request): Promise<void> {
 
   // API key: a org é a da própria chave; qualquer outra é recusada.
   if (req.apiKey) {
-    if (req.apiKey.organizationId !== organizationId) throw HttpError.forbidden("Chave de outra organização.");
+    if (req.apiKey.organizationId !== organizationId)
+      throw HttpError.forbidden("Chave de outra organização.");
     req.organizationId = organizationId;
     req.organizationRole = req.apiKey.role;
     return;
@@ -70,14 +71,19 @@ async function attachOrganization(req: Request): Promise<void> {
  * continua ativa — garantindo revogação imediata mesmo com JWT ainda válido.
  * Aceita também API keys `cap_...` (para o app mobile/CLI).
  */
-export async function authMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function authMiddleware(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) throw HttpError.unauthorized();
     const token = header.slice(7);
 
     if (token.startsWith("cap_")) {
-      if (!(await authenticateApiKey(req, token))) throw HttpError.unauthorized("API key inválida.");
+      if (!(await authenticateApiKey(req, token)))
+        throw HttpError.unauthorized("API key inválida.");
       await attachOrganization(req);
       return next();
     }
@@ -98,15 +104,22 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
  * Variante para SSE/EventSource (que não envia header Authorization):
  * aceita o access token também via query string `?access_token=`.
  */
-export async function sseAuthMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function sseAuthMiddleware(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const header = req.headers.authorization;
-    const token = header?.startsWith("Bearer ") ? header.slice(7) : (req.query.access_token as string);
+    const token = header?.startsWith("Bearer ")
+      ? header.slice(7)
+      : (req.query.access_token as string);
     if (!token) throw HttpError.unauthorized();
 
     // CLI (`deploy --wait`, `logs -f`) acompanha os streams com a chave de API.
     if (token.startsWith("cap_")) {
-      if (!(await authenticateApiKey(req, token))) throw HttpError.unauthorized("API key inválida.");
+      if (!(await authenticateApiKey(req, token)))
+        throw HttpError.unauthorized("API key inválida.");
       await attachOrganization(req);
       return next();
     }

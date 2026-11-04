@@ -14,7 +14,10 @@ const conteudo = '{ "port": 8080 }';
 const base64 = Buffer.from(conteudo, "utf8").toString("base64");
 
 const mockFetch = (status: number, body: unknown) => {
-  const fn = mock(async (_url: string | URL | Request, _init?: RequestInit) => new Response(JSON.stringify(body), { status }));
+  const fn = mock(
+    async (_url: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify(body), { status }),
+  );
   globalThis.fetch = fn as unknown as typeof fetch;
   return fn;
 };
@@ -29,21 +32,27 @@ describe("readFile", () => {
     const fn = mockFetch(200, { content: base64, encoding: "base64" });
     const provider = new GitHubProvider("tok", "sec", "https://ghe.exemplo.com/api/v3");
     expect(await provider.readFile("org/repo", "abc123", "apps/api/capiva.json")).toBe(conteudo);
-    expect(urlOf(fn)).toBe("https://ghe.exemplo.com/api/v3/repos/org/repo/contents/apps/api/capiva.json?ref=abc123");
+    expect(urlOf(fn)).toBe(
+      "https://ghe.exemplo.com/api/v3/repos/org/repo/contents/apps/api/capiva.json?ref=abc123",
+    );
   });
 
   it("GitLab usa a repository files API com projeto e caminho codificados", async () => {
     const fn = mockFetch(200, { content: base64, encoding: "base64" });
     const provider = new GitLabProvider("tok", "sec", "https://gitlab.exemplo.com");
     expect(await provider.readFile("grupo/repo", "main", "apps/api/capiva.json")).toBe(conteudo);
-    expect(urlOf(fn)).toBe("https://gitlab.exemplo.com/api/v4/projects/grupo%2Frepo/repository/files/apps%2Fapi%2Fcapiva.json?ref=main");
+    expect(urlOf(fn)).toBe(
+      "https://gitlab.exemplo.com/api/v4/projects/grupo%2Frepo/repository/files/apps%2Fapi%2Fcapiva.json?ref=main",
+    );
   });
 
   it("Gitea usa a contents API", async () => {
     const fn = mockFetch(200, { content: base64, encoding: "base64" });
     const provider = new GiteaProvider("tok", "sec", "https://gitea.exemplo.com");
     expect(await provider.readFile("org/repo", "main", "capiva.json")).toBe(conteudo);
-    expect(urlOf(fn)).toBe("https://gitea.exemplo.com/api/v1/repos/org/repo/contents/capiva.json?ref=main");
+    expect(urlOf(fn)).toBe(
+      "https://gitea.exemplo.com/api/v1/repos/org/repo/contents/capiva.json?ref=main",
+    );
   });
 
   it("404 significa arquivo ausente", async () => {

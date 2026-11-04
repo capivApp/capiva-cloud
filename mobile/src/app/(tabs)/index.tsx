@@ -23,7 +23,17 @@ import { formatShortDateTime } from "@/lib/format";
 import { nativeTheme } from "@/lib/theme";
 import { useAuthStore } from "@/stores/useAuthStore";
 
-function StatTile({ label, value, icon, tint }: { label: string; value: number; icon: LucideIcon; tint: IconTint }) {
+function StatTile({
+  label,
+  value,
+  icon,
+  tint,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  tint: IconTint;
+}) {
   return (
     <View className="min-w-[45%] flex-1 flex-row items-center gap-3 rounded-2xl border border-border/60 bg-card p-4">
       <IconBadge icon={icon} tint={tint} />
@@ -77,14 +87,31 @@ export default function DashboardScreen() {
     <Screen
       topInset
       refreshControl={
-        <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={nativeTheme.primary} />
+        <RefreshControl
+          refreshing={isFetching}
+          onRefresh={refetch}
+          tintColor={nativeTheme.primary}
+        />
       }
     >
-      <ScreenHeader title="Visão Geral" subtitle={`Olá, ${user?.name?.split(" ")[0] ?? "dev"} 👋`} />
+      <ScreenHeader
+        title="Visão Geral"
+        subtitle={`Olá, ${user?.name?.split(" ")[0] ?? "dev"} 👋`}
+      />
 
       <View className="flex-row flex-wrap gap-3">
-        <StatTile label="Projetos" value={overview.counts.projects} icon={FolderKanban} tint="primary" />
-        <StatTile label="Aplicações" value={overview.counts.applications} icon={Boxes} tint="secondary" />
+        <StatTile
+          label="Projetos"
+          value={overview.counts.projects}
+          icon={FolderKanban}
+          tint="primary"
+        />
+        <StatTile
+          label="Aplicações"
+          value={overview.counts.applications}
+          icon={Boxes}
+          tint="secondary"
+        />
         <StatTile label="Bancos" value={overview.counts.databases} icon={Database} tint="success" />
         <StatTile label="Workers" value={overview.counts.workers} icon={Workflow} tint="muted" />
       </View>
@@ -114,7 +141,9 @@ export default function DashboardScreen() {
               <Text className="text-sm font-semibold">{count}</Text>
             </View>
           ))}
-          {!Object.keys(overview.health).length && <Text variant="muted">Sem aplicações ainda.</Text>}
+          {!Object.keys(overview.health).length && (
+            <Text variant="muted">Sem aplicações ainda.</Text>
+          )}
         </View>
       </SectionCard>
 

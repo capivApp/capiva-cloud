@@ -42,7 +42,10 @@ const fromFiles = (): KeyPair | null => {
 /** Par persistido em `src/keys/` (somente dev/test). */
 const fromDisk = (): KeyPair | null => {
   if (!fs.existsSync(PRIV_PATH) || !fs.existsSync(PUB_PATH)) return null;
-  return { privateKey: fs.readFileSync(PRIV_PATH, "utf8"), publicKey: fs.readFileSync(PUB_PATH, "utf8") };
+  return {
+    privateKey: fs.readFileSync(PRIV_PATH, "utf8"),
+    publicKey: fs.readFileSync(PUB_PATH, "utf8"),
+  };
 };
 
 function generateAndPersist(): KeyPair {

@@ -10,7 +10,10 @@ import { useGitConnections } from "@/hooks/useGitConnections";
 import { ClusterDrawer, type ClusterEditing } from "@/pages/settings/components/ClusterDrawer";
 import { ClusterNodesDrawer } from "@/pages/settings/components/ClusterNodesDrawer";
 import { EnvironmentDrawer, type EnvEditing } from "@/pages/settings/components/EnvironmentDrawer";
-import { GitConnectionDrawer, type GitEditing } from "@/pages/settings/components/GitConnectionDrawer";
+import {
+  GitConnectionDrawer,
+  type GitEditing,
+} from "@/pages/settings/components/GitConnectionDrawer";
 import { SecretStoreDrawer } from "@/pages/settings/components/SecretStoreDrawer";
 import { SECRET_STORE_PROVIDERS, useSecretStores } from "@/hooks/useSecretStores";
 import { ProvisionClusterDrawer } from "@/pages/settings/components/ProvisionClusterDrawer";
@@ -27,17 +30,29 @@ export function SettingsPage() {
           <TabsTrigger value="git">Git</TabsTrigger>
           <TabsTrigger value="secret-stores">Cofres externos</TabsTrigger>
         </TabsList>
-        <TabsContent value="clusters" className="pt-5"><ClustersTab /></TabsContent>
-        <TabsContent value="environments" className="pt-5"><EnvironmentsTab /></TabsContent>
-        <TabsContent value="git" className="pt-5"><GitTab /></TabsContent>
-        <TabsContent value="secret-stores" className="pt-5"><SecretStoresTab /></TabsContent>
+        <TabsContent value="clusters" className="pt-5">
+          <ClustersTab />
+        </TabsContent>
+        <TabsContent value="environments" className="pt-5">
+          <EnvironmentsTab />
+        </TabsContent>
+        <TabsContent value="git" className="pt-5">
+          <GitTab />
+        </TabsContent>
+        <TabsContent value="secret-stores" className="pt-5">
+          <SecretStoresTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
 function Row({ children }: { children: React.ReactNode }) {
-  return <Card><CardContent className="flex items-center justify-between pt-5">{children}</CardContent></Card>;
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between pt-5">{children}</CardContent>
+    </Card>
+  );
 }
 
 function ClustersTab() {
@@ -50,26 +65,73 @@ function ClustersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Conecte um cluster existente ou suba um novo do zero.</p>
+        <p className="text-sm text-muted-foreground">
+          Conecte um cluster existente ou suba um novo do zero.
+        </p>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setEditing(null); setDrawer(true); }}><Plus className="size-4" /> Conectar</Button>
-          <Button variant="gradient" onClick={() => setProvision(true)}><Server className="size-4" /> Subir cluster</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditing(null);
+              setDrawer(true);
+            }}
+          >
+            <Plus className="size-4" /> Conectar
+          </Button>
+          <Button variant="gradient" onClick={() => setProvision(true)}>
+            <Server className="size-4" /> Subir cluster
+          </Button>
         </div>
       </div>
       {clusters.map((c) => (
         <Row key={c.id}>
-          <span className="font-medium">{c.name} <span className="text-xs text-muted-foreground">{c.region}</span></span>
+          <span className="font-medium">
+            {c.name} <span className="text-xs text-muted-foreground">{c.region}</span>
+          </span>
           <div className="flex items-center gap-1">
             <Badge variant={c.status === "connected" ? "success" : "warning"}>{c.status}</Badge>
-            <Button variant="ghost" size="sm" onClick={() => setNodesOf(c.id)}>Nós</Button>
-            <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: c.id, name: c.name, region: c.region }); setDrawer(true); }}><Pencil className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={async () => { await remove(c.id); refetch(); }}><Trash2 className="size-4" /></Button>
+            <Button variant="ghost" size="sm" onClick={() => setNodesOf(c.id)}>
+              Nós
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setEditing({ id: c.id, name: c.name, region: c.region });
+                setDrawer(true);
+              }}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                await remove(c.id);
+                refetch();
+              }}
+            >
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </Row>
       ))}
-      <ClusterDrawer open={drawer} onClose={() => setDrawer(false)} editing={editing} onSaved={refetch} />
-      <ProvisionClusterDrawer open={provision} onClose={() => setProvision(false)} onDone={refetch} />
-      <ClusterNodesDrawer open={Boolean(nodesOf)} onClose={() => setNodesOf(null)} clusterId={nodesOf} />
+      <ClusterDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        editing={editing}
+        onSaved={refetch}
+      />
+      <ProvisionClusterDrawer
+        open={provision}
+        onClose={() => setProvision(false)}
+        onDone={refetch}
+      />
+      <ClusterNodesDrawer
+        open={Boolean(nodesOf)}
+        onClose={() => setNodesOf(null)}
+        clusterId={nodesOf}
+      />
     </div>
   );
 }
@@ -82,20 +144,67 @@ function EnvironmentsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end"><Button variant="gradient" onClick={() => { setEditing(null); setDrawer(true); }}><Plus className="size-4" /> Novo ambiente</Button></div>
+      <div className="flex justify-end">
+        <Button
+          variant="gradient"
+          onClick={() => {
+            setEditing(null);
+            setDrawer(true);
+          }}
+        >
+          <Plus className="size-4" /> Novo ambiente
+        </Button>
+      </div>
       {environments.map((e) => (
         <Row key={e.id}>
           <span className="font-medium">{e.name}</span>
           <div className="flex items-center gap-1">
             {!e.networkIsolation && <Badge variant="warning">Rede aberta</Badge>}
-            <span className="text-xs text-muted-foreground">{e.kind} · {e.namespace}</span>
-            <Button variant="ghost" size="sm" onClick={() => setQuotaOf({ id: e.id, name: e.name })}><Gauge className="size-4" /> Quota</Button>
-            <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: e.id, name: e.name, kind: e.kind, clusterId: e.clusterId, networkIsolation: e.networkIsolation }); setDrawer(true); }}><Pencil className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={async () => { await remove(e.id); refetch(); }}><Trash2 className="size-4" /></Button>
+            <span className="text-xs text-muted-foreground">
+              {e.kind} · {e.namespace}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setQuotaOf({ id: e.id, name: e.name })}
+            >
+              <Gauge className="size-4" /> Quota
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setEditing({
+                  id: e.id,
+                  name: e.name,
+                  kind: e.kind,
+                  clusterId: e.clusterId,
+                  networkIsolation: e.networkIsolation,
+                });
+                setDrawer(true);
+              }}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                await remove(e.id);
+                refetch();
+              }}
+            >
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </Row>
       ))}
-      <EnvironmentDrawer open={drawer} onClose={() => setDrawer(false)} editing={editing} onSaved={refetch} />
+      <EnvironmentDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        editing={editing}
+        onSaved={refetch}
+      />
       <QuotaDrawer environment={quotaOf} onClose={() => setQuotaOf(null)} />
     </div>
   );
@@ -107,14 +216,27 @@ function SecretStoresTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end"><Button variant="gradient" onClick={() => setDrawer(true)}><Plus className="size-4" /> Novo cofre</Button></div>
-      {!isLoading && stores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum cofre cadastrado. Cadastre um para ler variáveis do AWS Secrets Manager, Vault ou GCP.</p>}
+      <div className="flex justify-end">
+        <Button variant="gradient" onClick={() => setDrawer(true)}>
+          <Plus className="size-4" /> Novo cofre
+        </Button>
+      </div>
+      {!isLoading && stores.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nenhum cofre cadastrado. Cadastre um para ler variáveis do AWS Secrets Manager, Vault ou
+          GCP.
+        </p>
+      )}
       {stores.map((s) => (
         <Row key={s.id}>
           <span className="font-medium">{s.name}</span>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">{SECRET_STORE_PROVIDERS[s.provider]}</span>
-            <Button variant="ghost" size="icon" onClick={() => remove(s.id)}><Trash2 className="size-4" /></Button>
+            <span className="text-xs text-muted-foreground">
+              {SECRET_STORE_PROVIDERS[s.provider]}
+            </span>
+            <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </Row>
       ))}
@@ -130,17 +252,52 @@ function GitTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end"><Button variant="gradient" onClick={() => { setEditing(null); setDrawer(true); }}><Plus className="size-4" /> Conectar provedor</Button></div>
+      <div className="flex justify-end">
+        <Button
+          variant="gradient"
+          onClick={() => {
+            setEditing(null);
+            setDrawer(true);
+          }}
+        >
+          <Plus className="size-4" /> Conectar provedor
+        </Button>
+      </div>
       {connections.map((c) => (
         <Row key={c.id}>
-          <span className="font-medium">{c.provider} <span className="text-xs text-muted-foreground">{c.accountLogin}</span></span>
+          <span className="font-medium">
+            {c.provider} <span className="text-xs text-muted-foreground">{c.accountLogin}</span>
+          </span>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: c.id, provider: c.provider, accountLogin: c.accountLogin }); setDrawer(true); }}><Pencil className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={async () => { await remove(c.id); refetch(); }}><Trash2 className="size-4" /></Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setEditing({ id: c.id, provider: c.provider, accountLogin: c.accountLogin });
+                setDrawer(true);
+              }}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                await remove(c.id);
+                refetch();
+              }}
+            >
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </Row>
       ))}
-      <GitConnectionDrawer open={drawer} onClose={() => setDrawer(false)} editing={editing} onSaved={refetch} />
+      <GitConnectionDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        editing={editing}
+        onSaved={refetch}
+      />
     </div>
   );
 }

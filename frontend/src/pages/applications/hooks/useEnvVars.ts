@@ -45,11 +45,13 @@ export function useEnvVars(applicationId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
   const saveMut = useMutation({
-    mutationFn: (vars: EnvVarInput[]) => api.put<EnvVar[]>(`/applications/${applicationId}/env`, { vars }),
+    mutationFn: (vars: EnvVarInput[]) =>
+      api.put<EnvVar[]>(`/applications/${applicationId}/env`, { vars }),
     onSuccess: invalidate,
   });
   const removeMut = useMutation({
-    mutationFn: (envKey: string) => api.del(`/applications/${applicationId}/env/${encodeURIComponent(envKey)}`),
+    mutationFn: (envKey: string) =>
+      api.del(`/applications/${applicationId}/env/${encodeURIComponent(envKey)}`),
     onSuccess: invalidate,
   });
 

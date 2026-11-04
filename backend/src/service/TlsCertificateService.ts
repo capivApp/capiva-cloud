@@ -26,7 +26,9 @@ export class TlsCertificateService {
   constructor(private readonly certs: TlsCertificateRepository) {}
 
   list(organizationId: string): Promise<TlsCertificate[]> {
-    return withTransaction(() => this.certs.listByOrganization(organizationId), { tenant: { organizationId } });
+    return withTransaction(() => this.certs.listByOrganization(organizationId), {
+      tenant: { organizationId },
+    });
   }
 
   create(organizationId: string, input: CreateTlsCertificateInput): Promise<TlsCertificate> {
@@ -43,8 +45,11 @@ export class TlsCertificateService {
   }
 
   async getById(organizationId: string, id: string): Promise<TlsCertificate> {
-    const cert = await withTransaction(() => this.certs.findById(id), { tenant: { organizationId } });
-    if (!cert || cert.organizationId !== organizationId) throw HttpError.notFound("Certificado não encontrado.");
+    const cert = await withTransaction(() => this.certs.findById(id), {
+      tenant: { organizationId },
+    });
+    if (!cert || cert.organizationId !== organizationId)
+      throw HttpError.notFound("Certificado não encontrado.");
     return cert;
   }
 

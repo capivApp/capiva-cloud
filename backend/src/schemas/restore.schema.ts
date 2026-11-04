@@ -17,7 +17,9 @@ export const restoreBackupSchema = z.discriminatedUnion(
   [
     z.object({
       mode: z.literal("IN_PLACE"),
-      confirmName: z.string({ error: "Digite o nome do banco para confirmar." }).min(1, "Digite o nome do banco para confirmar."),
+      confirmName: z
+        .string({ error: "Digite o nome do banco para confirmar." })
+        .min(1, "Digite o nome do banco para confirmar."),
     }),
     z.object({ mode: z.literal("AS_COPY"), newName: resourceName }),
   ],

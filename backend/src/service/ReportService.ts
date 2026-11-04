@@ -22,15 +22,22 @@ export interface UptimeReport {
 export class ReportService {
   constructor(private readonly uptime: UptimeRepository) {}
 
-  async forApplication(applicationId: string, tenant: { organizationId: string }): Promise<UptimeReport[]> {
+  async forApplication(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<UptimeReport[]> {
     const checks = await withTransaction(() => this.uptime.listChecks(applicationId), { tenant });
     return Promise.all(
       checks.map(async (check) => {
-        const results = await withTransaction(() => this.uptime.recentResults(check.id), { tenant });
+        const results = await withTransaction(() => this.uptime.recentResults(check.id), {
+          tenant,
+        });
         const samples = results.length;
         const up = results.filter((r) => r.ok).length;
         const latencies = results.map((r) => r.latencyMs ?? 0).filter((n) => n > 0);
-        const avgLatencyMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+        const avgLatencyMs = latencies.length
+          ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+          : 0;
         const last = results[0];
         return {
           checkId: check.id,

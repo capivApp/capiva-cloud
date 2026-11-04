@@ -32,7 +32,10 @@ export class TerminalService {
   ) {}
 
   /** Valida posse da app e escolhe um pod Running para o exec. */
-  async resolveTarget(applicationId: string, tenant: { organizationId: string }): Promise<TerminalTarget> {
+  async resolveTarget(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<TerminalTarget> {
     const app = await this.apps.getById(applicationId, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     if (!ctx.kubeconfig) throw HttpError.badRequest("Ambiente sem cluster configurado.");
@@ -40,11 +43,19 @@ export class TerminalService {
     const target = await this.k8s.firstRunningPod(ctx.kubeconfig, ctx.namespace, app.name);
     if (!target) throw HttpError.notFound("Nenhum pod em execução para esta aplicação.");
 
-    return { kubeconfig: ctx.kubeconfig, namespace: ctx.namespace, pod: target.pod, container: target.container };
+    return {
+      kubeconfig: ctx.kubeconfig,
+      namespace: ctx.namespace,
+      pod: target.pod,
+      container: target.container,
+    };
   }
 
   /** Abre o shell interativo no alvo (delegado ao adapter; usado pelo gateway WS). */
-  k8sExec(target: TerminalTarget, io: { onData: (chunk: Buffer) => void; onClose: (status?: V1Status) => void }): Promise<TerminalShell> {
+  k8sExec(
+    target: TerminalTarget,
+    io: { onData: (chunk: Buffer) => void; onClose: (status?: V1Status) => void },
+  ): Promise<TerminalShell> {
     return this.k8s.execShell({
       kubeconfig: target.kubeconfig,
       namespace: target.namespace,

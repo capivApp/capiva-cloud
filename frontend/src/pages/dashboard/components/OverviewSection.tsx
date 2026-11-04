@@ -3,8 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePlatformOverview } from "@/hooks/usePlatformOverview";
 
-const statusVariant = (s: string) => (s === "running" ? "success" : s === "error" ? "danger" : "warning");
-const deployVariant = (s: string) => (s === "HEALTHY" ? "success" : s === "FAILED" ? "danger" : "warning");
+const statusVariant = (s: string) =>
+  s === "running" ? "success" : s === "error" ? "danger" : "warning";
+const deployVariant = (s: string) =>
+  s === "HEALTHY" ? "success" : s === "FAILED" ? "danger" : "warning";
 
 /**
  * Banda de visão geral da organização no dashboard: contagens de recursos,
@@ -31,7 +33,10 @@ export function OverviewSection() {
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground"><s.icon className="size-4" /><span className="text-xs">{s.label}</span></div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <s.icon className="size-4" />
+                <span className="text-xs">{s.label}</span>
+              </div>
               <p className="mt-0.5 text-2xl font-bold">{s.value}</p>
             </CardContent>
           </Card>
@@ -42,7 +47,9 @@ export function OverviewSection() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Saúde das aplicações:</span>
           {Object.entries(health).map(([status, n]) => (
-            <Badge key={status} variant={statusVariant(status)}>{status}: {n}</Badge>
+            <Badge key={status} variant={statusVariant(status)}>
+              {status}: {n}
+            </Badge>
           ))}
         </div>
       )}
@@ -50,10 +57,17 @@ export function OverviewSection() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardContent className="space-y-2 pt-5">
-            <p className="flex items-center gap-2 text-sm font-medium"><Activity className="size-4" /> Deploys recentes</p>
-            {recentDeploys.length === 0 && <p className="text-xs text-muted-foreground">Nenhum deploy ainda.</p>}
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Activity className="size-4" /> Deploys recentes
+            </p>
+            {recentDeploys.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhum deploy ainda.</p>
+            )}
             {recentDeploys.map((d) => (
-              <div key={d.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+              <div
+                key={d.id}
+                className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+              >
                 <span className="font-medium">{d.application}</span>
                 <span className="font-mono text-muted-foreground">{d.version}</span>
                 <Badge variant={deployVariant(d.status)}>{d.status}</Badge>
@@ -64,9 +78,14 @@ export function OverviewSection() {
         <Card>
           <CardContent className="space-y-2 pt-5">
             <p className="text-sm font-medium">Atividade recente</p>
-            {recentAudits.length === 0 && <p className="text-xs text-muted-foreground">Sem registros.</p>}
+            {recentAudits.length === 0 && (
+              <p className="text-xs text-muted-foreground">Sem registros.</p>
+            )}
             {recentAudits.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs">
+              <div
+                key={a.id}
+                className="flex items-center justify-between rounded border border-border px-2 py-1 text-xs"
+              >
                 <span className="font-mono">{a.event}</span>
                 <span className="text-muted-foreground">{new Date(a.at).toLocaleString()}</span>
               </div>

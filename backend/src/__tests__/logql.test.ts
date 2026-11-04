@@ -4,7 +4,13 @@
  * sem Loki e sem banco.
  */
 import { describe, expect, it } from "bun:test";
-import { buildLogQL, buildLogSelector, buildLokiRangeRequest, quoteLogQL, resolveIntervalo } from "@service/logSearch/logql";
+import {
+  buildLogQL,
+  buildLogSelector,
+  buildLokiRangeRequest,
+  quoteLogQL,
+  resolveIntervalo,
+} from "@service/logSearch/logql";
 import { buildLevelPattern, detectLogLevel } from "@service/logSearch/logLevel.strategy";
 import { logDownloadSchema, logFiltrosSchema } from "@schemas/logs.schema";
 
@@ -76,7 +82,9 @@ describe("buildLogSelector", () => {
   });
 
   it("acrescenta o pod como matcher exato", () => {
-    expect(buildLogSelector(scope, "api-7c9f-abc12")).toBe('{namespace="team-a",app="api",pod="api-7c9f-abc12"}');
+    expect(buildLogSelector(scope, "api-7c9f-abc12")).toBe(
+      '{namespace="team-a",app="api",pod="api-7c9f-abc12"}',
+    );
   });
 });
 
@@ -91,7 +99,12 @@ describe("buildLogQL: isolamento do tenant", () => {
 
   for (const ataque of ataques) {
     it(`nunca escapa do próprio namespace/app: ${JSON.stringify(ataque)}`, () => {
-      const query = buildLogQL(scope, { contains: ataque, notContains: ataque, regex: ataque, pod: ataque });
+      const query = buildLogQL(scope, {
+        contains: ataque,
+        notContains: ataque,
+        regex: ataque,
+        pod: ataque,
+      });
       const { matchers, stages } = parseQuery(query);
       expect(matchers).toEqual([
         ["namespace", "=", "team-a"],
@@ -108,7 +121,9 @@ describe("buildLogQL: isolamento do tenant", () => {
 
   // Prova de que o parser do teste pega a injeção quando NÃO há escape.
   it("o parser do teste recusa uma query concatenada sem escape", () => {
-    expect(() => parseQuery('{namespace="team-a",app="api"} |= "" or {namespace="outro"}')).toThrow();
+    expect(() =>
+      parseQuery('{namespace="team-a",app="api"} |= "" or {namespace="outro"}'),
+    ).toThrow();
     expect(parseQuery('{namespace="team-a",app="api",namespace="outro"}').matchers).toHaveLength(3);
   });
 
@@ -127,18 +142,22 @@ describe("buildLogQL: filtros de linha", () => {
   });
 
   it("contém, não contém e regex, nessa ordem", () => {
-    expect(buildLogQL(scope, { contains: "timeout", notContains: "/health", regex: "user=\\d+" })).toBe(
-      '{namespace="team-a",app="api"} |= "timeout" != "/health" |~ "user=\\\\d+"',
-    );
+    expect(
+      buildLogQL(scope, { contains: "timeout", notContains: "/health", regex: "user=\\d+" }),
+    ).toBe('{namespace="team-a",app="api"} |= "timeout" != "/health" |~ "user=\\\\d+"');
   });
 
   it("ignora texto vazio", () => {
-    expect(buildLogQL(scope, { contains: "", notContains: "", regex: "" })).toBe('{namespace="team-a",app="api"}');
+    expect(buildLogQL(scope, { contains: "", notContains: "", regex: "" })).toBe(
+      '{namespace="team-a",app="api"}',
+    );
   });
 
   it("nível vira um filtro de regex que cobre todos os formatos", () => {
     const query = buildLogQL(scope, { levels: ["error"] });
-    expect(query).toBe(`{namespace="team-a",app="api"} |~ ${quoteLogQL(buildLevelPattern(["error"]))}`);
+    expect(query).toBe(
+      `{namespace="team-a",app="api"} |~ ${quoteLogQL(buildLevelPattern(["error"]))}`,
+    );
   });
 });
 
@@ -179,9 +198,18 @@ describe("nível por formato (strategy)", () => {
 
 describe("resolveIntervalo", () => {
   it("'últimos N' conta a partir de agora", () => {
-    expect(resolveIntervalo({ since: "15m" }, NOW)).toEqual({ start: ns(NOW - 15 * 60_000), end: ns(NOW) });
-    expect(resolveIntervalo({ since: "1h" }, NOW)).toEqual({ start: ns(NOW - 3_600_000), end: ns(NOW) });
-    expect(resolveIntervalo({ since: "24h" }, NOW)).toEqual({ start: ns(NOW - 86_400_000), end: ns(NOW) });
+    expect(resolveIntervalo({ since: "15m" }, NOW)).toEqual({
+      start: ns(NOW - 15 * 60_000),
+      end: ns(NOW),
+    });
+    expect(resolveIntervalo({ since: "1h" }, NOW)).toEqual({
+      start: ns(NOW - 3_600_000),
+      end: ns(NOW),
+    });
+    expect(resolveIntervalo({ since: "24h" }, NOW)).toEqual({
+      start: ns(NOW - 86_400_000),
+      end: ns(NOW),
+    });
   });
 
   it("sem nada, usa a última hora", () => {
@@ -191,12 +219,18 @@ describe("resolveIntervalo", () => {
   it("início/fim explícitos vencem o 'últimos N'", () => {
     const start = "2026-11-01T10:00:00.000Z";
     const end = "2026-11-01T11:00:00.000Z";
-    expect(resolveIntervalo({ since: "15m", start, end }, NOW)).toEqual({ start: ns(Date.parse(start)), end: ns(Date.parse(end)) });
+    expect(resolveIntervalo({ since: "15m", start, end }, NOW)).toEqual({
+      start: ns(Date.parse(start)),
+      end: ns(Date.parse(end)),
+    });
   });
 
   it("só início: vai até agora", () => {
     const start = "2026-11-04T11:00:00.000Z";
-    expect(resolveIntervalo({ start }, NOW)).toEqual({ start: ns(Date.parse(start)), end: ns(NOW) });
+    expect(resolveIntervalo({ start }, NOW)).toEqual({
+      start: ns(Date.parse(start)),
+      end: ns(NOW),
+    });
   });
 });
 
@@ -221,12 +255,33 @@ describe("buildLokiRangeRequest", () => {
 
 describe("logFiltrosSchema (query string)", () => {
   it("converte a query string em filtros tipados", () => {
-    const parsed = logFiltrosSchema.parse({ q: "timeout", exclude: "health", level: "error,warn", pod: "api-1", since: "15m", limit: "500", direction: "forward" });
-    expect(parsed).toEqual({ contains: "timeout", notContains: "health", levels: ["error", "warn"], pod: "api-1", since: "15m", limit: 500, direction: "forward" });
+    const parsed = logFiltrosSchema.parse({
+      q: "timeout",
+      exclude: "health",
+      level: "error,warn",
+      pod: "api-1",
+      since: "15m",
+      limit: "500",
+      direction: "forward",
+    });
+    expect(parsed).toEqual({
+      contains: "timeout",
+      notContains: "health",
+      levels: ["error", "warn"],
+      pod: "api-1",
+      since: "15m",
+      limit: 500,
+      direction: "forward",
+    });
   });
 
   it("descarta chaves que não são filtro (namespace/app nunca vêm do usuário)", () => {
-    const parsed = logFiltrosSchema.parse({ namespace: "kube-system", app: "traefik", access_token: "t", org: "o" });
+    const parsed = logFiltrosSchema.parse({
+      namespace: "kube-system",
+      app: "traefik",
+      access_token: "t",
+      org: "o",
+    });
     expect(parsed).toEqual({});
   });
 
@@ -239,24 +294,36 @@ describe("logFiltrosSchema (query string)", () => {
   it("recusa nível desconhecido, pod fora do padrão e limite acima do máximo", () => {
     expect(logFiltrosSchema.safeParse({ level: "verbose" }).success).toBe(false);
     expect(logFiltrosSchema.safeParse({ pod: 'api"}' }).success).toBe(false);
-    expect(logFiltrosSchema.safeParse({ limit: "999999" }).error?.issues[0]?.message).toBe("Use um limite entre 1 e 5000 linhas.");
+    expect(logFiltrosSchema.safeParse({ limit: "999999" }).error?.issues[0]?.message).toBe(
+      "Use um limite entre 1 e 5000 linhas.",
+    );
   });
 
   it("recusa início depois do fim", () => {
-    const parsed = logFiltrosSchema.safeParse({ start: "2026-11-02T00:00:00.000Z", end: "2026-11-01T00:00:00.000Z" });
+    const parsed = logFiltrosSchema.safeParse({
+      start: "2026-11-02T00:00:00.000Z",
+      end: "2026-11-01T00:00:00.000Z",
+    });
     expect(parsed.error?.issues[0]?.message).toBe("O início precisa ser anterior ao fim.");
   });
 
   it("recusa data em formato livre", () => {
-    expect(logFiltrosSchema.safeParse({ start: "ontem" }).error?.issues[0]?.message).toBe("Informe a data no formato ISO 8601.");
+    expect(logFiltrosSchema.safeParse({ start: "ontem" }).error?.issues[0]?.message).toBe(
+      "Informe a data no formato ISO 8601.",
+    );
   });
 });
 
 describe("logDownloadSchema", () => {
   it("formato padrão é txt e o máximo de linhas tem teto", () => {
     expect(logDownloadSchema.parse({})).toMatchObject({ format: "txt", maxLines: 10_000 });
-    expect(logDownloadSchema.parse({ format: "ndjson", maxLines: "20" })).toMatchObject({ format: "ndjson", maxLines: 20 });
-    expect(logDownloadSchema.safeParse({ maxLines: "1000000" }).error?.issues[0]?.message).toBe("Use um máximo entre 1 e 50000 linhas.");
+    expect(logDownloadSchema.parse({ format: "ndjson", maxLines: "20" })).toMatchObject({
+      format: "ndjson",
+      maxLines: 20,
+    });
+    expect(logDownloadSchema.safeParse({ maxLines: "1000000" }).error?.issues[0]?.message).toBe(
+      "Use um máximo entre 1 e 50000 linhas.",
+    );
     expect(logDownloadSchema.safeParse({ format: "csv" }).success).toBe(false);
   });
 });

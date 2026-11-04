@@ -28,7 +28,10 @@ export class WorkerService {
     return withTransaction(() => this.workers.listByProject(projectId), { tenant });
   }
 
-  async create(input: CreateWorkerInput & { environmentId: string }, tenant: { organizationId: string }): Promise<Worker> {
+  async create(
+    input: CreateWorkerInput & { environmentId: string },
+    tenant: { organizationId: string },
+  ): Promise<Worker> {
     const worker = await withTransaction(
       () =>
         this.workers.create({
@@ -45,7 +48,10 @@ export class WorkerService {
     const ctx = await this.kube.forEnvironment(input.environmentId, tenant);
     const image = (input.sourceConfig?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const status = await this.reconcilers.forWorker().reconcile({ worker, image }, ctx);
-    await withTransaction(() => this.workers.updateStatus(worker.id, status.ready ? "running" : "progressing"), { tenant });
+    await withTransaction(
+      () => this.workers.updateStatus(worker.id, status.ready ? "running" : "progressing"),
+      { tenant },
+    );
     return worker;
   }
 
@@ -64,18 +70,29 @@ export class WorkerService {
     if (patch.env !== undefined) sourceConfig.env = patch.env;
 
     const updated = await withTransaction(
-      () => this.workers.update(id, { replicas: patch.replicas ?? worker.replicas, sourceConfig: sourceConfig as Prisma.InputJsonValue }),
+      () =>
+        this.workers.update(id, {
+          replicas: patch.replicas ?? worker.replicas,
+          sourceConfig: sourceConfig as Prisma.InputJsonValue,
+        }),
       { tenant },
     );
 
     const ctx = await this.kube.forEnvironment(environmentId, tenant);
     const image = (sourceConfig.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const status = await this.reconcilers.forWorker().reconcile({ worker: updated, image }, ctx);
-    await withTransaction(() => this.workers.updateStatus(id, status.ready ? "running" : "progressing"), { tenant });
+    await withTransaction(
+      () => this.workers.updateStatus(id, status.ready ? "running" : "progressing"),
+      { tenant },
+    );
     return updated;
   }
 
-  async remove(id: string, environmentId: string, tenant: { organizationId: string }): Promise<void> {
+  async remove(
+    id: string,
+    environmentId: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const worker = await withTransaction(() => this.workers.findById(id), { tenant });
     if (!worker) throw HttpError.notFound("Worker não encontrado.");
     const ctx = await this.kube.forEnvironment(environmentId, tenant);

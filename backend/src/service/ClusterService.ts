@@ -34,7 +34,11 @@ export class ClusterService {
   }
 
   async create(organizationId: string, input: CreateClusterInput): Promise<Cluster> {
-    const kubeconfig = buildKubeconfig(input.name, { apiUrl: input.apiUrl, token: input.token, caCert: input.caCert });
+    const kubeconfig = buildKubeconfig(input.name, {
+      apiUrl: input.apiUrl,
+      token: input.token,
+      caCert: input.caCert,
+    });
     const probe = await this.k8s.testConnection(kubeconfig);
     return withTransaction(
       () =>
@@ -54,8 +58,11 @@ export class ClusterService {
     id: string,
     input: { name?: string; region?: string; apiUrl?: string; token?: string; caCert?: string },
   ): Promise<Cluster> {
-    const cluster = await withTransaction(() => this.clusters.findById(id), { tenant: { organizationId } });
-    if (!cluster || cluster.organizationId !== organizationId) throw HttpError.notFound("Cluster não encontrado.");
+    const cluster = await withTransaction(() => this.clusters.findById(id), {
+      tenant: { organizationId },
+    });
+    if (!cluster || cluster.organizationId !== organizationId)
+      throw HttpError.notFound("Cluster não encontrado.");
 
     const data: { name?: string; region?: string; kubeconfigCipher?: string; status?: string } = {
       name: input.name,
@@ -63,7 +70,11 @@ export class ClusterService {
     };
     // Reconfigura a conexão apenas se URL+token forem fornecidos juntos.
     if (input.apiUrl && input.token) {
-      const kubeconfig = buildKubeconfig(input.name ?? cluster.name, { apiUrl: input.apiUrl, token: input.token, caCert: input.caCert });
+      const kubeconfig = buildKubeconfig(input.name ?? cluster.name, {
+        apiUrl: input.apiUrl,
+        token: input.token,
+        caCert: input.caCert,
+      });
       const probe = await this.k8s.testConnection(kubeconfig);
       data.kubeconfigCipher = encrypt(kubeconfig);
       data.status = probe.ok ? "connected" : "unreachable";
@@ -72,8 +83,11 @@ export class ClusterService {
   }
 
   async remove(organizationId: string, id: string): Promise<void> {
-    const cluster = await withTransaction(() => this.clusters.findById(id), { tenant: { organizationId } });
-    if (!cluster || cluster.organizationId !== organizationId) throw HttpError.notFound("Cluster não encontrado.");
+    const cluster = await withTransaction(() => this.clusters.findById(id), {
+      tenant: { organizationId },
+    });
+    if (!cluster || cluster.organizationId !== organizationId)
+      throw HttpError.notFound("Cluster não encontrado.");
     await withTransaction(() => this.clusters.delete(id), { tenant: { organizationId } });
   }
 }

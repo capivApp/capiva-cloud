@@ -30,13 +30,35 @@ export function useMembers() {
     queryClient.invalidateQueries({ queryKey: ["invitations", organizationId] });
   };
 
-  const members = useQuery({ queryKey: ["members", organizationId], queryFn: () => api.get<Member[]>("/members"), enabled });
-  const invitations = useQuery({ queryKey: ["invitations", organizationId], queryFn: () => api.get<Invitation[]>("/members/invitations"), enabled });
+  const members = useQuery({
+    queryKey: ["members", organizationId],
+    queryFn: () => api.get<Member[]>("/members"),
+    enabled,
+  });
+  const invitations = useQuery({
+    queryKey: ["invitations", organizationId],
+    queryFn: () => api.get<Invitation[]>("/members/invitations"),
+    enabled,
+  });
 
-  const inviteMut = useMutation({ mutationFn: (input: { email: string; role: Role }) => api.post<Invitation>("/members/invitations", input), onSuccess: invalidate });
-  const revokeMut = useMutation({ mutationFn: (id: string) => api.del(`/members/invitations/${id}`), onSuccess: invalidate });
-  const changeRoleMut = useMutation({ mutationFn: ({ userId, role }: { userId: string; role: Role }) => api.patch(`/members/${userId}`, { role }), onSuccess: invalidate });
-  const removeMut = useMutation({ mutationFn: (userId: string) => api.del(`/members/${userId}`), onSuccess: invalidate });
+  const inviteMut = useMutation({
+    mutationFn: (input: { email: string; role: Role }) =>
+      api.post<Invitation>("/members/invitations", input),
+    onSuccess: invalidate,
+  });
+  const revokeMut = useMutation({
+    mutationFn: (id: string) => api.del(`/members/invitations/${id}`),
+    onSuccess: invalidate,
+  });
+  const changeRoleMut = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: Role }) =>
+      api.patch(`/members/${userId}`, { role }),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (userId: string) => api.del(`/members/${userId}`),
+    onSuccess: invalidate,
+  });
 
   return {
     members: members.data ?? [],

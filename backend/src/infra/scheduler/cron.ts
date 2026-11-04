@@ -9,7 +9,8 @@
  */
 export function cronMatches(expr: string, date: Date): boolean {
   const fields = expr.trim().split(/\s+/);
-  if (fields.length !== 5) throw new Error(`Expressão cron inválida (esperado 5 campos): "${expr}"`);
+  if (fields.length !== 5)
+    throw new Error(`Expressão cron inválida (esperado 5 campos): "${expr}"`);
   const [min, hour, dom, mon, dow] = fields;
   return (
     matchField(min, date.getMinutes(), 0, 59) &&
@@ -47,7 +48,8 @@ function matchPart(part: string, value: number, min: number, max: number): boole
     const [a, b] = range.split("-");
     lo = Number(a);
     hi = b !== undefined ? Number(b) : a !== undefined && stepRaw ? max : Number(a);
-    if (!Number.isInteger(lo) || !Number.isInteger(hi)) throw new Error(`Campo cron inválido: "${part}"`);
+    if (!Number.isInteger(lo) || !Number.isInteger(hi))
+      throw new Error(`Campo cron inválido: "${part}"`);
     // Sem passo e sem hífen → valor único.
     if (b === undefined && !stepRaw) return value === lo;
   }

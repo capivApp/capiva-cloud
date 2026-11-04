@@ -13,7 +13,10 @@ import { HttpError } from "@functions/HttpError";
  */
 const envKeySchema = z
   .string()
-  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Chave inválida. Use letras, números e _, sem começar com número.");
+  .regex(
+    /^[A-Za-z_][A-Za-z0-9_]*$/,
+    "Chave inválida. Use letras, números e _, sem começar com número.",
+  );
 
 const commandSchema = z.string().trim().min(1, "Informe o comando.").max(1000);
 
@@ -34,10 +37,16 @@ const autoscalingSchema = z
     metric: z.enum(["CPU", "MEMORY", "REQUESTS"]).default("CPU"),
     target: z.number().int().positive("Informe um alvo maior que zero."),
   })
-  .refine((v) => v.max >= v.min, { message: "O máximo de réplicas não pode ser menor que o mínimo.", path: ["max"] });
+  .refine((v) => v.max >= v.min, {
+    message: "O máximo de réplicas não pode ser menor que o mínimo.",
+    path: ["max"],
+  });
 
 const volumeSchema = z.strictObject({
-  name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen."),
+  name: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen."),
   mountPath: z.string().startsWith("/", "Use um caminho absoluto, ex.: /data."),
   sizeGi: z.number().int().min(1).default(1),
   accessMode: z.enum(["RWO", "RWX"]).default("RWO"),
@@ -46,14 +55,26 @@ const volumeSchema = z.strictObject({
 export const capivaConfigSchema = z.strictObject({
   $schema: z.string().optional().describe("URL do JSON Schema (autocompletar no editor)."),
   build: buildSchema.optional(),
-  port: z.number().int().min(1, "Porta deve estar entre 1 e 65535.").max(65535, "Porta deve estar entre 1 e 65535.").optional(),
-  healthcheck: z.strictObject({ path: z.string().startsWith("/", "O caminho do health check começa com /.") }).optional(),
+  port: z
+    .number()
+    .int()
+    .min(1, "Porta deve estar entre 1 e 65535.")
+    .max(65535, "Porta deve estar entre 1 e 65535.")
+    .optional(),
+  healthcheck: z
+    .strictObject({ path: z.string().startsWith("/", "O caminho do health check começa com /.") })
+    .optional(),
   profile: profileKind.optional().describe("Perfil de recurso."),
   replicas: z.number().int().min(0).max(100, "Use no máximo 100 réplicas.").optional(),
   autoscaling: autoscalingSchema.optional(),
-  env: z.record(envKeySchema, z.string()).optional().describe("Variáveis NÃO secretas. Segredos ficam na tela."),
+  env: z
+    .record(envKeySchema, z.string())
+    .optional()
+    .describe("Variáveis NÃO secretas. Segredos ficam na tela."),
   volumes: z.array(volumeSchema).optional(),
-  domains: z.array(z.string().trim().regex(HOST_RE, "Domínio inválido, ex.: app.exemplo.com.")).optional(),
+  domains: z
+    .array(z.string().trim().regex(HOST_RE, "Domínio inválido, ex.: app.exemplo.com."))
+    .optional(),
 });
 
 export type CapivaConfig = z.infer<typeof capivaConfigSchema>;
@@ -67,7 +88,9 @@ export class CapivaConfigError extends HttpError {
 }
 
 const formatIssues = (error: z.ZodError): string =>
-  error.issues.map((issue) => [issue.path.join("."), issue.message].filter(Boolean).join(": ")).join("; ");
+  error.issues
+    .map((issue) => [issue.path.join("."), issue.message].filter(Boolean).join(": "))
+    .join("; ");
 
 const parseJson = (raw: string): unknown => {
   try {
@@ -89,6 +112,7 @@ export function buildCapivaJsonSchema(): Record<string, unknown> {
   return {
     ...(z.toJSONSchema(capivaConfigSchema, { io: "input" }) as Record<string, unknown>),
     title: "capiva.json",
-    description: "Configuração da aplicação no Capiva Cloud. O que este arquivo declara vence a configuração da tela.",
+    description:
+      "Configuração da aplicação no Capiva Cloud. O que este arquivo declara vence a configuração da tela.",
   };
 }

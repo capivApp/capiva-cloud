@@ -53,7 +53,11 @@ export default function AppsScreen() {
     <Screen
       topInset
       refreshControl={
-        <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={nativeTheme.primary} />
+        <RefreshControl
+          refreshing={isFetching}
+          onRefresh={refetch}
+          tintColor={nativeTheme.primary}
+        />
       }
     >
       <ScreenHeader
@@ -89,7 +93,9 @@ export default function AppsScreen() {
         ))}
       </View>
 
-      {!loadingProjects && !projects.length && <Text variant="muted">Nenhum projeto nesta organização.</Text>}
+      {!loadingProjects && !projects.length && (
+        <Text variant="muted">Nenhum projeto nesta organização.</Text>
+      )}
       {projectId && !isLoading && !applications.length && (
         <Text variant="muted">Nenhuma aplicação neste projeto.</Text>
       )}

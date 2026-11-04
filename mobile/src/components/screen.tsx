@@ -12,7 +12,14 @@ interface ScreenProps extends ScrollViewProps {
 }
 
 /** Wrapper padrão de tela: fundo, padding e safe area. */
-export function Screen({ scroll = true, topInset = false, transparent = false, className, children, ...props }: ScreenProps) {
+export function Screen({
+  scroll = true,
+  topInset = false,
+  transparent = false,
+  className,
+  children,
+  ...props
+}: ScreenProps) {
   const insets = useSafeAreaInsets();
   const padding = { paddingTop: topInset ? insets.top : 0, paddingBottom: insets.bottom };
   const background = transparent ? "" : "bg-background";

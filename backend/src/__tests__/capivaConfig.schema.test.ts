@@ -69,7 +69,9 @@ describe("parseCapivaConfig", () => {
   });
 
   it("recusa domínio inválido", () => {
-    expect(() => parseCapivaConfig(JSON.stringify({ domains: ["nao é domínio"] }))).toThrow(/domains/);
+    expect(() => parseCapivaConfig(JSON.stringify({ domains: ["nao é domínio"] }))).toThrow(
+      /domains/,
+    );
   });
 
   it("a mensagem nunca leva travessão", () => {
@@ -86,7 +88,18 @@ describe("buildCapivaJsonSchema", () => {
     const schema = buildCapivaJsonSchema();
     const properties = (schema.properties ?? {}) as Record<string, unknown>;
     expect(Object.keys(properties)).toEqual(
-      expect.arrayContaining(["$schema", "build", "port", "healthcheck", "profile", "replicas", "autoscaling", "env", "volumes", "domains"]),
+      expect.arrayContaining([
+        "$schema",
+        "build",
+        "port",
+        "healthcheck",
+        "profile",
+        "replicas",
+        "autoscaling",
+        "env",
+        "volumes",
+        "domains",
+      ]),
     );
     expect(() => JSON.stringify(schema)).not.toThrow();
   });

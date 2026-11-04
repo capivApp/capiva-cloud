@@ -84,7 +84,14 @@ describe("secretStoreManifests", () => {
     expect(spec(store).provider).toEqual({
       gcpsm: {
         projectID: "meu-projeto",
-        auth: { secretRef: { secretAccessKeySecretRef: { name: "capiva-store-s3-auth", key: "secret-access-credentials" } } },
+        auth: {
+          secretRef: {
+            secretAccessKeySecretRef: {
+              name: "capiva-store-s3-auth",
+              key: "secret-access-credentials",
+            },
+          },
+        },
       },
     });
   });
@@ -142,7 +149,10 @@ describe("deploymentManifest com variável do cofre externo", () => {
     const env = (m.spec as any).template.spec.containers[0].env;
     expect(env).toEqual([
       { name: "PLAIN", value: "1" },
-      { name: "DB_PASSWORD", valueFrom: { secretKeyRef: { name: "api-external", key: "DB_PASSWORD" } } },
+      {
+        name: "DB_PASSWORD",
+        valueFrom: { secretKeyRef: { name: "api-external", key: "DB_PASSWORD" } },
+      },
     ]);
   });
 });

@@ -36,7 +36,10 @@ export function Drawer({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in"
+        onClick={onClose}
+      />
       <div
         className={cn(
           "relative flex h-full w-full flex-col border-l border-border bg-card shadow-2xl",

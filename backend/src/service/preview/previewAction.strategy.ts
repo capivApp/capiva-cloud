@@ -1,6 +1,9 @@
 import type { Application } from "@prisma-generated/client";
 import type { PullRequestEvent } from "@infra/realtime/GitEventBus";
-import { isOrigemDoRepositorio, isOrigemElegivelParaPreview } from "@service/preview/previewEligibility";
+import {
+  isOrigemDoRepositorio,
+  isOrigemElegivelParaPreview,
+} from "@service/preview/previewEligibility";
 
 /**
  * Operações que as strategies orquestram. O `PreviewDeploymentService`
@@ -28,7 +31,11 @@ export interface PreviewActionStrategy {
  * Criação recusada (cota do ambiente, nome em uso): o PR recebe o motivo e o
  * erro segue para o log, senão o preview sumiria em silêncio.
  */
-const createOrNotifyFailure = (origem: Application, event: PullRequestEvent, ops: PreviewOperations): Promise<Application> =>
+const createOrNotifyFailure = (
+  origem: Application,
+  event: PullRequestEvent,
+  ops: PreviewOperations,
+): Promise<Application> =>
   ops.createPreview(origem, event).catch(async (error: Error) => {
     await ops.notifyFailure(event, error.message);
     throw error;
@@ -87,5 +94,6 @@ const STRATEGIES: Record<PullRequestEvent["action"], PreviewActionStrategy> = {
   merged: DESTROY,
 };
 
-export const createPreviewActionStrategy = (action: PullRequestEvent["action"]): PreviewActionStrategy | undefined =>
-  STRATEGIES[action];
+export const createPreviewActionStrategy = (
+  action: PullRequestEvent["action"],
+): PreviewActionStrategy | undefined => STRATEGIES[action];

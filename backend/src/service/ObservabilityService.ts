@@ -37,14 +37,22 @@ export class ObservabilityService {
     this.logSearch = new LogSearch(this.loki);
   }
 
-  private async namespaceOf(applicationId: string, tenant: { organizationId: string }): Promise<{ app: string; namespace: string }> {
+  private async namespaceOf(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<{ app: string; namespace: string }> {
     const app = await withTransaction(() => this.apps.findById(applicationId), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
-    const env = await withTransaction(() => this.environments.findById(app.environmentId), { tenant });
+    const env = await withTransaction(() => this.environments.findById(app.environmentId), {
+      tenant,
+    });
     return { app: app.name, namespace: env?.namespace ?? "default" };
   }
 
-  private async logScopeOf(applicationId: string, tenant: { organizationId: string }): Promise<LogScope> {
+  private async logScopeOf(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<LogScope> {
     const { app, namespace } = await this.namespaceOf(applicationId, tenant);
     return { namespace, app };
   }
@@ -54,24 +62,51 @@ export class ObservabilityService {
    * O intervalo e o limite pedidos são ignorados aqui de propósito: o tail é sempre
    * "o agora".
    */
-  async logs(applicationId: string, tenant: { organizationId: string }, filtros: LogFiltros = {}): Promise<LogLine[]> {
+  async logs(
+    applicationId: string,
+    tenant: { organizationId: string },
+    filtros: LogFiltros = {},
+  ): Promise<LogLine[]> {
     const scope = await this.logScopeOf(applicationId, tenant);
     const { contains, notContains, regex, levels, pod } = filtros;
     const start = new Date(Date.now() - LIVE_TAIL_WINDOW_MS).toISOString();
-    const { lines } = await this.logSearch.search(scope, { contains, notContains, regex, levels, pod, start, limit: LIVE_TAIL_LIMIT });
+    const { lines } = await this.logSearch.search(scope, {
+      contains,
+      notContains,
+      regex,
+      levels,
+      pod,
+      start,
+      limit: LIVE_TAIL_LIMIT,
+    });
     return lines;
   }
 
-  async searchLogs(applicationId: string, tenant: { organizationId: string }, filtros: LogFiltros): Promise<{ lines: LogLine[] }> {
+  async searchLogs(
+    applicationId: string,
+    tenant: { organizationId: string },
+    filtros: LogFiltros,
+  ): Promise<{ lines: LogLine[] }> {
     return this.logSearch.search(await this.logScopeOf(applicationId, tenant), filtros);
   }
 
-  async logPods(applicationId: string, tenant: { organizationId: string }, filtros: LogFiltros): Promise<{ pods: string[] }> {
-    return { pods: await this.logSearch.pods(await this.logScopeOf(applicationId, tenant), filtros) };
+  async logPods(
+    applicationId: string,
+    tenant: { organizationId: string },
+    filtros: LogFiltros,
+  ): Promise<{ pods: string[] }> {
+    return {
+      pods: await this.logSearch.pods(await this.logScopeOf(applicationId, tenant), filtros),
+    };
   }
 
   /** Download: resolve o escopo agora (404 antes de abrir o arquivo) e devolve as páginas. */
-  async exportLogs(applicationId: string, tenant: { organizationId: string }, filtros: LogFiltros, maxLines: number) {
+  async exportLogs(
+    applicationId: string,
+    tenant: { organizationId: string },
+    filtros: LogFiltros,
+    maxLines: number,
+  ) {
     const scope = await this.logScopeOf(applicationId, tenant);
     return { app: scope.app, pages: this.logSearch.export(scope, filtros, maxLines) };
   }
@@ -84,12 +119,15 @@ export class ObservabilityService {
       this.prom.instant(`sum(rate(container_cpu_usage_seconds_total{${sel}}[5m]))*100`),
       this.prom.instant(`sum(container_memory_working_set_bytes{${sel}})/1024/1024`),
       this.prom.instant(`sum(rate(http_requests_total{${sel}}[5m]))`),
-      this.prom.instant(`histogram_quantile(0.95,sum(rate(http_request_duration_seconds_bucket{${sel}}[5m]))by(le)))*1000`),
+      this.prom.instant(
+        `histogram_quantile(0.95,sum(rate(http_request_duration_seconds_bucket{${sel}}[5m]))by(le)))*1000`,
+      ),
       this.prom.instant(`sum(rate(http_requests_total{${sel},status=~"5.."}[5m]))`),
     ]);
 
     // Fallback sintético (sem Prometheus configurado) para a UI funcionar.
-    const rnd = (base: number, spread: number) => Math.round((base + Math.random() * spread) * 10) / 10;
+    const rnd = (base: number, spread: number) =>
+      Math.round((base + Math.random() * spread) * 10) / 10;
     return {
       cpu: cpu ?? rnd(25, 30),
       memoryMb: Math.round(mem ?? rnd(300, 200)),

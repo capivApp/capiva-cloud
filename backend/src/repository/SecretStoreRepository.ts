@@ -10,7 +10,10 @@ export class SecretStoreRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<SecretStore[]> {
-    return this.tx.secretStore.findMany({ where: { organizationId, ...this.scope("secretStore") }, orderBy: { createdAt: "asc" } });
+    return this.tx.secretStore.findMany({
+      where: { organizationId, ...this.scope("secretStore") },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<SecretStore | null> {
@@ -18,11 +21,15 @@ export class SecretStoreRepository extends BaseRepository {
   }
 
   findManyByIds(ids: string[]): Promise<SecretStore[]> {
-    return this.tx.secretStore.findMany({ where: { id: { in: ids }, ...this.scope("secretStore") } });
+    return this.tx.secretStore.findMany({
+      where: { id: { in: ids }, ...this.scope("secretStore") },
+    });
   }
 
   findByName(organizationId: string, name: string): Promise<SecretStore | null> {
-    return this.tx.secretStore.findFirst({ where: { organizationId, name, ...this.scope("secretStore") } });
+    return this.tx.secretStore.findFirst({
+      where: { organizationId, name, ...this.scope("secretStore") },
+    });
   }
 
   /** Ambientes onde o cofre foi materializado (via variáveis das apps). */

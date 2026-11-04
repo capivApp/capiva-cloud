@@ -26,7 +26,10 @@ export class DomainRepository extends BaseRepository {
 
   async create(data: Prisma.DomainUncheckedCreateInput): Promise<Domain> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: data.applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: data.applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
     return this.tx.domain.create({ data });

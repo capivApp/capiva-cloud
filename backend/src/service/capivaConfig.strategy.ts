@@ -3,7 +3,10 @@ import type { Application, ScalingMetric } from "@prisma-generated/client";
 
 /** Estado atual da aplicação, como a tela o vê (variáveis secretas mascaradas). */
 export interface CapivaSnapshot {
-  app: Pick<Application, "source" | "port" | "profile"> & { sourceConfig: unknown; previewOfId?: string | null };
+  app: Pick<Application, "source" | "port" | "profile"> & {
+    sourceConfig: unknown;
+    previewOfId?: string | null;
+  };
   env: {
     key: string;
     value: string;
@@ -14,7 +17,12 @@ export interface CapivaSnapshot {
   }[];
   domains: { id: string; host: string }[];
   volumes: { name: string }[];
-  scaling: { minReplicas: number; maxReplicas: number; metric: ScalingMetric; target: number } | null;
+  scaling: {
+    minReplicas: number;
+    maxReplicas: number;
+    metric: ScalingMetric;
+    target: number;
+  } | null;
 }
 
 /** DTO aceito pelo `ApplicationService.patch` (o mesmo PATCH da tela). */
@@ -50,7 +58,10 @@ export type CapivaAction =
   | { kind: "patch"; dto: CapivaPatchDto }
   | { kind: "buildArgs"; buildArgs: { key: string; value: string }[] }
   | { kind: "env"; vars: CapivaEnvVar[] }
-  | { kind: "scaling"; policy: { minReplicas: number; maxReplicas: number; metric: ScalingMetric; target: number } }
+  | {
+      kind: "scaling";
+      policy: { minReplicas: number; maxReplicas: number; metric: ScalingMetric; target: number };
+    }
   | { kind: "addDomain"; host: string }
   | { kind: "removeDomain"; domainId: string }
   | { kind: "addVolume"; volume: CapivaVolume };
@@ -69,7 +80,8 @@ interface CapivaSectionStrategy {
   plan(config: CapivaConfig, snapshot: CapivaSnapshot): SectionResult;
 }
 
-const configOf = (snapshot: CapivaSnapshot): Record<string, unknown> => (snapshot.app.sourceConfig ?? {}) as Record<string, unknown>;
+const configOf = (snapshot: CapivaSnapshot): Record<string, unknown> =>
+  (snapshot.app.sourceConfig ?? {}) as Record<string, unknown>;
 
 /** Campo do PATCH: onde está no arquivo e onde está hoje na aplicação. */
 interface PatchField {
@@ -82,12 +94,28 @@ const PATCH_FIELDS: PatchField[] = [
   { dtoKey: "port", read: (c) => c.port, current: (s) => s.app.port },
   { dtoKey: "profile", read: (c) => c.profile, current: (s) => s.app.profile },
   { dtoKey: "replicas", read: (c) => c.replicas, current: (s) => configOf(s).replicas },
-  { dtoKey: "healthPath", read: (c) => c.healthcheck?.path, current: (s) => configOf(s).healthPath },
-  { dtoKey: "dockerfile", read: (c) => c.build?.dockerfile, current: (s) => configOf(s).dockerfile },
+  {
+    dtoKey: "healthPath",
+    read: (c) => c.healthcheck?.path,
+    current: (s) => configOf(s).healthPath,
+  },
+  {
+    dtoKey: "dockerfile",
+    read: (c) => c.build?.dockerfile,
+    current: (s) => configOf(s).dockerfile,
+  },
   { dtoKey: "subPath", read: (c) => c.build?.context, current: (s) => configOf(s).subPath },
   { dtoKey: "compose", read: (c) => c.build?.compose, current: (s) => configOf(s).compose },
-  { dtoKey: "buildCommand", read: (c) => c.build?.buildCommand, current: (s) => configOf(s).buildCommand },
-  { dtoKey: "startCommand", read: (c) => c.build?.startCommand, current: (s) => configOf(s).startCommand },
+  {
+    dtoKey: "buildCommand",
+    read: (c) => c.build?.buildCommand,
+    current: (s) => configOf(s).buildCommand,
+  },
+  {
+    dtoKey: "startCommand",
+    read: (c) => c.build?.startCommand,
+    current: (s) => configOf(s).startCommand,
+  },
 ];
 
 /** Campos simples: um único PATCH com o que mudou. */
@@ -95,7 +123,9 @@ const patchSectionOf = (fields: PatchField[]): CapivaSectionStrategy => ({
   plan(config, snapshot) {
     const declared = fields.filter((f) => f.read(config) !== undefined);
     const changed = declared.filter((f) => f.read(config) !== f.current(snapshot));
-    const dto = Object.fromEntries(changed.map((f) => [f.dtoKey, f.read(config)])) as CapivaPatchDto;
+    const dto = Object.fromEntries(
+      changed.map((f) => [f.dtoKey, f.read(config)]),
+    ) as CapivaPatchDto;
     return {
       fields: declared.map((f) => f.dtoKey),
       actions: changed.length ? [{ kind: "patch", dto }] : [],
@@ -126,9 +156,14 @@ const envSection: CapivaSectionStrategy = {
     const declared = config.env;
     if (!declared) return {};
     const manual = snapshot.env.filter((v) => v.source === "MANUAL");
-    const isUnchanged = (key: string, value: string) => manual.some((v) => v.key === key && !v.secret && v.value === value);
+    const isUnchanged = (key: string, value: string) =>
+      manual.some((v) => v.key === key && !v.secret && v.value === value);
     const changed = Object.entries(declared).some(([key, value]) => !isUnchanged(key, value));
-    const kept = manual.map((v) => ({ key: v.key, value: declared[v.key] ?? v.value, secret: declared[v.key] === undefined && v.secret }));
+    const kept = manual.map((v) => ({
+      key: v.key,
+      value: declared[v.key] ?? v.value,
+      secret: declared[v.key] === undefined && v.secret,
+    }));
     const added = Object.entries(declared)
       .filter(([key]) => !manual.some((v) => v.key === key))
       .map(([key, value]) => ({ key, value, secret: false }));
@@ -139,7 +174,11 @@ const envSection: CapivaSectionStrategy = {
         key: v.key,
         value: v.value,
         secret: v.secret,
-        external: { secretStoreId: v.secretStoreId!, remoteKey: v.value, remoteProperty: v.remoteProperty ?? null },
+        external: {
+          secretStoreId: v.secretStoreId!,
+          remoteKey: v.value,
+          remoteProperty: v.remoteProperty ?? null,
+        },
       }));
     return {
       fields: ["env"],
@@ -153,7 +192,12 @@ const scalingSection: CapivaSectionStrategy = {
   plan(config, snapshot) {
     const autoscaling = config.autoscaling;
     if (!autoscaling) return {};
-    const policy = { minReplicas: autoscaling.min, maxReplicas: autoscaling.max, metric: autoscaling.metric, target: autoscaling.target };
+    const policy = {
+      minReplicas: autoscaling.min,
+      maxReplicas: autoscaling.max,
+      metric: autoscaling.metric,
+      target: autoscaling.target,
+    };
     const changed = !snapshot.scaling || !sameJson(policy, pickPolicy(snapshot.scaling));
     return { fields: ["scaling"], actions: changed ? [{ kind: "scaling", policy }] : [] };
   },
@@ -172,7 +216,9 @@ const domainsSection: CapivaSectionStrategy = {
     if (!config.domains) return {};
     const hosts = [...new Set(config.domains.map((h) => h.toLowerCase()))];
     const existing = new Set(snapshot.domains.map((d) => d.host.toLowerCase()));
-    const toAdd = hosts.filter((h) => !existing.has(h)).map((host): CapivaAction => ({ kind: "addDomain", host }));
+    const toAdd = hosts
+      .filter((h) => !existing.has(h))
+      .map((host): CapivaAction => ({ kind: "addDomain", host }));
     const toRemove = snapshot.domains
       .filter((d) => !hosts.includes(d.host.toLowerCase()))
       .map((d): CapivaAction => ({ kind: "removeDomain", domainId: d.id }));
@@ -206,16 +252,31 @@ type CapivaAppKind = "application" | "preview";
  * apagar o `pr-N`; autoscaling, perfil e réplicas tirariam o preview do perfil mínimo.
  */
 const SECTIONS_BY_KIND: Record<CapivaAppKind, CapivaSectionStrategy[]> = {
-  application: [patchSectionOf(PATCH_FIELDS), buildArgsSection, envSection, scalingSection, domainsSection, volumesSection],
-  preview: [patchSectionOf(PATCH_FIELDS.filter((f) => !PREVIEW_FIXED_FIELDS.has(f.dtoKey))), buildArgsSection, envSection, volumesSection],
+  application: [
+    patchSectionOf(PATCH_FIELDS),
+    buildArgsSection,
+    envSection,
+    scalingSection,
+    domainsSection,
+    volumesSection,
+  ],
+  preview: [
+    patchSectionOf(PATCH_FIELDS.filter((f) => !PREVIEW_FIXED_FIELDS.has(f.dtoKey))),
+    buildArgsSection,
+    envSection,
+    volumesSection,
+  ],
 };
 
-const kindOf = (snapshot: CapivaSnapshot): CapivaAppKind => (snapshot.app.previewOfId ? "preview" : "application");
+const kindOf = (snapshot: CapivaSnapshot): CapivaAppKind =>
+  snapshot.app.previewOfId ? "preview" : "application";
 
 const requireMesmaOrigem = (config: CapivaConfig, snapshot: CapivaSnapshot): void => {
   const declared = config.build?.type;
   if (!declared || declared === snapshot.app.source) return;
-  throw new CapivaConfigError(`capiva.json inválido: build.type é ${declared}, mas a aplicação usa ${snapshot.app.source}.`);
+  throw new CapivaConfigError(
+    `capiva.json inválido: build.type é ${declared}, mas a aplicação usa ${snapshot.app.source}.`,
+  );
 };
 
 /**
@@ -225,7 +286,9 @@ const requireMesmaOrigem = (config: CapivaConfig, snapshot: CapivaSnapshot): voi
  */
 export function planCapivaConfig(config: CapivaConfig, snapshot: CapivaSnapshot): CapivaPlan {
   requireMesmaOrigem(config, snapshot);
-  const results = SECTIONS_BY_KIND[kindOf(snapshot)].map((section) => section.plan(config, snapshot));
+  const results = SECTIONS_BY_KIND[kindOf(snapshot)].map((section) =>
+    section.plan(config, snapshot),
+  );
   return {
     actions: results.flatMap((r) => r.actions ?? []),
     fields: results.flatMap((r) => r.fields ?? []),

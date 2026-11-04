@@ -78,7 +78,13 @@ export function resolveEnvVarRecord(
       remoteProperty: external.remoteProperty || null,
     };
   }
-  return { value: resolveStoredValue(item, previous), secret: item.secret, source: "MANUAL", secretStoreId: null, remoteProperty: null };
+  return {
+    value: resolveStoredValue(item, previous),
+    secret: item.secret,
+    source: "MANUAL",
+    secretStoreId: null,
+    remoteProperty: null,
+  };
 }
 
 /**
@@ -101,7 +107,9 @@ export class EnvVarService {
   /** Lista as variáveis mascarando segredos. Valida posse via ApplicationService. */
   async list(applicationId: string, tenant: { organizationId: string }): Promise<EnvVarView[]> {
     await this.apps.getById(applicationId, tenant);
-    const vars = await withTransaction(() => this.envVars.listByApplication(applicationId), { tenant });
+    const vars = await withTransaction(() => this.envVars.listByApplication(applicationId), {
+      tenant,
+    });
     return vars.map((v) => ({
       id: v.id,
       key: v.key,
@@ -119,39 +127,54 @@ export class EnvVarService {
    * Substitui em lote as variáveis MANUAL (suporta colar `.env` no front, que
    * envia o array já parseado). Variáveis INJECTED são preservadas.
    */
-  async replace(applicationId: string, items: EnvVarInput[], tenant: { organizationId: string }): Promise<EnvVarView[]> {
+  async replace(
+    applicationId: string,
+    items: EnvVarInput[],
+    tenant: { organizationId: string },
+  ): Promise<EnvVarView[]> {
     const app = await this.apps.getById(applicationId, tenant);
     await this.secretStores.requireOwned(
       items.flatMap((i) => (i.external ? [i.external.secretStoreId] : [])),
       tenant,
     );
 
-    await withTransaction(async () => {
-      const existing = await this.envVars.listByApplication(applicationId);
-      const previousByKey = new Map(existing.map((e) => [e.key, e]));
-      const incomingKeys = new Set(items.map((i) => i.key));
+    await withTransaction(
+      async () => {
+        const existing = await this.envVars.listByApplication(applicationId);
+        const previousByKey = new Map(existing.map((e) => [e.key, e]));
+        const incomingKeys = new Set(items.map((i) => i.key));
 
-      for (const item of items) {
-        const record = resolveEnvVarRecord(item, previousByKey.get(item.key));
-        await this.envVars.upsert({ applicationId, key: item.key, ...record });
-      }
-
-      // Remove apenas variáveis do editor (MANUAL/EXTERNAL) que sumiram do payload.
-      for (const e of existing) {
-        if (EDITOR_SOURCES.has(e.source) && !incomingKeys.has(e.key)) {
-          await this.envVars.delete(applicationId, e.key);
+        for (const item of items) {
+          const record = resolveEnvVarRecord(item, previousByKey.get(item.key));
+          await this.envVars.upsert({ applicationId, key: item.key, ...record });
         }
-      }
-    }, { tenant });
 
-    await this.apps.reconcile(app, tenant).catch((e) => console.error("[env] reconcile:", (e as Error).message));
+        // Remove apenas variáveis do editor (MANUAL/EXTERNAL) que sumiram do payload.
+        for (const e of existing) {
+          if (EDITOR_SOURCES.has(e.source) && !incomingKeys.has(e.key)) {
+            await this.envVars.delete(applicationId, e.key);
+          }
+        }
+      },
+      { tenant },
+    );
+
+    await this.apps
+      .reconcile(app, tenant)
+      .catch((e) => console.error("[env] reconcile:", (e as Error).message));
     return this.list(applicationId, tenant);
   }
 
   /** Remove uma única variável (qualquer origem) e reconcilia. */
-  async removeKey(applicationId: string, key: string, tenant: { organizationId: string }): Promise<void> {
+  async removeKey(
+    applicationId: string,
+    key: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
     const app = await this.apps.getById(applicationId, tenant);
     await withTransaction(() => this.envVars.delete(applicationId, key), { tenant });
-    await this.apps.reconcile(app, tenant).catch((e) => console.error("[env] reconcile:", (e as Error).message));
+    await this.apps
+      .reconcile(app, tenant)
+      .catch((e) => console.error("[env] reconcile:", (e as Error).message));
   }
 }

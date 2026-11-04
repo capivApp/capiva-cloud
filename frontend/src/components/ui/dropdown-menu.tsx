@@ -41,4 +41,6 @@ export const DropdownMenuItem = React.forwardRef<
 ));
 DropdownMenuItem.displayName = "DropdownMenuItem";
 
-export const DropdownMenuSeparator = () => <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />;
+export const DropdownMenuSeparator = () => (
+  <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />
+);

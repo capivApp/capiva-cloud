@@ -7,13 +7,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEventSource } from "@/hooks/useEventSource";
 import { useSyncedDraft } from "@/hooks/useSyncedDraft";
-import { useScaling, type ScalingMetric, type ScalingPolicy, type ScalingStatus, type SetScalingInput } from "@/pages/applications/hooks/useScaling";
+import {
+  useScaling,
+  type ScalingMetric,
+  type ScalingPolicy,
+  type ScalingStatus,
+  type SetScalingInput,
+} from "@/pages/applications/hooks/useScaling";
 
-const metricLabel: Record<ScalingMetric, string> = { CPU: "CPU (%)", MEMORY: "Memória (%)", REQUESTS: "Requests/s" };
+const metricLabel: Record<ScalingMetric, string> = {
+  CPU: "CPU (%)",
+  MEMORY: "Memória (%)",
+  REQUESTS: "Requests/s",
+};
 
-const DEFAULT_FORM: SetScalingInput = { minReplicas: 2, maxReplicas: 10, metric: "CPU", target: 70 };
+const DEFAULT_FORM: SetScalingInput = {
+  minReplicas: 2,
+  maxReplicas: 10,
+  metric: "CPU",
+  target: 70,
+};
 
-const buildForm = ({ minReplicas, maxReplicas, metric, target }: ScalingPolicy): SetScalingInput => ({ minReplicas, maxReplicas, metric, target });
+const buildForm = ({
+  minReplicas,
+  maxReplicas,
+  metric,
+  target,
+}: ScalingPolicy): SetScalingInput => ({ minReplicas, maxReplicas, metric, target });
 
 /**
  * Aba "Autoscaling" do detalhe da app. Mostra o estado vivo do HPA (réplicas
@@ -21,11 +41,17 @@ const buildForm = ({ minReplicas, maxReplicas, metric, target }: ScalingPolicy):
  * permite configurar a política (min/max/métrica/alvo) e escalar manualmente.
  */
 export function ScalingTab({ applicationId }: { applicationId: string }) {
-  const { policy, isLoading, setPolicy, isSaving, disable, scale, isScaling } = useScaling(applicationId);
-  const status = useEventSource<ScalingStatus>(`/streams/applications/${applicationId}/scaling`, "scaling");
+  const { policy, isLoading, setPolicy, isSaving, disable, scale, isScaling } =
+    useScaling(applicationId);
+  const status = useEventSource<ScalingStatus>(
+    `/streams/applications/${applicationId}/scaling`,
+    "scaling",
+  );
 
   // Recarregar a política reescreve o formulário; desativar (política nula) mantém o último valor.
-  const [form, setForm] = useSyncedDraft<SetScalingInput>(policy, (prev) => (policy ? buildForm(policy) : (prev ?? DEFAULT_FORM)));
+  const [form, setForm] = useSyncedDraft<SetScalingInput>(policy, (prev) =>
+    policy ? buildForm(policy) : (prev ?? DEFAULT_FORM),
+  );
   const { minReplicas: min, maxReplicas: max, metric, target } = form;
   const patchForm = (patch: Partial<SetScalingInput>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -55,7 +81,9 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
     if (replicas < 0) return;
     try {
       const r = await scale(replicas);
-      toast.success(`Escalado para ${replicas} réplica(s).${r.autoscalerActive ? " O HPA pode sobrescrever." : ""}`);
+      toast.success(
+        `Escalado para ${replicas} réplica(s).${r.autoscalerActive ? " O HPA pode sobrescrever." : ""}`,
+      );
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -66,12 +94,22 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
       {/* Observabilidade ao vivo (SSE) */}
       <Card>
         <CardContent className="space-y-3 pt-5">
-          <p className="flex items-center gap-2 text-sm font-medium"><Activity className="size-4" /> Estado do autoscaling</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <Activity className="size-4" /> Estado do autoscaling
+          </p>
           <div className="grid gap-3 sm:grid-cols-4">
             {[
               ["Réplicas atuais", String(current)],
-              ["Desejadas", status?.hpa?.desiredReplicas != null ? String(status.hpa.desiredReplicas) : "—"],
-              ["Min / Max", active ? `${status?.hpa?.minReplicas ?? min} / ${status?.hpa?.maxReplicas ?? max}` : "—"],
+              [
+                "Desejadas",
+                status?.hpa?.desiredReplicas != null ? String(status.hpa.desiredReplicas) : "—",
+              ],
+              [
+                "Min / Max",
+                active
+                  ? `${status?.hpa?.minReplicas ?? min} / ${status?.hpa?.maxReplicas ?? max}`
+                  : "—",
+              ],
               ["Métrica", active ? `${status?.hpa?.metric ?? metric}` : "—"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-border px-3 py-2">
@@ -82,20 +120,48 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
           </div>
           {active && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant={status?.hpa?.exists ? "success" : "warning"}>{status?.hpa?.exists ? "HPA ativo" : "aguardando HPA"}</Badge>
+              <Badge variant={status?.hpa?.exists ? "success" : "warning"}>
+                {status?.hpa?.exists ? "HPA ativo" : "aguardando HPA"}
+              </Badge>
               {status?.hpa?.currentMetricValue && (
-                <span>Atual <strong className="text-foreground">{status.hpa.currentMetricValue}</strong> · alvo <strong className="text-foreground">{status?.hpa?.targetMetricValue ?? "—"}</strong></span>
+                <span>
+                  Atual <strong className="text-foreground">{status.hpa.currentMetricValue}</strong>{" "}
+                  · alvo{" "}
+                  <strong className="text-foreground">
+                    {status?.hpa?.targetMetricValue ?? "—"}
+                  </strong>
+                </span>
               )}
-              {status?.hpa?.lastScaleTime && <span>· último scale {new Date(status.hpa.lastScaleTime).toLocaleString()}</span>}
+              {status?.hpa?.lastScaleTime && (
+                <span>· último scale {new Date(status.hpa.lastScaleTime).toLocaleString()}</span>
+              )}
             </div>
           )}
           {/* Escala manual */}
           <div className="flex items-center gap-2 border-t border-border pt-3">
             <span className="text-xs text-muted-foreground">Escala manual:</span>
-            <Button variant="outline" size="icon" onClick={() => manualScale(Math.max(0, current - 1))} disabled={isScaling}><Minus className="size-4" /></Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => manualScale(Math.max(0, current - 1))}
+              disabled={isScaling}
+            >
+              <Minus className="size-4" />
+            </Button>
             <span className="w-8 text-center text-sm font-medium">{current}</span>
-            <Button variant="outline" size="icon" onClick={() => manualScale(current + 1)} disabled={isScaling}><Plus className="size-4" /></Button>
-            {active && <span className="text-xs text-warning">O autoscaler pode sobrescrever — desative para fixar.</span>}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => manualScale(current + 1)}
+              disabled={isScaling}
+            >
+              <Plus className="size-4" />
+            </Button>
+            {active && (
+              <span className="text-xs text-warning">
+                O autoscaler pode sobrescrever — desative para fixar.
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -104,26 +170,68 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
       <Card>
         <CardContent className="space-y-3 pt-5">
           <div className="flex items-center justify-between">
-            <p className="flex items-center gap-2 text-sm font-medium"><Gauge className="size-4" /> Política de autoscaling (HPA)</p>
-            {active && <Button variant="outline" size="sm" onClick={turnOff}><Power className="size-3.5" /> Desativar</Button>}
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Gauge className="size-4" /> Política de autoscaling (HPA)
+            </p>
+            {active && (
+              <Button variant="outline" size="sm" onClick={turnOff}>
+                <Power className="size-3.5" /> Desativar
+              </Button>
+            )}
           </div>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="space-y-1.5"><Label className="text-xs">Mín. réplicas</Label><Input type="number" min={1} value={min} onChange={(e) => patchForm({ minReplicas: +e.target.value })} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Máx. réplicas</Label><Input type="number" min={1} value={max} onChange={(e) => patchForm({ maxReplicas: +e.target.value })} /></div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mín. réplicas</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={min}
+                    onChange={(e) => patchForm({ minReplicas: +e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Máx. réplicas</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={max}
+                    onChange={(e) => patchForm({ maxReplicas: +e.target.value })}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Métrica</Label>
-                  <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={metric} onChange={(e) => patchForm({ metric: e.target.value as ScalingMetric })}>
-                    {(Object.keys(metricLabel) as ScalingMetric[]).map((m) => <option key={m} value={m}>{metricLabel[m]}</option>)}
+                  <select
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                    value={metric}
+                    onChange={(e) => patchForm({ metric: e.target.value as ScalingMetric })}
+                  >
+                    {(Object.keys(metricLabel) as ScalingMetric[]).map((m) => (
+                      <option key={m} value={m}>
+                        {metricLabel[m]}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="space-y-1.5"><Label className="text-xs">Alvo</Label><Input type="number" min={1} value={target} onChange={(e) => patchForm({ target: +e.target.value })} /></div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Alvo</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={target}
+                    onChange={(e) => patchForm({ target: +e.target.value })}
+                  />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Disponível para estratégia ROLLING. REQUESTS requer prometheus-adapter no cluster.</p>
-              <Button variant="gradient" size="sm" onClick={save} disabled={isSaving}><Save className="size-4" /> Salvar e aplicar HPA</Button>
+              <p className="text-xs text-muted-foreground">
+                Disponível para estratégia ROLLING. REQUESTS requer prometheus-adapter no cluster.
+              </p>
+              <Button variant="gradient" size="sm" onClick={save} disabled={isSaving}>
+                <Save className="size-4" /> Salvar e aplicar HPA
+              </Button>
             </>
           )}
         </CardContent>

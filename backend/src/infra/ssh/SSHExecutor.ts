@@ -30,7 +30,11 @@ export interface SSHShell {
  */
 @Injectable()
 export class SSHExecutor {
-  async run(target: SSHTarget, command: string, onData?: (chunk: string) => void): Promise<SSHResult> {
+  async run(
+    target: SSHTarget,
+    command: string,
+    onData?: (chunk: string) => void,
+  ): Promise<SSHResult> {
     const ssh = new NodeSSH();
     await ssh.connect({
       host: target.host,
@@ -44,8 +48,16 @@ export class SSHExecutor {
       let stdout = "";
       let stderr = "";
       const res = await ssh.execCommand(command, {
-        onStdout: (c) => { const s = c.toString(); stdout += s; onData?.(s); },
-        onStderr: (c) => { const s = c.toString(); stderr += s; onData?.(s); },
+        onStdout: (c) => {
+          const s = c.toString();
+          stdout += s;
+          onData?.(s);
+        },
+        onStderr: (c) => {
+          const s = c.toString();
+          stderr += s;
+          onData?.(s);
+        },
       });
       return { code: res.code, stdout, stderr };
     } finally {
@@ -57,7 +69,10 @@ export class SSHExecutor {
    * Abre um shell interativo (PTY) no nó via SSH. Retorna handles para escrever
    * stdin, redimensionar e fechar — usado pelo terminal de nó (WebSocket).
    */
-  async openShell(target: SSHTarget, io: { onData: (chunk: string) => void; onClose: () => void }): Promise<SSHShell> {
+  async openShell(
+    target: SSHTarget,
+    io: { onData: (chunk: string) => void; onClose: () => void },
+  ): Promise<SSHShell> {
     const ssh = new NodeSSH();
     await ssh.connect({
       host: target.host,
@@ -71,7 +86,10 @@ export class SSHExecutor {
     const channel = await ssh.requestShell({ term: "xterm-256color" });
     channel.on("data", (chunk: Buffer) => io.onData(chunk.toString("utf8")));
     channel.stderr?.on("data", (chunk: Buffer) => io.onData(chunk.toString("utf8")));
-    channel.on("close", () => { io.onClose(); ssh.dispose(); });
+    channel.on("close", () => {
+      io.onClose();
+      ssh.dispose();
+    });
 
     return {
       write: (data) => channel.write(data),

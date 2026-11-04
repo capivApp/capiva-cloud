@@ -18,8 +18,13 @@ export const DB_BACKUP_LOCK = "scheduler:database-backup";
  */
 export function startDatabaseBackupScheduler(intervalMs = 30_000): ReturnType<typeof setInterval> {
   const tick = () =>
-    withLeadership(DB_BACKUP_LOCK, intervalMs, () => container.get(DatabaseBackupService).runScheduledBackups())
-      .then((n) => n !== null && n > 0 && console.log(`[db-backup] ${n} backup(s) agendado(s) disparado(s)`))
+    withLeadership(DB_BACKUP_LOCK, intervalMs, () =>
+      container.get(DatabaseBackupService).runScheduledBackups(),
+    )
+      .then(
+        (n) =>
+          n !== null && n > 0 && console.log(`[db-backup] ${n} backup(s) agendado(s) disparado(s)`),
+      )
       .catch((e) => console.error("[db-backup] scheduler:", (e as Error).message));
 
   setTimeout(tick, 10_000); // primeira avaliação pouco após o boot

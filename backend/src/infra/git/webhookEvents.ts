@@ -11,7 +11,10 @@ import { strategyFor } from "@functions/strategyFor";
 type GitProvider = PullRequestEvent["provider"];
 
 /** PR/MR normalizado, sem o vínculo com a conexão (o GitService acrescenta). */
-export type NormalizedPullRequest = Omit<PullRequestEvent, "connectionId" | "organizationId" | "provider">;
+export type NormalizedPullRequest = Omit<
+  PullRequestEvent,
+  "connectionId" | "organizationId" | "provider"
+>;
 type PullRequestAction = PullRequestEvent["action"];
 
 export interface PushWebhookEvent {
@@ -43,7 +46,11 @@ export interface PullRequestWebhookEvent {
   pullRequest: NormalizedPullRequest;
 }
 
-export type GitWebhookEvent = PushWebhookEvent | TagWebhookEvent | ReleaseWebhookEvent | PullRequestWebhookEvent;
+export type GitWebhookEvent =
+  | PushWebhookEvent
+  | TagWebhookEvent
+  | ReleaseWebhookEvent
+  | PullRequestWebhookEvent;
 
 // Payload de terceiro: nada é confiado, cada campo é lido por `at` e estreitado na folha.
 type Payload = Record<string, unknown>;
@@ -59,26 +66,35 @@ interface ProviderWebhookStrategy {
 /** Header de evento de cada provedor. O Gitea manda também o do GitHub, então o dele vem primeiro. */
 const EVENT_HEADERS = ["x-gitea-event", "x-gitlab-event", "x-github-event"] as const;
 
-export function readGitEventName(headers: Record<string, string | string[] | undefined>): string | undefined {
+export function readGitEventName(
+  headers: Record<string, string | string[] | undefined>,
+): string | undefined {
   const header = EVENT_HEADERS.find((name) => typeof headers[name] === "string");
   return header ? (headers[header] as string) : undefined;
 }
 
 const isZeroSha = (sha: string): boolean => /^0+$/.test(sha);
-const asString = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
-const isPayload = (body: unknown): body is Payload => typeof body === "object" && body !== null && !Array.isArray(body);
+const asString = (value: unknown): string | undefined =>
+  typeof value === "string" && value ? value : undefined;
+const isPayload = (body: unknown): body is Payload =>
+  typeof body === "object" && body !== null && !Array.isArray(body);
 const objectOf = (value: unknown): Payload | undefined => (isPayload(value) ? value : undefined);
 const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /** Desce pelo caminho de chaves; qualquer degrau que não seja objeto encerra em `undefined`. */
-const at = (value: unknown, ...path: string[]): unknown => path.reduce<unknown>((current, key) => objectOf(current)?.[key], value);
+const at = (value: unknown, ...path: string[]): unknown =>
+  path.reduce<unknown>((current, key) => objectOf(current)?.[key], value);
 
 /**
  * Arquivos tocados pelo push. GitHub, GitLab e Gitea usam o mesmo formato de
  * commit (`added`/`modified`/`removed`), então uma leitura só cobre os três.
  */
 function changedPathsOf(body: Payload): string[] {
-  const files = listOf(body.commits).flatMap((c) => [...listOf(at(c, "added")), ...listOf(at(c, "modified")), ...listOf(at(c, "removed"))]);
+  const files = listOf(body.commits).flatMap((c) => [
+    ...listOf(at(c, "added")),
+    ...listOf(at(c, "modified")),
+    ...listOf(at(c, "removed")),
+  ]);
   return [...new Set(files.filter((f): f is string => typeof f === "string"))];
 }
 
@@ -86,12 +102,22 @@ type RefContext = { sha: string; repo?: string; body: Payload };
 
 /** O que o prefixo do `ref` diz sobre o push: branch ou tag. */
 const REF_EVENTS: Record<string, (name: string, ctx: RefContext) => GitWebhookEvent> = {
-  "refs/heads/": (branch, { sha, repo, body }) => ({ kind: "push", branch, sha, repo, changedPaths: changedPathsOf(body) }),
+  "refs/heads/": (branch, { sha, repo, body }) => ({
+    kind: "push",
+    branch,
+    sha,
+    repo,
+    changedPaths: changedPathsOf(body),
+  }),
   "refs/tags/": (tag, { sha, repo }) => ({ kind: "tag", tag, sha, repo }),
 };
 
 /** Push de branch ou de tag. Ref apagada chega com `after` zerado e não tem o que construir. */
-function parseRefEvent(body: Payload, sha: string | undefined, repo: string | undefined): GitWebhookEvent | null {
+function parseRefEvent(
+  body: Payload,
+  sha: string | undefined,
+  repo: string | undefined,
+): GitWebhookEvent | null {
   if (!sha || isZeroSha(sha) || body.deleted === true) return null;
   const ref = asString(body.ref) ?? "";
   const prefix = Object.keys(REF_EVENTS).find((p) => ref.startsWith(p));
@@ -102,14 +128,23 @@ function parseRefEvent(body: Payload, sha: string | undefined, repo: string | un
 // ----------------------------- GitHub / Gitea -----------------------------
 
 const parseGitHubStylePush: EventParser = (body) =>
-  parseRefEvent(body, asString(body.after) ?? asString(at(body, "head_commit", "id")), asString(at(body, "repository", "full_name")));
+  parseRefEvent(
+    body,
+    asString(body.after) ?? asString(at(body, "head_commit", "id")),
+    asString(at(body, "repository", "full_name")),
+  );
 
 /** Só `published` gera versão nova; rascunho, edição e remoção não. */
 const parseGitHubStyleRelease: EventParser = (body) => {
   const release = objectOf(body.release);
   const tag = asString(release?.tag_name);
   if (body.action !== "published" || !tag || release?.draft === true) return null;
-  return { kind: "release", tag, name: asString(release?.name), repo: asString(at(body, "repository", "full_name")) };
+  return {
+    kind: "release",
+    tag,
+    name: asString(release?.name),
+    repo: asString(at(body, "repository", "full_name")),
+  };
 };
 
 /** Ações de PR que mudam o código ou o ciclo de vida; o resto (labeled, assigned…) é ignorado. */
@@ -129,7 +164,9 @@ const parseGitHubStylePullRequest: EventParser = (body) => {
     action: toAction(pr),
     number: Number(body.number ?? pr.number),
     title: asString(pr.title) ?? "",
-    repo: asString(at(body, "repository", "full_name")) ?? asString(at(pr, "base", "repo", "full_name")),
+    repo:
+      asString(at(body, "repository", "full_name")) ??
+      asString(at(pr, "base", "repo", "full_name")),
     sourceBranch: asString(at(pr, "head", "ref")),
     targetBranch: asString(at(pr, "base", "ref")),
     headSha: asString(at(pr, "head", "sha")),
@@ -156,7 +193,11 @@ const GITHUB_STYLE_PARSERS: Record<string, EventParser> = {
 // ----------------------------- GitLab -----------------------------
 
 const parseGitLabRefEvent: EventParser = (body) =>
-  parseRefEvent(body, asString(body.checkout_sha) ?? asString(body.after), asString(at(body, "project", "path_with_namespace")));
+  parseRefEvent(
+    body,
+    asString(body.checkout_sha) ?? asString(body.after),
+    asString(at(body, "project", "path_with_namespace")),
+  );
 
 const parseGitLabRelease: EventParser = (body) => {
   const tag = asString(body.tag);
@@ -205,7 +246,10 @@ const GITLAB_EVENT_BY_KIND: Record<string, string> = {
 
 // ----------------------------- Comum -----------------------------
 
-type PullRequestDraft = Omit<NormalizedPullRequest, "repo" | "sourceBranch" | "targetBranch" | "headSha"> & {
+type PullRequestDraft = Omit<
+  NormalizedPullRequest,
+  "repo" | "sourceBranch" | "targetBranch" | "headSha"
+> & {
   repo?: string;
   sourceBranch?: string;
   targetBranch?: string;
@@ -215,14 +259,21 @@ type PullRequestDraft = Omit<NormalizedPullRequest, "repo" | "sourceBranch" | "t
 /** Sem número, repo, branches ou sha o evento não serve para preview: descarta. */
 function buildPullRequest(draft: PullRequestDraft): PullRequestWebhookEvent | null {
   const { repo, sourceBranch, targetBranch, headSha } = draft;
-  if (!Number.isInteger(draft.number) || !repo || !sourceBranch || !targetBranch || !headSha) return null;
-  return { kind: "pull_request", pullRequest: { ...draft, repo, sourceBranch, targetBranch, headSha } };
+  if (!Number.isInteger(draft.number) || !repo || !sourceBranch || !targetBranch || !headSha)
+    return null;
+  return {
+    kind: "pull_request",
+    pullRequest: { ...draft, repo, sourceBranch, targetBranch, headSha },
+  };
 }
 
 const WEBHOOK_STRATEGIES: Record<GitProvider, ProviderWebhookStrategy> = {
   GITHUB: { parsers: GITHUB_STYLE_PARSERS, inferEvent: inferGitHubStyleEvent },
   // O Gitea detalha o tipo em `X-Gitea-Event-Type` (pull_request_sync); aceita os dois.
-  GITEA: { parsers: { ...GITHUB_STYLE_PARSERS, pull_request_sync: parseGitHubStylePullRequest }, inferEvent: inferGitHubStyleEvent },
+  GITEA: {
+    parsers: { ...GITHUB_STYLE_PARSERS, pull_request_sync: parseGitHubStylePullRequest },
+    inferEvent: inferGitHubStyleEvent,
+  },
   GITLAB: {
     parsers: {
       "Push Hook": parseGitLabRefEvent,
@@ -235,7 +286,11 @@ const WEBHOOK_STRATEGIES: Record<GitProvider, ProviderWebhookStrategy> = {
 };
 
 /** Normaliza um webhook do provedor. Evento desconhecido ou irrelevante devolve `null`. */
-export function parseGitWebhook(provider: GitProvider, eventName: string | undefined, body: unknown): GitWebhookEvent | null {
+export function parseGitWebhook(
+  provider: GitProvider,
+  eventName: string | undefined,
+  body: unknown,
+): GitWebhookEvent | null {
   const strategy = WEBHOOK_STRATEGIES[provider];
   if (!strategy || !isPayload(body)) return null;
   const parser = strategyFor(strategy.parsers, eventName ?? strategy.inferEvent(body));

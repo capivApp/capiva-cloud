@@ -39,7 +39,9 @@ export class AuthController {
   };
 
   me = async (req: Request, res: Response): Promise<void> => {
-    res.json({ user: req.auth ? { id: req.auth.sub, email: req.auth.email, name: req.auth.name } : null });
+    res.json({
+      user: req.auth ? { id: req.auth.sub, email: req.auth.email, name: req.auth.name } : null,
+    });
   };
 
   private respond(res: Response, result: AuthResult, status: number): void {

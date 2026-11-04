@@ -4,7 +4,10 @@ import { detectLogLevel } from "@service/logSearch/logLevel.strategy";
 import { nextPageWindow, sortLogLines } from "@service/logSearch/logPager.strategy";
 import { buildLogSelector, buildLokiRangeRequest, POD_LABEL } from "@service/logSearch/logql";
 
-const withLevel = (line: LogLine): LogLine => ({ ...line, level: detectLogLevel(line.line) ?? undefined });
+const withLevel = (line: LogLine): LogLine => ({
+  ...line,
+  level: detectLogLevel(line.line) ?? undefined,
+});
 
 /**
  * Busca de logs de UMA aplicação: monta o pedido (escopo do servidor + filtros do
@@ -28,7 +31,10 @@ export class LogSearch {
   /** Pods com log na janela. Consulta só o seletor do tenant: o filtro de pod não entra. */
   async pods(scope: LogScope, filtros: LogFiltros): Promise<string[]> {
     const request = buildLokiRangeRequest(scope, filtros, this.now());
-    const pods = await this.source.labelValues(POD_LABEL, { ...request, query: buildLogSelector(scope) });
+    const pods = await this.source.labelValues(POD_LABEL, {
+      ...request,
+      query: buildLogSelector(scope),
+    });
     return [...pods].sort();
   }
 
@@ -41,7 +47,10 @@ export class LogSearch {
     let remaining = maxLines;
     while (remaining > 0) {
       const limit = Math.min(this.pageSize, remaining);
-      const page = sortLogLines(await this.source.range({ ...request, limit }), request.direction).map(withLevel);
+      const page = sortLogLines(
+        await this.source.range({ ...request, limit }),
+        request.direction,
+      ).map(withLevel);
       if (page.length === 0) return;
       yield page.slice(0, remaining);
       remaining -= page.length;

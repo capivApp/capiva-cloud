@@ -7,11 +7,16 @@ import type { Prisma, Application } from "@prisma-generated/client";
  * origem) e, no preview, a origem (marca na lista de aplicações).
  */
 const INCLUDE_PREVIEWS = {
-  previews: { include: { domains: { select: { host: true, tlsMode: true } } }, orderBy: { previewPrNumber: "asc" } },
+  previews: {
+    include: { domains: { select: { host: true, tlsMode: true } } },
+    orderBy: { previewPrNumber: "asc" },
+  },
   previewOf: { select: { id: true, name: true } },
 } satisfies Prisma.ApplicationInclude;
 
-export type ApplicationWithPreviews = Prisma.ApplicationGetPayload<{ include: typeof INCLUDE_PREVIEWS }>;
+export type ApplicationWithPreviews = Prisma.ApplicationGetPayload<{
+  include: typeof INCLUDE_PREVIEWS;
+}>;
 
 @Injectable()
 export class ApplicationRepository extends BaseRepository {
@@ -22,12 +27,17 @@ export class ApplicationRepository extends BaseRepository {
 
   /** Busca restrita à organização ativa (ver BaseRepository.scope). */
   findById(id: string): Promise<ApplicationWithPreviews | null> {
-    return this.tx.application.findFirst({ where: { id, ...this.scope("application") }, include: INCLUDE_PREVIEWS });
+    return this.tx.application.findFirst({
+      where: { id, ...this.scope("application") },
+      include: INCLUDE_PREVIEWS,
+    });
   }
 
   /** Preview do PR `prNumber` da aplicação de origem. */
   findPreview(previewOfId: string, prNumber: number): Promise<Application | null> {
-    return this.tx.application.findFirst({ where: { previewOfId, previewPrNumber: prNumber, ...this.scope("application") } });
+    return this.tx.application.findFirst({
+      where: { previewOfId, previewPrNumber: prNumber, ...this.scope("application") },
+    });
   }
 
   /**
@@ -57,7 +67,9 @@ export class ApplicationRepository extends BaseRepository {
    * O tenant vem da própria conexão (resolvida antes), então segue escopado.
    */
   listByGitConnection(gitConnectionId: string): Promise<Application[]> {
-    return this.tx.application.findMany({ where: { gitConnectionId, ...this.scope("application") } });
+    return this.tx.application.findMany({
+      where: { gitConnectionId, ...this.scope("application") },
+    });
   }
 
   async updateStatus(id: string, observedStatus: string): Promise<Application> {

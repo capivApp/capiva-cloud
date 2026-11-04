@@ -34,7 +34,12 @@ let server: Server;
 let base = "";
 
 beforeAll(async () => {
-  const ctrl = new ObservabilityController(fakeObservability as never, {} as never, {} as never, {} as never);
+  const ctrl = new ObservabilityController(
+    fakeObservability as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
   const app = express();
   app.get("/apps/:id/logs", ctrl.searchLogs);
   app.get("/apps/:id/logs/download", ctrl.downloadLogs);
@@ -46,14 +51,21 @@ beforeAll(async () => {
 
 afterAll(() => server.close());
 
-const get = (path: string) => fetch(`${base}${path}`, { headers: { "x-organization-id": "org-1" } });
+const get = (path: string) =>
+  fetch(`${base}${path}`, { headers: { "x-organization-id": "org-1" } });
 
 describe("GET /logs", () => {
   it("repassa os filtros já convertidos para o service", async () => {
     received.length = 0;
-    const res = await get("/apps/a1/logs?q=timeout&level=error,warn&since=15m&namespace=kube-system");
+    const res = await get(
+      "/apps/a1/logs?q=timeout&level=error,warn&since=15m&namespace=kube-system",
+    );
     expect(res.status).toBe(200);
-    expect(received[0]?.filtros).toEqual({ contains: "timeout", levels: ["error", "warn"], since: "15m" });
+    expect(received[0]?.filtros).toEqual({
+      contains: "timeout",
+      levels: ["error", "warn"],
+      since: "15m",
+    });
   });
 
   it("filtro inválido vira 422 com mensagem em português", async () => {
@@ -69,22 +81,31 @@ describe("GET /logs/download", () => {
     const res = await get("/apps/a1/logs/download?maxLines=100");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="minha-api-logs-\d{8}-\d{6}\.txt"$/);
-    expect(await res.text()).toBe("2026-11-04T12:00:00.000Z [api-1] ERROR a\n2026-11-04T12:00:00.000Z INFO b\n");
+    expect(res.headers.get("content-disposition")).toMatch(
+      /^attachment; filename="minha-api-logs-\d{8}-\d{6}\.txt"$/,
+    );
+    expect(await res.text()).toBe(
+      "2026-11-04T12:00:00.000Z [api-1] ERROR a\n2026-11-04T12:00:00.000Z INFO b\n",
+    );
     expect(received.at(-1)?.maxLines).toBe(100);
   });
 
   it("ndjson", async () => {
     const res = await get("/apps/a1/logs/download?format=ndjson");
     expect(res.headers.get("content-type")).toBe("application/x-ndjson; charset=utf-8");
-    const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    const lines = (await res.text())
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
     expect(lines.map((l) => l.line)).toEqual(["ERROR a", "INFO b"]);
   });
 
   it("erro antes do arquivo começar volta como JSON", async () => {
     const res = await get("/apps/falha/logs/download");
     expect(res.status).toBe(400);
-    expect(((await res.json()) as { message: string }).message).toBe("Não foi possível aplicar o filtro.");
+    expect(((await res.json()) as { message: string }).message).toBe(
+      "Não foi possível aplicar o filtro.",
+    );
   });
 
   it("recusa máximo de linhas acima do teto", async () => {

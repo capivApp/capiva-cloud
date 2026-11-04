@@ -2,7 +2,12 @@ import { CONNECTION_META } from "@infra/kubernetes/databaseManifests";
 import { decrypt } from "@functions/crypto";
 import type { ManagedDatabase } from "@prisma-generated/client";
 
-export type S3Creds = { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
+export type S3Creds = {
+  endpoint: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
 
 type DatabaseRef = Pick<ManagedDatabase, "name" | "kind" | "config">;
 
@@ -32,11 +37,22 @@ export const s3EnvOf = (s3: S3Creds) => ({
   AWS_SECRET_ACCESS_KEY: s3.secretAccessKey,
 });
 
-type ConnectionEnvBuilder = (input: { host: string; port: string; username: string; password: string; database: string }) => Record<string, string>;
+type ConnectionEnvBuilder = (input: {
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  database: string;
+}) => Record<string, string>;
 
 const postgresEnv: ConnectionEnvBuilder = ({ host, port, username, password, database }) => {
   const baseUrl = `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
-  return { DB_NAME: database, SRC_URL: `${baseUrl}/${database}`, BASE_URL: baseUrl, ADMIN_URL: `${baseUrl}/postgres` };
+  return {
+    DB_NAME: database,
+    SRC_URL: `${baseUrl}/${database}`,
+    BASE_URL: baseUrl,
+    ADMIN_URL: `${baseUrl}/postgres`,
+  };
 };
 
 const hostEnv: ConnectionEnvBuilder = ({ host, username, password, database }) => ({
@@ -53,7 +69,12 @@ const CONNECTION_ENV: Record<string, ConnectionEnvBuilder> = { POSTGRESQL: postg
  * Variáveis do Secret efêmero dos Jobs de backup e restore: credenciais do
  * banco (origem do dump ou destino do restore) + destino/origem S3.
  */
-export function buildDatabaseSecretData(db: DatabaseRef, namespace: string, s3: S3Creds, extra: Record<string, string> = {}): Record<string, string> {
+export function buildDatabaseSecretData(
+  db: DatabaseRef,
+  namespace: string,
+  s3: S3Creds,
+  extra: Record<string, string> = {},
+): Record<string, string> {
   const cfg = (db.config ?? {}) as { passwordCipher?: string };
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
   const connection = (CONNECTION_ENV[db.kind] ?? hostEnv)({

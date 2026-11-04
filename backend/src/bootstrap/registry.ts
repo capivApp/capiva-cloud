@@ -18,7 +18,8 @@ async function importAll(folder: string): Promise<void> {
       const fullPath = path.join(folder, entry.name);
       if (entry.isDirectory()) return importAll(fullPath);
       if (!fullPath.endsWith(".ts") && !fullPath.endsWith(".js")) return;
-      if (fullPath.endsWith(".d.ts") || fullPath.includes(".test.") || fullPath.includes(".spec.")) return;
+      if (fullPath.endsWith(".d.ts") || fullPath.includes(".test.") || fullPath.includes(".spec."))
+        return;
       await import(fullPath);
     }),
   );

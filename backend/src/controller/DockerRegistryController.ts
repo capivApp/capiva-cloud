@@ -15,12 +15,18 @@ export class DockerRegistryController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createDockerRegistrySchema.parse(req.body);
-    const { passwordCipher, ...rest } = await this.registries.create(tenantOf(req).organizationId, dto);
+    const { passwordCipher, ...rest } = await this.registries.create(
+      tenantOf(req).organizationId,
+      dto,
+    );
     res.status(201).json(rest);
   };
 
   setDefault = async (req: Request, res: Response): Promise<void> => {
-    const { passwordCipher, ...rest } = await this.registries.setDefault(tenantOf(req).organizationId, String(req.params.id));
+    const { passwordCipher, ...rest } = await this.registries.setDefault(
+      tenantOf(req).organizationId,
+      String(req.params.id),
+    );
     res.json(rest);
   };
 

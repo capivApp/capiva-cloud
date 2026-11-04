@@ -21,7 +21,10 @@ export interface EnvMapping {
 }
 
 function defaultKey(name: string): string {
-  return name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 /**
@@ -41,7 +44,10 @@ export class DependencyService {
     private readonly networkPolicies: NetworkPolicyService,
   ) {}
 
-  listForApplication(applicationId: string, tenant: { organizationId: string }): Promise<ServiceDependency[]> {
+  listForApplication(
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<ServiceDependency[]> {
     return withTransaction(() => this.deps.listForApplication(applicationId), { tenant });
   }
 
@@ -51,16 +57,22 @@ export class DependencyService {
     mappings: EnvMapping[] | undefined,
     tenant: { organizationId: string },
   ): Promise<ServiceDependency> {
-    if (sourceId === targetId) throw HttpError.badRequest("Uma aplicação não pode depender de si mesma.");
+    if (sourceId === targetId)
+      throw HttpError.badRequest("Uma aplicação não pode depender de si mesma.");
 
-    const { target, namespace } = await withTransaction(async () => {
-      const source = await this.apps.findById(sourceId);
-      const target = await this.apps.findById(targetId);
-      if (!source || !target) throw HttpError.notFound("Aplicação de origem ou destino não encontrada.");
-      if (await this.deps.find(sourceId, targetId)) throw HttpError.conflict("Dependência já existe.");
-      const env = await this.environments.findById(target.environmentId);
-      return { target, namespace: env?.namespace ?? "default" };
-    }, { tenant });
+    const { target, namespace } = await withTransaction(
+      async () => {
+        const source = await this.apps.findById(sourceId);
+        const target = await this.apps.findById(targetId);
+        if (!source || !target)
+          throw HttpError.notFound("Aplicação de origem ou destino não encontrada.");
+        if (await this.deps.find(sourceId, targetId))
+          throw HttpError.conflict("Dependência já existe.");
+        const env = await this.environments.findById(target.environmentId);
+        return { target, namespace: env?.namespace ?? "default" };
+      },
+      { tenant },
+    );
 
     const effective: EnvMapping[] = mappings?.length
       ? mappings
@@ -78,34 +90,50 @@ export class DependencyService {
 
     const valueFor = (form: EnvForm): string => {
       switch (form) {
-        case "URL": return `http://${fqdn}:${port}`;
-        case "DNS": return fqdn;
-        case "DNS_PORT": return `${fqdn}:${port}`;
-        case "IP": return ip ?? fqdn;
-        case "IP_PORT": return ip ? `${ip}:${port}` : `${fqdn}:${port}`;
+        case "URL":
+          return `http://${fqdn}:${port}`;
+        case "DNS":
+          return fqdn;
+        case "DNS_PORT":
+          return `${fqdn}:${port}`;
+        case "IP":
+          return ip ?? fqdn;
+        case "IP_PORT":
+          return ip ? `${ip}:${port}` : `${fqdn}:${port}`;
       }
     };
 
-    const dependency = await withTransaction(async () => {
-      for (const m of effective) {
-        await this.envVars.upsert({ applicationId: sourceId, key: m.key, value: valueFor(m.form), source: "INJECTED" });
-      }
-      return this.deps.create({
-        sourceId,
-        targetId,
-        injectedKeys: effective as unknown as Prisma.InputJsonValue,
-      });
-    }, { tenant });
+    const dependency = await withTransaction(
+      async () => {
+        for (const m of effective) {
+          await this.envVars.upsert({
+            applicationId: sourceId,
+            key: m.key,
+            value: valueFor(m.form),
+            source: "INJECTED",
+          });
+        }
+        return this.deps.create({
+          sourceId,
+          targetId,
+          injectedKeys: effective as unknown as Prisma.InputJsonValue,
+        });
+      },
+      { tenant },
+    );
     // A origem pode estar em outro namespace: libera o acesso no namespace do destino.
     await this.networkPolicies.syncEnvironmentQuietly(target.environmentId, tenant);
     return dependency;
   }
 
   async disconnect(id: string, tenant: { organizationId: string }): Promise<void> {
-    const target = await withTransaction(async () => {
-      const removed = await this.deps.delete(id);
-      return this.apps.findById(removed.targetId);
-    }, { tenant });
+    const target = await withTransaction(
+      async () => {
+        const removed = await this.deps.delete(id);
+        return this.apps.findById(removed.targetId);
+      },
+      { tenant },
+    );
     if (!target) return;
     await this.networkPolicies.syncEnvironmentQuietly(target.environmentId, tenant);
   }

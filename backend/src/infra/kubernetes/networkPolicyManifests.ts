@@ -33,7 +33,10 @@ export interface TenantNetworkPolicyPlan {
   remove: K8sManifest[];
 }
 
-const NETWORK_POLICY_LABELS = { "app.kubernetes.io/part-of": "capiva", "capiva.io/network-policy": "tenant" };
+const NETWORK_POLICY_LABELS = {
+  "app.kubernetes.io/part-of": "capiva",
+  "capiva.io/network-policy": "tenant",
+};
 
 /** Operators que conversam com os pods dos bancos (status, failover). */
 const DEFAULT_OPERATOR_NAMESPACES = "cnpg-system,mysql-operator,rabbitmq-system,elastic-system";
@@ -45,7 +48,11 @@ const namespaceSelector = (namespace: string) => ({
   namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": namespace } },
 });
 
-const networkPolicy = (name: string, namespace: string, spec: Record<string, unknown>): K8sManifest => ({
+const networkPolicy = (
+  name: string,
+  namespace: string,
+  spec: Record<string, unknown>,
+): K8sManifest => ({
   apiVersion: "networking.k8s.io/v1",
   kind: "NetworkPolicy",
   metadata: { name, namespace, labels: NETWORK_POLICY_LABELS },
@@ -59,7 +66,10 @@ const parseList = (raw: string): string[] =>
     .filter(Boolean);
 
 export function defaultDenyIngressManifest(namespace: string): K8sManifest {
-  return networkPolicy("capiva-default-deny-ingress", namespace, { podSelector: ALL_PODS, policyTypes: ["Ingress"] });
+  return networkPolicy("capiva-default-deny-ingress", namespace, {
+    podSelector: ALL_PODS,
+    policyTypes: ["Ingress"],
+  });
 }
 
 export function allowSameNamespaceManifest(namespace: string): K8sManifest {
@@ -70,24 +80,44 @@ export function allowSameNamespaceManifest(namespace: string): K8sManifest {
   });
 }
 
-export function allowPlatformManifest(namespace: string, platform: NetworkPolicyPlatform): K8sManifest {
+export function allowPlatformManifest(
+  namespace: string,
+  platform: NetworkPolicyPlatform,
+): K8sManifest {
   const namespaces = [
-    ...new Set([...platform.ingressNamespaces, ...platform.monitoringNamespaces, ...platform.operatorNamespaces]),
+    ...new Set([
+      ...platform.ingressNamespaces,
+      ...platform.monitoringNamespaces,
+      ...platform.operatorNamespaces,
+    ]),
   ];
   // `from: []` numa regra libera QUALQUER origem: sem namespace, nenhuma regra.
   const rules = namespaces.length ? [{ from: namespaces.map(namespaceSelector) }] : [];
-  return networkPolicy("capiva-allow-platform", namespace, { podSelector: ALL_PODS, policyTypes: ["Ingress"], ingress: rules });
+  return networkPolicy("capiva-allow-platform", namespace, {
+    podSelector: ALL_PODS,
+    policyTypes: ["Ingress"],
+    ingress: rules,
+  });
 }
 
 export function allowEgressManifest(namespace: string): K8sManifest {
   const dns = {
-    to: [{ ...namespaceSelector("kube-system"), podSelector: { matchLabels: { "k8s-app": "kube-dns" } } }],
+    to: [
+      {
+        ...namespaceSelector("kube-system"),
+        podSelector: { matchLabels: { "k8s-app": "kube-dns" } },
+      },
+    ],
     ports: [
       { protocol: "UDP", port: 53 },
       { protocol: "TCP", port: 53 },
     ],
   };
-  return networkPolicy("capiva-allow-egress", namespace, { podSelector: ALL_PODS, policyTypes: ["Egress"], egress: [dns, {}] });
+  return networkPolicy("capiva-allow-egress", namespace, {
+    podSelector: ALL_PODS,
+    policyTypes: ["Egress"],
+    egress: [dns, {}],
+  });
 }
 
 /**
@@ -103,7 +133,9 @@ export function dependencyNetworkPolicyManifest(
   return networkPolicy(`capiva-deps-${target}`, namespace, {
     podSelector: appSelector(target),
     policyTypes: ["Ingress"],
-    ingress: peers.map((peer) => ({ from: [{ ...namespaceSelector(peer.sourceNamespace), podSelector: appSelector(peer.source) }] })),
+    ingress: peers.map((peer) => ({
+      from: [{ ...namespaceSelector(peer.sourceNamespace), podSelector: appSelector(peer.source) }],
+    })),
   });
 }
 
@@ -120,18 +152,25 @@ export function buildTenantNetworkPolicies(input: TenantNetworkPolicyInput): K8s
   ];
 }
 
-const PLAN_BY_ISOLATION: Record<"true" | "false", (manifests: K8sManifest[]) => TenantNetworkPolicyPlan> = {
+const PLAN_BY_ISOLATION: Record<
+  "true" | "false",
+  (manifests: K8sManifest[]) => TenantNetworkPolicyPlan
+> = {
   true: (manifests) => ({ apply: manifests, remove: [] }),
   false: (manifests) => ({ apply: [], remove: manifests }),
 };
 
 /** Isolamento desligado remove o conjunto inteiro: nomes fixos, nada fica para trás. */
-export function planTenantNetworkPolicies(input: TenantNetworkPolicyInput & { enabled: boolean }): TenantNetworkPolicyPlan {
+export function planTenantNetworkPolicies(
+  input: TenantNetworkPolicyInput & { enabled: boolean },
+): TenantNetworkPolicyPlan {
   return PLAN_BY_ISOLATION[`${input.enabled}`](buildTenantNetworkPolicies(input));
 }
 
 /** Namespaces da plataforma no cluster. Traefik do k3s roda no kube-system. */
-export function resolveNetworkPolicyPlatform(env: Record<string, string | undefined> = process.env): NetworkPolicyPlatform {
+export function resolveNetworkPolicyPlatform(
+  env: Record<string, string | undefined> = process.env,
+): NetworkPolicyPlatform {
   return {
     ingressNamespaces: parseList(env.CAPIVA_INGRESS_NAMESPACE || "kube-system"),
     monitoringNamespaces: parseList(env.CAPIVA_MONITORING_NAMESPACES ?? "monitoring"),

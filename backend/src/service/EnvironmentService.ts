@@ -56,11 +56,16 @@ export class EnvironmentService {
     const env = await withTransaction(() => this.environments.findById(id), {
       tenant: { organizationId },
     });
-    if (!env || env.organizationId !== organizationId) throw HttpError.notFound("Ambiente não encontrado.");
+    if (!env || env.organizationId !== organizationId)
+      throw HttpError.notFound("Ambiente não encontrado.");
     return env;
   }
 
-  async update(organizationId: string, id: string, input: UpdateEnvironmentInput): Promise<Environment> {
+  async update(
+    organizationId: string,
+    id: string,
+    input: UpdateEnvironmentInput,
+  ): Promise<Environment> {
     await this.getById(organizationId, id);
     const environment = await withTransaction(
       () =>

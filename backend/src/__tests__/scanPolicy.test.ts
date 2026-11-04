@@ -8,7 +8,14 @@ import { buildScanErrorSummary, buildScanSummary } from "@service/scan/scanSumma
 import { scanPolicySchema } from "@schemas/scan.schema";
 import type { SeverityCounts, TrivyFindings } from "@interface/scan";
 
-const counts = (partial: Partial<SeverityCounts>): SeverityCounts => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0, ...partial });
+const counts = (partial: Partial<SeverityCounts>): SeverityCounts => ({
+  CRITICAL: 0,
+  HIGH: 0,
+  MEDIUM: 0,
+  LOW: 0,
+  UNKNOWN: 0,
+  ...partial,
+});
 
 const findings = (partial: Partial<SeverityCounts>): TrivyFindings => {
   const c = counts(partial);
@@ -18,16 +25,27 @@ const findings = (partial: Partial<SeverityCounts>): TrivyFindings => {
 describe("readScanPolicy", () => {
   it("sem configuração: scan ligado e sem bloqueio", () => {
     expect(readScanPolicy(undefined)).toEqual({ scanEnabled: true, blockOnSeverity: "none" });
-    expect(readScanPolicy({ image: "nginx" })).toEqual({ scanEnabled: true, blockOnSeverity: "none" });
+    expect(readScanPolicy({ image: "nginx" })).toEqual({
+      scanEnabled: true,
+      blockOnSeverity: "none",
+    });
   });
 
   it("lê a política gravada em sourceConfig.security", () => {
-    expect(readScanPolicy({ security: { scanEnabled: false, blockOnSeverity: "high" } })).toEqual({ scanEnabled: false, blockOnSeverity: "high" });
+    expect(readScanPolicy({ security: { scanEnabled: false, blockOnSeverity: "high" } })).toEqual({
+      scanEnabled: false,
+      blockOnSeverity: "high",
+    });
   });
 
   it("valor inválido gravado cai no default do próprio campo", () => {
-    expect(readScanPolicy({ security: { scanEnabled: false, blockOnSeverity: "medium" } })).toEqual({ scanEnabled: false, blockOnSeverity: "none" });
-    expect(readScanPolicy({ security: "ligado" })).toEqual({ scanEnabled: true, blockOnSeverity: "none" });
+    expect(readScanPolicy({ security: { scanEnabled: false, blockOnSeverity: "medium" } })).toEqual(
+      { scanEnabled: false, blockOnSeverity: "none" },
+    );
+    expect(readScanPolicy({ security: "ligado" })).toEqual({
+      scanEnabled: true,
+      blockOnSeverity: "none",
+    });
   });
 });
 
@@ -51,10 +69,17 @@ describe("createBlockStrategy", () => {
 });
 
 describe("buildScanSummary", () => {
-  const base = { imageRef: "registry.local/api:1.0.0", scannedAt: new Date("2026-11-04T14:00:00Z") };
+  const base = {
+    imageRef: "registry.local/api:1.0.0",
+    scannedAt: new Date("2026-11-04T14:00:00Z"),
+  };
 
   it("aprovado: guarda contagens, política e mensagem com o resumo", () => {
-    const summary = buildScanSummary({ ...base, findings: findings({ CRITICAL: 2, HIGH: 4, MEDIUM: 3, LOW: 1 }), policy: { scanEnabled: true, blockOnSeverity: "none" } });
+    const summary = buildScanSummary({
+      ...base,
+      findings: findings({ CRITICAL: 2, HIGH: 4, MEDIUM: 3, LOW: 1 }),
+      policy: { scanEnabled: true, blockOnSeverity: "none" },
+    });
     expect(summary.status).toBe("PASSED");
     expect(summary.counts).toEqual(counts({ CRITICAL: 2, HIGH: 4, MEDIUM: 3, LOW: 1 }));
     expect(summary.total).toBe(10);
@@ -66,25 +91,45 @@ describe("buildScanSummary", () => {
   });
 
   it("imagem limpa diz que não encontrou nada", () => {
-    const summary = buildScanSummary({ ...base, findings: findings({}), policy: { scanEnabled: true, blockOnSeverity: "high" } });
+    const summary = buildScanSummary({
+      ...base,
+      findings: findings({}),
+      policy: { scanEnabled: true, blockOnSeverity: "high" },
+    });
     expect(summary.status).toBe("PASSED");
     expect(summary.message).toBe("Scan concluído: nenhuma vulnerabilidade encontrada.");
   });
 
   it("bloqueado por crítica: mensagem diz o que aconteceu e o que fazer", () => {
-    const summary = buildScanSummary({ ...base, findings: findings({ CRITICAL: 2, HIGH: 4 }), policy: { scanEnabled: true, blockOnSeverity: "critical" } });
+    const summary = buildScanSummary({
+      ...base,
+      findings: findings({ CRITICAL: 2, HIGH: 4 }),
+      policy: { scanEnabled: true, blockOnSeverity: "critical" },
+    });
     expect(summary.status).toBe("BLOCKED");
-    expect(summary.message).toBe("Deploy bloqueado: a imagem tem 2 vulnerabilidades críticas. Corrija a imagem ou ajuste a política em Configurações.");
+    expect(summary.message).toBe(
+      "Deploy bloqueado: a imagem tem 2 vulnerabilidades críticas. Corrija a imagem ou ajuste a política em Configurações.",
+    );
   });
 
   it("bloqueado por alta soma críticas e altas", () => {
-    const summary = buildScanSummary({ ...base, findings: findings({ CRITICAL: 1, HIGH: 4 }), policy: { scanEnabled: true, blockOnSeverity: "high" } });
+    const summary = buildScanSummary({
+      ...base,
+      findings: findings({ CRITICAL: 1, HIGH: 4 }),
+      policy: { scanEnabled: true, blockOnSeverity: "high" },
+    });
     expect(summary.status).toBe("BLOCKED");
-    expect(summary.message).toBe("Deploy bloqueado: a imagem tem 5 vulnerabilidades críticas ou altas. Corrija a imagem ou ajuste a política em Configurações.");
+    expect(summary.message).toBe(
+      "Deploy bloqueado: a imagem tem 5 vulnerabilidades críticas ou altas. Corrija a imagem ou ajuste a política em Configurações.",
+    );
   });
 
   it("mensagens de tela não usam travessão", () => {
-    const summary = buildScanSummary({ ...base, findings: findings({ HIGH: 1 }), policy: { scanEnabled: true, blockOnSeverity: "high" } });
+    const summary = buildScanSummary({
+      ...base,
+      findings: findings({ HIGH: 1 }),
+      policy: { scanEnabled: true, blockOnSeverity: "high" },
+    });
     expect(summary.message).not.toContain("—");
     expect(summary.message).toContain("1 vulnerabilidade crítica ou alta.");
   });
@@ -102,18 +147,25 @@ describe("buildScanErrorSummary", () => {
     expect(summary.total).toBe(0);
     expect(summary.topVulnerabilities).toEqual([]);
     expect(summary.error).toBe("Job scan-abc expirou (timeout).");
-    expect(summary.message).toBe("Scan de vulnerabilidades não concluído. O deploy seguiu sem a verificação.");
+    expect(summary.message).toBe(
+      "Scan de vulnerabilidades não concluído. O deploy seguiu sem a verificação.",
+    );
   });
 });
 
 describe("scanPolicySchema", () => {
   it("aceita a política completa", () => {
-    expect(scanPolicySchema.parse({ scanEnabled: false, blockOnSeverity: "critical" })).toEqual({ scanEnabled: false, blockOnSeverity: "critical" });
+    expect(scanPolicySchema.parse({ scanEnabled: false, blockOnSeverity: "critical" })).toEqual({
+      scanEnabled: false,
+      blockOnSeverity: "critical",
+    });
   });
 
   it("recusa severidade fora da lista com mensagem em português", () => {
     const parsed = scanPolicySchema.safeParse({ scanEnabled: true, blockOnSeverity: "medium" });
     expect(parsed.success).toBe(false);
-    expect(parsed.error?.issues[0]?.message).toBe("Escolha entre não bloquear, bloquear críticas ou bloquear altas e críticas.");
+    expect(parsed.error?.issues[0]?.message).toBe(
+      "Escolha entre não bloquear, bloquear críticas ou bloquear altas e críticas.",
+    );
   });
 });

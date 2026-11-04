@@ -35,8 +35,16 @@ type DeployTriggerStrategy = (cfg: SourceConfig, event: GitWebhookEvent) => Depl
  * os provedores truncam) dispara por segurança: melhor um build a mais do que
  * perder um deploy.
  */
-export function matchesWatchPaths(configured: unknown, changedPaths: string[] | undefined): boolean {
-  const paths = Array.isArray(configured) ? configured.map(String).map((p) => p.trim()).filter(Boolean) : [];
+export function matchesWatchPaths(
+  configured: unknown,
+  changedPaths: string[] | undefined,
+): boolean {
+  const paths = Array.isArray(configured)
+    ? configured
+        .map(String)
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : [];
   if (paths.length === 0) return true;
   if (!changedPaths?.length) return true;
 
@@ -54,7 +62,10 @@ const GLOB_TOKENS: Record<string, string> = { "*": ".*", "?": "." };
 export function matchesTagPattern(pattern: unknown, tag: string): boolean {
   const glob = typeof pattern === "string" ? pattern.trim() : "";
   if (!glob) return true;
-  const source = glob.replace(/[*?.+^${}()|[\]\\/]/g, (char) => strategyFor(GLOB_TOKENS, char) ?? `\\${char}`);
+  const source = glob.replace(
+    /[*?.+^${}()|[\]\\/]/g,
+    (char) => strategyFor(GLOB_TOKENS, char) ?? `\\${char}`,
+  );
   return new RegExp(`^${source}$`).test(tag);
 }
 
@@ -85,11 +96,15 @@ const isSameRepo = (cfg: SourceConfig, event: GitWebhookEvent): boolean => {
 };
 
 /** Decide se o evento dispara deploy desta aplicação e com qual versão. */
-export function resolveDeployTarget(cfg: SourceConfig, event: GitWebhookEvent): DeployTarget | null {
+export function resolveDeployTarget(
+  cfg: SourceConfig,
+  event: GitWebhookEvent,
+): DeployTarget | null {
   // Deploy automático ligado por padrão (comportamento anterior); quem
   // prefere promover manualmente desliga em Configurações.
   if (cfg.autoDeploy === false) return null;
   if (!isSameRepo(cfg, event)) return null;
-  const strategy = strategyFor(DEPLOY_TRIGGER_STRATEGIES, cfg.deployTrigger) ?? DEPLOY_TRIGGER_STRATEGIES.branch;
+  const strategy =
+    strategyFor(DEPLOY_TRIGGER_STRATEGIES, cfg.deployTrigger) ?? DEPLOY_TRIGGER_STRATEGIES.branch;
   return strategy(cfg, event);
 }

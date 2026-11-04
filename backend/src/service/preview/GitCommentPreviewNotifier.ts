@@ -32,7 +32,11 @@ export class GitCommentPreviewNotifier implements IPreviewNotifier {
 
   private comment(event: PullRequestEvent, body: string): Promise<void> {
     return this.git
-      .commentOnPullRequest(event.connectionId, event.repo, event.number, body, { organizationId: event.organizationId })
-      .catch((e: Error) => console.error(`[preview] comentário no PR #${event.number}:`, e.message));
+      .commentOnPullRequest(event.connectionId, event.repo, event.number, body, {
+        organizationId: event.organizationId,
+      })
+      .catch((e: Error) =>
+        console.error(`[preview] comentário no PR #${event.number}:`, e.message),
+      );
   }
 }

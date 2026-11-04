@@ -16,11 +16,16 @@ import { HttpError } from "@functions/HttpError";
 export interface NetworkPolicyRows {
   environment: { namespace: string; networkIsolation: boolean };
   apps: { name: string }[];
-  dependencies: { source: { name: string; environment: { namespace: string } }; target: { name: string } }[];
+  dependencies: {
+    source: { name: string; environment: { namespace: string } };
+    target: { name: string };
+  }[];
   platform: NetworkPolicyPlatform;
 }
 
-export function buildNetworkPolicyInput(rows: NetworkPolicyRows): TenantNetworkPolicyInput & { enabled: boolean } {
+export function buildNetworkPolicyInput(
+  rows: NetworkPolicyRows,
+): TenantNetworkPolicyInput & { enabled: boolean } {
   return {
     namespace: rows.environment.namespace,
     enabled: rows.environment.networkIsolation,
@@ -55,7 +60,8 @@ export class NetworkPolicyService {
     const plan = planTenantNetworkPolicies(buildNetworkPolicyInput(rows));
     const ctx = await this.kube.forEnvironment(environmentId, tenant);
     for (const manifest of plan.apply) await this.k8s.apply(ctx, manifest);
-    for (const manifest of plan.remove) await this.k8s.remove(ctx, manifest.apiVersion, manifest.kind, manifest.metadata.name);
+    for (const manifest of plan.remove)
+      await this.k8s.remove(ctx, manifest.apiVersion, manifest.kind, manifest.metadata.name);
   }
 
   /** Falha de cluster não pode desfazer a gravação que disparou a sincronização. */

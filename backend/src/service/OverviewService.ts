@@ -17,7 +17,12 @@ export interface PlatformOverview {
   counts: OverviewCounts;
   /** Saúde das aplicações por status observado (running/progressing/error/…). */
   health: Record<string, number>;
-  cluster: { totalClusters: number; connected: number; totalNodes: number; totalEnvironments: number };
+  cluster: {
+    totalClusters: number;
+    connected: number;
+    totalNodes: number;
+    totalEnvironments: number;
+  };
   recentDeploys: RecentDeploy[];
   recentAudits: Pick<AuditLog, "id" | "event" | "detail" | "at">[];
 }
@@ -67,7 +72,9 @@ export class OverviewService {
         status: d.status,
         startedAt: d.startedAt,
       })),
-      recentAudits: audits.slice(0, 8).map((a) => ({ id: a.id, event: a.event, detail: a.detail, at: a.at })),
+      recentAudits: audits
+        .slice(0, 8)
+        .map((a) => ({ id: a.id, event: a.event, detail: a.detail, at: a.at })),
     };
   }
 }

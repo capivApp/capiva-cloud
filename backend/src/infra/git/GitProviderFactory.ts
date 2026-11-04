@@ -1,5 +1,10 @@
 import { Injectable } from "@di/index";
-import { DEFAULT_BASE_URL, GitHubProvider, GitLabProvider, GiteaProvider } from "@infra/git/providers";
+import {
+  DEFAULT_BASE_URL,
+  GitHubProvider,
+  GitLabProvider,
+  GiteaProvider,
+} from "@infra/git/providers";
 import type { IGitProvider } from "@interface/integrations";
 import { decrypt } from "@functions/crypto";
 import type { GitConnection, GitProviderKind } from "@prisma-generated/client";
@@ -27,7 +32,9 @@ export class GitProviderFactory {
   }
 
   /** Provedor a partir da conexão gravada (token decifrado aqui, num lugar só). */
-  fromConnection(conn: Pick<GitConnection, "provider" | "accessTokenCipher" | "webhookSecret" | "baseUrl">): IGitProvider {
+  fromConnection(
+    conn: Pick<GitConnection, "provider" | "accessTokenCipher" | "webhookSecret" | "baseUrl">,
+  ): IGitProvider {
     return this.build({
       provider: conn.provider,
       accessToken: decrypt(conn.accessTokenCipher),

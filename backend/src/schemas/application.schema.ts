@@ -29,7 +29,10 @@ export const repoPathSchema = z
   .trim()
   .min(1, "Informe o caminho.")
   .max(255)
-  .refine((v) => !v.startsWith("/"), "Use um caminho relativo à raiz do repositório (sem barra inicial).")
+  .refine(
+    (v) => !v.startsWith("/"),
+    "Use um caminho relativo à raiz do repositório (sem barra inicial).",
+  )
   .refine((v) => !v.split("/").includes(".."), "Caminho não pode subir de diretório ('..').")
   .refine((v) => !/[\0\n\r]/.test(v), "Caminho contém caracteres inválidos.");
 
@@ -48,7 +51,10 @@ const imageRefSchema = z
   .string()
   .trim()
   .max(255)
-  .regex(/^[a-z0-9][a-z0-9._\-/:@]*$/i, "Informe uma imagem válida, como paketobuildpacks/builder-jammy-base.");
+  .regex(
+    /^[a-z0-9][a-z0-9._\-/:@]*$/i,
+    "Informe uma imagem válida, como paketobuildpacks/builder-jammy-base.",
+  );
 
 /** Nome de serviço do docker-compose. */
 const composeServiceSchema = z
@@ -68,7 +74,10 @@ const SOURCE_CONFIG_FIELDS: Record<string, z.ZodType> = {
 };
 
 export const volumeSchema = z.object({
-  name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen"),
+  name: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen"),
   mountPath: z.string().min(1),
   sizeGi: z.number().int().min(1).default(1),
   accessMode: z.enum(["RWO", "RWX"]).default("RWO"),
@@ -95,7 +104,11 @@ export const createApplicationSchema = z.object({
         if (value === undefined || value === "") continue;
         const parsed = schema.safeParse(value);
         if (!parsed.success) {
-          ctx.addIssue({ code: "custom", path: [key], message: parsed.error.issues[0]?.message ?? "Caminho inválido." });
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: parsed.error.issues[0]?.message ?? "Caminho inválido.",
+          });
         }
       }
     }),
@@ -122,7 +135,10 @@ export const envVarItemSchema = z.object({
   key: z
     .string()
     .min(1)
-    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Chave inválida (use letras, números e _, sem iniciar com número)"),
+    .regex(
+      /^[A-Za-z_][A-Za-z0-9_]*$/,
+      "Chave inválida (use letras, números e _, sem iniciar com número)",
+    ),
   value: z.string().default(""),
   secret: z.boolean().default(false),
   // Origem no cofre externo: o valor fica no cofre, aqui só a referência.
@@ -158,7 +174,11 @@ export const scaleReplicasSchema = z.object({ replicas: z.number().int().min(0).
 
 export const updateApplicationSchema = z
   .object({
-    name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen").optional(),
+    name: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen")
+      .optional(),
     profile: profileKind.optional(),
     customResources: z.record(z.string(), z.unknown()).optional(),
     port: z.number().int().positive().optional(),

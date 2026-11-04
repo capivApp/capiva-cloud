@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { cronMatches } from "@infra/scheduler/cron";
 
 // Datas locais (mês 0-based no construtor do Date).
-const at = (y: number, mo: number, d: number, h: number, mi: number) => new Date(y, mo - 1, d, h, mi);
+const at = (y: number, mo: number, d: number, h: number, mi: number) =>
+  new Date(y, mo - 1, d, h, mi);
 
 describe("cronMatches", () => {
   it("'0 3 * * *' casa às 03:00 e não às 03:01 nem 04:00", () => {
@@ -12,8 +13,10 @@ describe("cronMatches", () => {
   });
 
   it("'*/15 * * * *' casa em 0,15,30,45", () => {
-    for (const m of [0, 15, 30, 45]) expect(cronMatches("*/15 * * * *", at(2026, 6, 21, 10, m))).toBe(true);
-    for (const m of [1, 14, 31]) expect(cronMatches("*/15 * * * *", at(2026, 6, 21, 10, m))).toBe(false);
+    for (const m of [0, 15, 30, 45])
+      expect(cronMatches("*/15 * * * *", at(2026, 6, 21, 10, m))).toBe(true);
+    for (const m of [1, 14, 31])
+      expect(cronMatches("*/15 * * * *", at(2026, 6, 21, 10, m))).toBe(false);
   });
 
   it("listas e intervalos: '0 9-17/4 * * 1-5'", () => {

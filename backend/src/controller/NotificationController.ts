@@ -19,7 +19,10 @@ export class NotificationController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const dto = createNotificationChannelSchema.parse(req.body);
-    const { configCipher, ...rest } = await this.notifications.create(tenantOf(req).organizationId, dto);
+    const { configCipher, ...rest } = await this.notifications.create(
+      tenantOf(req).organizationId,
+      dto,
+    );
     res.status(201).json(rest);
   };
 

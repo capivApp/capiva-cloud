@@ -9,7 +9,10 @@ export class TlsCertificateRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<TlsCertificate[]> {
-    return this.tx.tlsCertificate.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.tlsCertificate.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<TlsCertificate | null> {

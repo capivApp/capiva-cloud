@@ -21,7 +21,13 @@ export function CapivaJsonNotice({ sourceConfig, fields }: Props) {
 }
 
 /** Selo "capiva.json" ao lado do rótulo de um campo somente leitura. */
-export function CapivaJsonBadge({ sourceConfig, field }: { sourceConfig: Record<string, unknown> | null | undefined; field: string }) {
+export function CapivaJsonBadge({
+  sourceConfig,
+  field,
+}: {
+  sourceConfig: Record<string, unknown> | null | undefined;
+  field: string;
+}) {
   if (!isCapivaManaged(readCapivaMarker(sourceConfig), field)) return null;
   return (
     <Badge variant="muted" className="ml-1.5 px-1.5 py-0 text-[10px]">

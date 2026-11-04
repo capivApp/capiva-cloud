@@ -24,11 +24,16 @@ export class ApiKeyService {
   constructor(private readonly keys: ApiKeyRepository) {}
 
   list(organizationId: string): Promise<ApiKey[]> {
-    return withTransaction(() => this.keys.listByOrganization(organizationId), { tenant: { organizationId } });
+    return withTransaction(() => this.keys.listByOrganization(organizationId), {
+      tenant: { organizationId },
+    });
   }
 
   /** Cria a chave e devolve o valor cru UMA vez (não persistido). */
-  async create(organizationId: string, input: { name: string; role?: Role; scopes?: string[] }): Promise<{ apiKey: ApiKey; secret: string }> {
+  async create(
+    organizationId: string,
+    input: { name: string; role?: Role; scopes?: string[] },
+  ): Promise<{ apiKey: ApiKey; secret: string }> {
     const prefix = crypto.randomBytes(4).toString("hex");
     const secretPart = crypto.randomBytes(24).toString("hex");
     const secret = `cap_${prefix}_${secretPart}`;
@@ -52,13 +57,16 @@ export class ApiKeyService {
     if (!secret.startsWith("cap_")) return null;
     const key = await withTransaction(() => this.keys.findByHash(sha256(secret)), {});
     if (!key) return null;
-    await withTransaction(() => this.keys.touch(key.id), { tenant: { organizationId: key.organizationId } }).catch(() => undefined);
+    await withTransaction(() => this.keys.touch(key.id), {
+      tenant: { organizationId: key.organizationId },
+    }).catch(() => undefined);
     return { keyId: key.id, organizationId: key.organizationId, role: key.role, name: key.name };
   }
 
   async revoke(organizationId: string, id: string): Promise<void> {
     const key = await withTransaction(() => this.keys.findById(id), { tenant: { organizationId } });
-    if (!key || key.organizationId !== organizationId) throw HttpError.notFound("Chave não encontrada.");
+    if (!key || key.organizationId !== organizationId)
+      throw HttpError.notFound("Chave não encontrada.");
     await withTransaction(() => this.keys.delete(id), { tenant: { organizationId } });
   }
 }

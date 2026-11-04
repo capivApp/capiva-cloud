@@ -13,10 +13,20 @@ import { toRecursoDoBanco } from "@functions/finops/inventario";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt, encrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
-import { CONNECTION_META, EXTERNAL_DB, REDIS_SENTINEL, databaseManifest } from "@infra/kubernetes/databaseManifests";
+import {
+  CONNECTION_META,
+  EXTERNAL_DB,
+  REDIS_SENTINEL,
+  databaseManifest,
+} from "@infra/kubernetes/databaseManifests";
 import { interpretDbStatus } from "@infra/kubernetes/reconcilers/DatabaseReconciler";
 import type { KubeContext } from "@interface/integrations";
-import type { ManagedDatabase, ManagedServiceKind, ManagedSize, Prisma } from "@prisma-generated/client";
+import type {
+  ManagedDatabase,
+  ManagedServiceKind,
+  ManagedSize,
+  Prisma,
+} from "@prisma-generated/client";
 
 export interface CreateDatabaseInput {
   projectId: string;
@@ -83,11 +93,26 @@ export class ManagedDatabaseService {
     return withTransaction(() => this.databases.listByProject(projectId), { tenant });
   }
 
-  async create(input: CreateDatabaseInput, tenant: { organizationId: string }): Promise<ManagedDatabase> {
-    const recurso = toRecursoDoBanco({ kind: input.kind, size: input.size ?? "SMALL", highAvailability: input.highAvailability ?? false });
+  async create(
+    input: CreateDatabaseInput,
+    tenant: { organizationId: string },
+  ): Promise<ManagedDatabase> {
+    const recurso = toRecursoDoBanco({
+      kind: input.kind,
+      size: input.size ?? "SMALL",
+      highAvailability: input.highAvailability ?? false,
+    });
     await this.quotas.requireCabe(
       input.environmentId,
-      { pedido: [recurso], paths: { cpuMillicores: "size", memoryMib: "size", pods: "highAvailability", storageGi: "size" } },
+      {
+        pedido: [recurso],
+        paths: {
+          cpuMillicores: "size",
+          memoryMib: "size",
+          pods: "highAvailability",
+          storageGi: "size",
+        },
+      },
       tenant,
     );
     const config: DatabaseConfig = {
@@ -124,10 +149,15 @@ export class ManagedDatabaseService {
       // usa as credenciais salvas do cluster, sem depender de SSH/provisionamento.
       await this.operators.ensure(ctx, db.kind);
       const status = await this.reconcilers.forDatabase().reconcile(db, ctx);
-      await withTransaction(() => this.databases.updateStatus(db.id, status.ready ? "running" : "provisioning"), { tenant });
+      await withTransaction(
+        () => this.databases.updateStatus(db.id, status.ready ? "running" : "provisioning"),
+        { tenant },
+      );
     } catch (error) {
       console.error("[db] provisionamento falhou (operator/reconcile):", (error as Error).message);
-      await withTransaction(() => this.databases.updateStatus(db.id, "operator-missing"), { tenant });
+      await withTransaction(() => this.databases.updateStatus(db.id, "operator-missing"), {
+        tenant,
+      });
     }
     return db;
   }
@@ -138,7 +168,9 @@ export class ManagedDatabaseService {
     if (!db) throw HttpError.notFound("Banco não encontrado.");
     // Normaliza configs antigas/parciais (sem backup/username) com defaults.
     const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
-    const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const env = await withTransaction(() => this.environments.findById(db.environmentId), {
+      tenant,
+    });
     const namespace = env?.namespace ?? "default";
     const live = await this.liveStatus(db, namespace, tenant).catch(() => null);
     const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
@@ -152,9 +184,16 @@ export class ManagedDatabaseService {
       username: cfg.username,
       database: cfg.database,
       connectionUrl: urlWith(db, internalHost, meta.port, cfg.username, password, cfg.database),
-      connectionUrlExternal: live?.external ? urlWith(db, live.external.ip, live.external.port, cfg.username, password, cfg.database) : null,
-      superuserUrl: isPg ? urlWith(db, internalHost, meta.port, "postgres", superuserPw, cfg.database) : null,
-      superuserUrlExternal: isPg && live?.external ? urlWith(db, live.external.ip, live.external.port, "postgres", superuserPw, cfg.database) : null,
+      connectionUrlExternal: live?.external
+        ? urlWith(db, live.external.ip, live.external.port, cfg.username, password, cfg.database)
+        : null,
+      superuserUrl: isPg
+        ? urlWith(db, internalHost, meta.port, "postgres", superuserPw, cfg.database)
+        : null,
+      superuserUrlExternal:
+        isPg && live?.external
+          ? urlWith(db, live.external.ip, live.external.port, "postgres", superuserPw, cfg.database)
+          : null,
       instances: live?.instances ?? null,
       readyInstances: live?.readyInstances ?? null,
       phase: live?.phase ?? null,
@@ -164,10 +203,21 @@ export class ManagedDatabaseService {
   }
 
   /** Estado vivo (topologia/fase/saúde) para o stream SSE e o detalhe. */
-  async status(id: string, tenant: { organizationId: string }): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; observedStatus: string }> {
+  async status(
+    id: string,
+    tenant: { organizationId: string },
+  ): Promise<{
+    instances: number | null;
+    readyInstances: number | null;
+    phase: string | null;
+    healthy: boolean;
+    observedStatus: string;
+  }> {
     const db = await withTransaction(() => this.databases.findById(id), { tenant });
     if (!db) throw HttpError.notFound("Banco não encontrado.");
-    const env = await withTransaction(() => this.environments.findById(db.environmentId), { tenant });
+    const env = await withTransaction(() => this.environments.findById(db.environmentId), {
+      tenant,
+    });
     const live = await this.liveStatus(db, env?.namespace ?? "default", tenant).catch(() => null);
     return {
       instances: live?.instances ?? null,
@@ -186,10 +236,23 @@ export class ManagedDatabaseService {
     db: ManagedDatabase,
     namespace: string,
     tenant: { organizationId: string },
-  ): Promise<{ instances: number | null; readyInstances: number | null; phase: string | null; healthy: boolean; external: { ip: string; port: number } | null }> {
+  ): Promise<{
+    instances: number | null;
+    readyInstances: number | null;
+    phase: string | null;
+    healthy: boolean;
+    external: { ip: string; port: number } | null;
+  }> {
     const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
-    const manifest = databaseManifest(db.kind, { name: db.name, namespace, size: db.size, ha: db.highAvailability });
-    const status = interpretDbStatus(await this.k8s.observe(ctx, manifest.apiVersion, manifest.kind, db.name));
+    const manifest = databaseManifest(db.kind, {
+      name: db.name,
+      namespace,
+      size: db.size,
+      ha: db.highAvailability,
+    });
+    const status = interpretDbStatus(
+      await this.k8s.observe(ctx, manifest.apiVersion, manifest.kind, db.name),
+    );
     return {
       instances: status.instances ?? null,
       readyInstances: status.readyInstances ?? null,
@@ -200,71 +263,116 @@ export class ManagedDatabaseService {
   }
 
   /** IP do nó + NodePort do acesso externo (tipos suportados). */
-  private async externalEndpoint(db: ManagedDatabase, ctx: KubeContext): Promise<{ ip: string; port: number } | null> {
+  private async externalEndpoint(
+    db: ManagedDatabase,
+    ctx: KubeContext,
+  ): Promise<{ ip: string; port: number } | null> {
     if (!EXTERNAL_DB[db.kind]) return null;
-    const [nodePort, ip] = await Promise.all([this.k8s.serviceNodePort(ctx, `${db.name}-ext`), this.k8s.nodeIP(ctx.kubeconfig)]);
+    const [nodePort, ip] = await Promise.all([
+      this.k8s.serviceNodePort(ctx, `${db.name}-ext`),
+      this.k8s.nodeIP(ctx.kubeconfig),
+    ]);
     return nodePort && ip ? { ip, port: nodePort } : null;
   }
 
   async update(
     id: string,
-    patch: { backupEnabled?: boolean; backupSchedule?: string; retentionDays?: number; password?: string },
+    patch: {
+      backupEnabled?: boolean;
+      backupSchedule?: string;
+      retentionDays?: number;
+      password?: string;
+    },
     tenant: { organizationId: string },
   ): Promise<ManagedDatabase> {
-    return withTransaction(async () => {
-      const db = await this.databases.findById(id);
-      if (!db) throw HttpError.notFound("Banco não encontrado.");
-      const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
-      const next: DatabaseConfig = {
-        ...cfg,
-        passwordCipher: patch.password ? encrypt(patch.password) : cfg.passwordCipher,
-        backup: {
-          enabled: patch.backupEnabled ?? cfg.backup.enabled,
-          schedule: patch.backupSchedule ?? cfg.backup.schedule,
-          retentionDays: patch.retentionDays ?? cfg.backup.retentionDays,
-        },
-      };
-      return this.databases.updateConfig(id, next as unknown as Prisma.InputJsonValue);
-    }, { tenant });
+    return withTransaction(
+      async () => {
+        const db = await this.databases.findById(id);
+        if (!db) throw HttpError.notFound("Banco não encontrado.");
+        const cfg = normalizeConfig(
+          db.config as unknown as Partial<DatabaseConfig> | null,
+          db.name,
+        );
+        const next: DatabaseConfig = {
+          ...cfg,
+          passwordCipher: patch.password ? encrypt(patch.password) : cfg.passwordCipher,
+          backup: {
+            enabled: patch.backupEnabled ?? cfg.backup.enabled,
+            schedule: patch.backupSchedule ?? cfg.backup.schedule,
+            retentionDays: patch.retentionDays ?? cfg.backup.retentionDays,
+          },
+        };
+        return this.databases.updateConfig(id, next as unknown as Prisma.InputJsonValue);
+      },
+      { tenant },
+    );
   }
 
   /** Remove um banco: destrói os recursos no cluster e apaga o registro. */
   async remove(id: string, tenant: { organizationId: string }): Promise<void> {
-    await withTransaction(async () => {
-      const db = await this.databases.findById(id);
-      if (!db) throw HttpError.notFound("Banco não encontrado.");
-      // Destruição no cluster é best-effort: se o cluster/operator não responder,
-      // ainda removemos o registro (evita banco "fantasma" preso na UI).
-      try {
-        const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
-        await this.reconcilers.forDatabase().destroy(db, ctx);
-      } catch (error) {
-        console.error("[db] destroy no cluster falhou (removendo registro mesmo assim):", (error as Error).message);
-      }
-      await this.databases.delete(id);
-    }, { tenant });
+    await withTransaction(
+      async () => {
+        const db = await this.databases.findById(id);
+        if (!db) throw HttpError.notFound("Banco não encontrado.");
+        // Destruição no cluster é best-effort: se o cluster/operator não responder,
+        // ainda removemos o registro (evita banco "fantasma" preso na UI).
+        try {
+          const ctx = await this.kube.forEnvironment(db.environmentId, tenant);
+          await this.reconcilers.forDatabase().destroy(db, ctx);
+        } catch (error) {
+          console.error(
+            "[db] destroy no cluster falhou (removendo registro mesmo assim):",
+            (error as Error).message,
+          );
+        }
+        await this.databases.delete(id);
+      },
+      { tenant },
+    );
   }
 
   /** Conecta um banco a uma aplicação: injeta a URL de conexão como variável. */
-  async attachToApplication(databaseId: string, applicationId: string, tenant: { organizationId: string }): Promise<void> {
-    await withTransaction(async () => {
-      const db = await this.databases.findById(databaseId);
-      const app = await this.apps.findById(applicationId);
-      if (!db || !app) throw HttpError.notFound("Banco ou aplicação não encontrados.");
-      const cfg = normalizeConfig(db.config as unknown as Partial<DatabaseConfig> | null, db.name);
-      const env = await this.environments.findById(db.environmentId);
-      const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-      const namespace = env?.namespace ?? "default";
-      const url = buildUrl(db, cfg, namespace);
-      await this.envVars.upsert({ applicationId, key: meta.envKey, value: encrypt(url), secret: true, source: "INJECTED" });
+  async attachToApplication(
+    databaseId: string,
+    applicationId: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
+    await withTransaction(
+      async () => {
+        const db = await this.databases.findById(databaseId);
+        const app = await this.apps.findById(applicationId);
+        if (!db || !app) throw HttpError.notFound("Banco ou aplicação não encontrados.");
+        const cfg = normalizeConfig(
+          db.config as unknown as Partial<DatabaseConfig> | null,
+          db.name,
+        );
+        const env = await this.environments.findById(db.environmentId);
+        const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
+        const namespace = env?.namespace ?? "default";
+        const url = buildUrl(db, cfg, namespace);
+        await this.envVars.upsert({
+          applicationId,
+          key: meta.envKey,
+          value: encrypt(url),
+          secret: true,
+          source: "INJECTED",
+        });
 
-      // Redis em HA: além da URL direta, expõe o endereço do Sentinel para
-      // clientes que fazem failover automático (o master muda de pod).
-      if (db.kind === "REDIS") {
-        const sentinel = `${REDIS_SENTINEL.host(db.name)}.${namespace}.svc.cluster.local:${REDIS_SENTINEL.port}`;
-        await this.envVars.upsert({ applicationId, key: "REDIS_SENTINEL_URL", value: encrypt(sentinel), secret: true, source: "INJECTED" });
-      }
-    }, { tenant });
+        // Redis em HA: além da URL direta, expõe o endereço do Sentinel para
+        // clientes que fazem failover automático (o master muda de pod).
+        if (db.kind === "REDIS") {
+          const sentinel = `${REDIS_SENTINEL.host(db.name)}.${namespace}.svc.cluster.local:${REDIS_SENTINEL.port}`;
+          await this.envVars.upsert({
+            applicationId,
+            key: "REDIS_SENTINEL_URL",
+            value: encrypt(sentinel),
+            secret: true,
+            source: "INJECTED",
+          });
+        }
+      },
+      { tenant },
+    );
   }
 }
 
@@ -283,7 +391,8 @@ function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): 
     username: config?.username ?? "capiva",
     passwordCipher: config?.passwordCipher ?? encrypt("changeme"),
     database: config?.database ?? name.replace(/[^a-zA-Z0-9_]/g, "_"),
-    superuserPasswordCipher: config?.superuserPasswordCipher ?? encrypt(crypto.randomBytes(24).toString("base64url")),
+    superuserPasswordCipher:
+      config?.superuserPasswordCipher ?? encrypt(crypto.randomBytes(24).toString("base64url")),
     backup: readBackupConfig(config),
   };
 }
@@ -291,11 +400,25 @@ function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): 
 /** Monta a URL de conexão INTERNA (DNS do cluster) com as credenciais da app. */
 function buildUrl(db: ManagedDatabase, cfg: DatabaseConfig, namespace: string): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
-  return urlWith(db, `${meta.host(db.name)}.${namespace}.svc.cluster.local`, meta.port, cfg.username, safeDecrypt(cfg.passwordCipher), cfg.database);
+  return urlWith(
+    db,
+    `${meta.host(db.name)}.${namespace}.svc.cluster.local`,
+    meta.port,
+    cfg.username,
+    safeDecrypt(cfg.passwordCipher),
+    cfg.database,
+  );
 }
 
 /** Monta a URL para host/porta/credenciais arbitrários (interno, externo, app ou superusuário). */
-function urlWith(db: ManagedDatabase, host: string, port: number, username: string, password: string, database: string): string {
+function urlWith(
+  db: ManagedDatabase,
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  database: string,
+): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
   if (!meta.scheme) return `${host}:${port}`; // ex.: Kafka brokers
   const auth = `${encodeURIComponent(username)}:${encodeURIComponent(password)}@`;

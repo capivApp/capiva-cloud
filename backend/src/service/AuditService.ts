@@ -20,8 +20,13 @@ export interface AuditTarget {
 export class AuditService {
   constructor(private readonly audit: AuditRepository) {}
 
-  list(organizationId: string, filters: { event?: string; userId?: string } = {}): Promise<AuditLog[]> {
-    return withTransaction(() => this.audit.listByOrganization(organizationId, filters), { tenant: { organizationId } });
+  list(
+    organizationId: string,
+    filters: { event?: string; userId?: string } = {},
+  ): Promise<AuditLog[]> {
+    return withTransaction(() => this.audit.listByOrganization(organizationId, filters), {
+      tenant: { organizationId },
+    });
   }
 
   /** Registra a partir do request (org + ator + IP/UA). Não lança. */
@@ -34,7 +39,7 @@ export class AuditService {
           this.audit.record({
             organizationId,
             event,
-            userId: isApiKey ? null : req.auth?.sub ?? null,
+            userId: isApiKey ? null : (req.auth?.sub ?? null),
             apiKeyId: isApiKey ? req.auth?.sub?.replace("apikey:", "") : null,
             targetType: target.targetType,
             targetId: target.targetId,

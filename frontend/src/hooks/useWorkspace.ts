@@ -23,7 +23,8 @@ export function useWorkspace() {
 
   useEffect(() => {
     if (!projectId && projects.length) setProject(projects[0].id);
-    if (projectId && projects.length && !projects.some((p) => p.id === projectId)) setProject(projects[0].id);
+    if (projectId && projects.length && !projects.some((p) => p.id === projectId))
+      setProject(projects[0].id);
   }, [projectId, projects, setProject]);
 
   useEffect(() => {

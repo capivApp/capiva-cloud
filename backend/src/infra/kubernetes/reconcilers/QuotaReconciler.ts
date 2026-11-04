@@ -1,6 +1,11 @@
 import { Injectable } from "@di/index";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
-import { LIMIT_RANGE_NAME, RESOURCE_QUOTA_NAME, limitRangeManifest, resourceQuotaManifest } from "@infra/kubernetes/quotaManifests";
+import {
+  LIMIT_RANGE_NAME,
+  RESOURCE_QUOTA_NAME,
+  limitRangeManifest,
+  resourceQuotaManifest,
+} from "@infra/kubernetes/quotaManifests";
 import type { QuotaLimite } from "@functions/finops/quota";
 import type { IResourceReconciler, KubeContext, ObservedStatus } from "@interface/integrations";
 

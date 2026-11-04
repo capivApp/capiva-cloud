@@ -53,7 +53,15 @@ const baseRequest: BuildRequest = {
 
 const jobs = (applied: K8sManifest[]) => applied.filter((m) => m.kind === "Job");
 const firstContainer = (job: K8sManifest | undefined) =>
-  (job as unknown as { spec: { template: { spec: { initContainers?: { name: string; env?: { name: string; value: string }[] }[] } } } }).spec.template.spec;
+  (
+    job as unknown as {
+      spec: {
+        template: {
+          spec: { initContainers?: { name: string; env?: { name: string; value: string }[] }[] };
+        };
+      };
+    }
+  ).spec.template.spec;
 
 describe("BuildStrategyResolver", () => {
   const resolver = new BuildStrategyResolver(new BuildJobRunner(makeK8s().k8s));
@@ -79,7 +87,11 @@ describe("BuildStrategyResolver", () => {
 
 describe("DockerImageBuildStrategy", () => {
   it("não constrói nada e devolve a imagem informada", async () => {
-    const built = await new DockerImageBuildStrategy().build({ ...baseRequest, source: "DOCKER_IMAGE", config: { image: "nginx:1.27" } });
+    const built = await new DockerImageBuildStrategy().build({
+      ...baseRequest,
+      source: "DOCKER_IMAGE",
+      config: { image: "nginx:1.27" },
+    });
     expect(built.imageRef).toBe("nginx:1.27");
   });
 });
@@ -88,7 +100,10 @@ describe("BuildJobRunner via strategies", () => {
   it("cada origem aplica o Job da sua estratégia", async () => {
     const { k8s, applied } = makeK8s();
     await new NixpacksBuildStrategy(new BuildJobRunner(k8s)).build(baseRequest);
-    expect(firstContainer(jobs(applied)[0]).initContainers?.map((c) => c.name)).toEqual(["clone", "nixpacks"]);
+    expect(firstContainer(jobs(applied)[0]).initContainers?.map((c) => c.name)).toEqual([
+      "clone",
+      "nixpacks",
+    ]);
   });
 
   it("repositório sem URL falha antes de criar qualquer recurso", async () => {
@@ -99,9 +114,15 @@ describe("BuildJobRunner via strategies", () => {
   });
 
   it("retenta com o outro protocolo quando o clone falha por conexão", async () => {
-    const { k8s, applied, logRequests } = makeK8s(["failed", "succeeded"], "fatal: unable to access 'https://github.com/': Failed to connect");
+    const { k8s, applied, logRequests } = makeK8s(
+      ["failed", "succeeded"],
+      "fatal: unable to access 'https://github.com/': Failed to connect",
+    );
     await new NixpacksBuildStrategy(new BuildJobRunner(k8s)).build(baseRequest);
-    const urls = jobs(applied).map((job) => firstContainer(job).initContainers?.[0]?.env?.find((e) => e.name === "GIT_URL")?.value);
+    const urls = jobs(applied).map(
+      (job) =>
+        firstContainer(job).initContainers?.[0]?.env?.find((e) => e.name === "GIT_URL")?.value,
+    );
     expect(urls).toEqual(["https://github.com/acme/api.git", "http://github.com/acme/api.git"]);
     expect(logRequests[0]?.container).toBe("clone");
   });
@@ -115,13 +136,19 @@ describe("BuildJobRunner via strategies", () => {
 
   it("Kaniko puro lê os logs do próprio container", async () => {
     const { k8s, logRequests } = makeK8s(["failed", "succeeded"], "dial tcp: connection refused");
-    await new DockerfileBuildStrategy(new BuildJobRunner(k8s)).build({ ...baseRequest, source: "GITHUB" });
+    await new DockerfileBuildStrategy(new BuildJobRunner(k8s)).build({
+      ...baseRequest,
+      source: "GITHUB",
+    });
     expect(logRequests[0]?.container).toBeUndefined();
   });
 
   it("começa pelo protocolo da URL do repositório", async () => {
     const { k8s, applied } = makeK8s();
-    await new NixpacksBuildStrategy(new BuildJobRunner(k8s)).build({ ...baseRequest, config: { repoUrl: "http://gitea.local/acme/api.git" } });
+    await new NixpacksBuildStrategy(new BuildJobRunner(k8s)).build({
+      ...baseRequest,
+      config: { repoUrl: "http://gitea.local/acme/api.git" },
+    });
     const env = firstContainer(jobs(applied)[0]).initContainers?.[0]?.env;
     expect(env?.find((e) => e.name === "GIT_URL")?.value).toBe("http://gitea.local/acme/api.git");
   });
@@ -132,7 +159,10 @@ describe("BuildJobRunner via strategies", () => {
       ...baseRequest,
       source: "RAILPACK",
       gitAuth: { username: "bot", password: "tok" },
-      push: { insecure: false, credentials: { url: "registry.local", username: "u", password: "p" } },
+      push: {
+        insecure: false,
+        credentials: { url: "registry.local", username: "u", password: "p" },
+      },
     });
     const secrets = applied.filter((m) => m.kind === "Secret").map((m) => m.metadata.name);
     expect(secrets).toHaveLength(2);
@@ -142,22 +172,38 @@ describe("BuildJobRunner via strategies", () => {
   it("remove os secrets mesmo quando o build falha", async () => {
     const { k8s, removed } = makeK8s(["failed"]);
     const strategy = new StaticBuildStrategy(new BuildJobRunner(k8s));
-    expect(strategy.build({ ...baseRequest, source: "STATIC", gitAuth: { username: "bot", password: "tok" } })).rejects.toThrow();
+    expect(
+      strategy.build({
+        ...baseRequest,
+        source: "STATIC",
+        gitAuth: { username: "bot", password: "tok" },
+      }),
+    ).rejects.toThrow();
     expect(removed).toHaveLength(1);
   });
 
   it("Static recebe a porta da aplicação", async () => {
     const { k8s, applied } = makeK8s();
-    await new StaticBuildStrategy(new BuildJobRunner(k8s)).build({ ...baseRequest, source: "STATIC", port: 8080 });
-    const writer = firstContainer(jobs(applied)[0]).initContainers?.find((c) => c.name === "static-dockerfile");
-    expect(writer?.env?.find((e) => e.name === "STATIC_NGINX_CONF")?.value).toContain("listen 8080;");
+    await new StaticBuildStrategy(new BuildJobRunner(k8s)).build({
+      ...baseRequest,
+      source: "STATIC",
+      port: 8080,
+    });
+    const writer = firstContainer(jobs(applied)[0]).initContainers?.find(
+      (c) => c.name === "static-dockerfile",
+    );
+    expect(writer?.env?.find((e) => e.name === "STATIC_NGINX_CONF")?.value).toContain(
+      "listen 8080;",
+    );
   });
 
   // O creator só exporta para registry: sem destino de push não há onde a imagem parar.
   it("Buildpacks exige registry de destino", async () => {
     const { k8s, applied } = makeK8s();
     const strategy = new BuildpacksBuildStrategy(new BuildJobRunner(k8s));
-    expect(strategy.build({ ...baseRequest, source: "BUILDPACKS", push: undefined })).rejects.toBeInstanceOf(BuildConfigError);
+    expect(
+      strategy.build({ ...baseRequest, source: "BUILDPACKS", push: undefined }),
+    ).rejects.toBeInstanceOf(BuildConfigError);
     expect(applied).toHaveLength(0);
   });
 });

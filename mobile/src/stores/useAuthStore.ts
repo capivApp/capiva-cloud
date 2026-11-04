@@ -47,7 +47,11 @@ export const useAuthStore = create<AuthState>()(
       name: "capiva-auth",
       storage: createJSONStorage(() => AsyncStorage),
       // O token de acesso fica fora da persistência: renovado via cookie de refresh.
-      partialize: (s) => ({ serverUrl: s.serverUrl, organizationId: s.organizationId, user: s.user }),
+      partialize: (s) => ({
+        serverUrl: s.serverUrl,
+        organizationId: s.organizationId,
+        user: s.user,
+      }),
     },
   ),
 );

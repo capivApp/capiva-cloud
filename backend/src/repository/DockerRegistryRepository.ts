@@ -9,7 +9,10 @@ export class DockerRegistryRepository extends BaseRepository {
   }
 
   listByOrganization(organizationId: string): Promise<DockerRegistry[]> {
-    return this.tx.dockerRegistry.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+    return this.tx.dockerRegistry.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
   }
 
   findById(id: string): Promise<DockerRegistry | null> {
@@ -22,10 +25,16 @@ export class DockerRegistryRepository extends BaseRepository {
 
   /** Garante um único default por org. */
   clearDefault(organizationId: string): Promise<Prisma.BatchPayload> {
-    return this.tx.dockerRegistry.updateMany({ where: { organizationId, isDefault: true }, data: { isDefault: false } });
+    return this.tx.dockerRegistry.updateMany({
+      where: { organizationId, isDefault: true },
+      data: { isDefault: false },
+    });
   }
 
-  async update(id: string, data: Prisma.DockerRegistryUncheckedUpdateInput): Promise<DockerRegistry> {
+  async update(
+    id: string,
+    data: Prisma.DockerRegistryUncheckedUpdateInput,
+  ): Promise<DockerRegistry> {
     await this.ensureScoped(() => this.findById(id), "Registry");
     return this.tx.dockerRegistry.update({ where: { id }, data });
   }

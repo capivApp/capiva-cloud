@@ -14,7 +14,10 @@ export class EnvVarRepository extends BaseRepository {
   /** Confirma que a aplicação alvo pertence à organização ativa. */
   private async assertApplication(applicationId: string): Promise<void> {
     await this.ensureScoped(
-      () => this.tx.application.findFirst({ where: { id: applicationId, ...this.scope("application") } }),
+      () =>
+        this.tx.application.findFirst({
+          where: { id: applicationId, ...this.scope("application") },
+        }),
       "Aplicação",
     );
   }

@@ -8,8 +8,16 @@ import { desiredReplicasOf } from "@service/ApplicationService";
 
 describe("updateApplicationSchema: campos do capiva.json", () => {
   it("aceita réplicas e comandos de build/start", () => {
-    const parsed = updateApplicationSchema.parse({ replicas: 3, buildCommand: "bun run build", startCommand: "bun start" });
-    expect(parsed).toEqual({ replicas: 3, buildCommand: "bun run build", startCommand: "bun start" });
+    const parsed = updateApplicationSchema.parse({
+      replicas: 3,
+      buildCommand: "bun run build",
+      startCommand: "bun start",
+    });
+    expect(parsed).toEqual({
+      replicas: 3,
+      buildCommand: "bun run build",
+      startCommand: "bun start",
+    });
   });
 
   it("recusa réplicas negativas", () => {

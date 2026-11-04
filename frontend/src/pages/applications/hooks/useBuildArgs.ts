@@ -21,7 +21,8 @@ export function useBuildArgs(applicationId: string) {
   });
 
   const saveMut = useMutation({
-    mutationFn: (buildArgs: BuildArg[]) => api.put<unknown>(`/applications/${applicationId}/build-args`, { buildArgs }),
+    mutationFn: (buildArgs: BuildArg[]) =>
+      api.put<unknown>(`/applications/${applicationId}/build-args`, { buildArgs }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 

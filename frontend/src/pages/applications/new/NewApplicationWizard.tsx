@@ -1,4 +1,16 @@
-import { Box, Check, ChevronLeft, ChevronRight, Container, FileCode, Github, Gitlab, Globe, Plus, X } from "lucide-react";
+import {
+  Box,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Container,
+  FileCode,
+  Github,
+  Gitlab,
+  Globe,
+  Plus,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,13 +29,27 @@ import { useGitConnections } from "@/hooks/useGitConnections";
 import { useGitRepos, useGitBranches } from "@/hooks/useGitRepos";
 import { findTemplate } from "@/pages/applications/new/appTemplates";
 import { BuildOptionsFields } from "@/pages/applications/new/BuildOptionsFields";
-import { EMPTY_BUILD_OPTIONS, buildOptionsConfig, validateBuildOptions, type BuildOptions } from "@/pages/applications/new/buildOptions";
+import {
+  EMPTY_BUILD_OPTIONS,
+  buildOptionsConfig,
+  validateBuildOptions,
+  type BuildOptions,
+} from "@/pages/applications/new/buildOptions";
 import { useCustoEstimadoDoPerfil } from "@/hooks/useCosts";
 import { formatCustoMensal, readCampoErrors } from "@/lib/finops";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
 /** Origens que clonam um repositório Git para construir (todas menos imagem pronta). */
-const GIT_SOURCES = ["GITHUB", "GITLAB", "GITEA", "DOCKER_COMPOSE", "NIXPACKS", "RAILPACK", "BUILDPACKS", "STATIC"];
+const GIT_SOURCES = [
+  "GITHUB",
+  "GITLAB",
+  "GITEA",
+  "DOCKER_COMPOSE",
+  "NIXPACKS",
+  "RAILPACK",
+  "BUILDPACKS",
+  "STATIC",
+];
 
 const SOURCES = [
   { id: "GITHUB", label: "GitHub", icon: Github, build: "dockerfile" },
@@ -61,17 +87,51 @@ function CampoErro({ message }: { message?: string }) {
   return <p className="text-xs text-destructive">{message}</p>;
 }
 
-function KVEditor({ list, setList, kPlaceholder }: { list: KV[]; setList: (l: KV[]) => void; kPlaceholder: string }) {
+function KVEditor({
+  list,
+  setList,
+  kPlaceholder,
+}: {
+  list: KV[];
+  setList: (l: KV[]) => void;
+  kPlaceholder: string;
+}) {
   return (
     <div className="space-y-2">
       {list.map((e, i) => (
         <div key={i} className="flex items-center gap-2">
-          <Input className="flex-1 font-mono text-xs" value={e.key} onChange={(ev) => setList(list.map((x, idx) => (idx === i ? { ...x, key: ev.target.value } : x)))} placeholder={kPlaceholder} />
-          <Input className="flex-1 font-mono text-xs" value={e.value} onChange={(ev) => setList(list.map((x, idx) => (idx === i ? { ...x, value: ev.target.value } : x)))} placeholder="valor" />
-          <Button variant="ghost" size="icon" onClick={() => setList(list.filter((_, idx) => idx !== i))}><X className="size-4" /></Button>
+          <Input
+            className="flex-1 font-mono text-xs"
+            value={e.key}
+            onChange={(ev) =>
+              setList(list.map((x, idx) => (idx === i ? { ...x, key: ev.target.value } : x)))
+            }
+            placeholder={kPlaceholder}
+          />
+          <Input
+            className="flex-1 font-mono text-xs"
+            value={e.value}
+            onChange={(ev) =>
+              setList(list.map((x, idx) => (idx === i ? { ...x, value: ev.target.value } : x)))
+            }
+            placeholder="valor"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setList(list.filter((_, idx) => idx !== i))}
+          >
+            <X className="size-4" />
+          </Button>
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => setList([...list, { key: "", value: "" }])}><Plus className="size-4" /> Adicionar</Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setList([...list, { key: "", value: "" }])}
+      >
+        <Plus className="size-4" /> Adicionar
+      </Button>
     </div>
   );
 }
@@ -82,48 +142,104 @@ const DOCKERFILE_PRESETS = ["Dockerfile", "Dockerfile.prod", "Dockerfile.api", "
 type GitPick = { gitConnectionId: string; repo: string; cloneUrl: string; branch: string };
 
 /** Seleção de conexão Git → repositório → branch para origens GitHub/GitLab/Gitea. */
-function GitSourcePicker({ value, onChange }: { value: GitPick; onChange: (p: Partial<GitPick>) => void }) {
+function GitSourcePicker({
+  value,
+  onChange,
+}: {
+  value: GitPick;
+  onChange: (p: Partial<GitPick>) => void;
+}) {
   const { connections, isLoading: loadingConns } = useGitConnections();
   const { data: repos = [], isLoading: loadingRepos } = useGitRepos(value.gitConnectionId || null);
-  const { data: branches = [], isLoading: loadingBranches } = useGitBranches(value.gitConnectionId || null, value.repo || null);
+  const { data: branches = [], isLoading: loadingBranches } = useGitBranches(
+    value.gitConnectionId || null,
+    value.repo || null,
+  );
 
   if (!loadingConns && connections.length === 0) {
     return (
       <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-        Nenhuma conexão Git cadastrada. Conecte um provedor em <strong>Configurações → Git</strong> antes de criar uma app por repositório.
+        Nenhuma conexão Git cadastrada. Conecte um provedor em <strong>Configurações → Git</strong>{" "}
+        antes de criar uma app por repositório.
       </div>
     );
   }
 
-  const selectClass = "w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50";
+  const selectClass =
+    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50";
 
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
         <Label>Conexão Git</Label>
-        <select className={selectClass} value={value.gitConnectionId} onChange={(e) => onChange({ gitConnectionId: e.target.value, repo: "", cloneUrl: "", branch: "" })}>
+        <select
+          className={selectClass}
+          value={value.gitConnectionId}
+          onChange={(e) =>
+            onChange({ gitConnectionId: e.target.value, repo: "", cloneUrl: "", branch: "" })
+          }
+        >
           <option value="">{loadingConns ? "Carregando…" : "Selecione a conexão"}</option>
-          {connections.map((c) => <option key={c.id} value={c.id}>{c.provider}{c.accountLogin ? ` · ${c.accountLogin}` : ""}</option>)}
+          {connections.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.provider}
+              {c.accountLogin ? ` · ${c.accountLogin}` : ""}
+            </option>
+          ))}
         </select>
       </div>
 
       <div className="space-y-1.5">
         <Label>Repositório</Label>
-        <select className={selectClass} value={value.repo} disabled={!value.gitConnectionId || loadingRepos}
+        <select
+          className={selectClass}
+          value={value.repo}
+          disabled={!value.gitConnectionId || loadingRepos}
           onChange={(e) => {
             const r = repos.find((x) => x.fullName === e.target.value);
-            onChange({ repo: e.target.value, cloneUrl: r?.cloneUrl ?? "", branch: r?.defaultBranch ?? "main" });
-          }}>
-          <option value="">{!value.gitConnectionId ? "Escolha a conexão primeiro" : loadingRepos ? "Carregando repositórios…" : "Selecione o repositório"}</option>
-          {repos.map((r) => <option key={r.id} value={r.fullName}>{r.fullName}{r.private ? " (privado)" : ""}</option>)}
+            onChange({
+              repo: e.target.value,
+              cloneUrl: r?.cloneUrl ?? "",
+              branch: r?.defaultBranch ?? "main",
+            });
+          }}
+        >
+          <option value="">
+            {!value.gitConnectionId
+              ? "Escolha a conexão primeiro"
+              : loadingRepos
+                ? "Carregando repositórios…"
+                : "Selecione o repositório"}
+          </option>
+          {repos.map((r) => (
+            <option key={r.id} value={r.fullName}>
+              {r.fullName}
+              {r.private ? " (privado)" : ""}
+            </option>
+          ))}
         </select>
       </div>
 
       <div className="space-y-1.5">
         <Label>Branch</Label>
-        <select className={selectClass} value={value.branch} disabled={!value.repo || loadingBranches} onChange={(e) => onChange({ branch: e.target.value })}>
-          <option value="">{!value.repo ? "Escolha o repositório primeiro" : loadingBranches ? "Carregando branches…" : "Selecione a branch"}</option>
-          {branches.map((b) => <option key={b} value={b}>{b}</option>)}
+        <select
+          className={selectClass}
+          value={value.branch}
+          disabled={!value.repo || loadingBranches}
+          onChange={(e) => onChange({ branch: e.target.value })}
+        >
+          <option value="">
+            {!value.repo
+              ? "Escolha o repositório primeiro"
+              : loadingBranches
+                ? "Carregando branches…"
+                : "Selecione a branch"}
+          </option>
+          {branches.map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
         </select>
       </div>
     </div>
@@ -159,35 +275,46 @@ export function NewApplicationWizard() {
   const [buildArgs, setBuildArgs] = useState<KV[]>([]);
   const [env, setEnv] = useState<KV[]>(template?.env ?? []);
   const [volumes, setVolumes] = useState<VolumeSpec[]>(template?.volumes ?? []);
-  const [git, setGit] = useState<GitPick>({ gitConnectionId: "", repo: "", cloneUrl: "", branch: "" });
+  const [git, setGit] = useState<GitPick>({
+    gitConnectionId: "",
+    repo: "",
+    cloneUrl: "",
+    branch: "",
+  });
   const [buildOptions, setBuildOptions] = useState<BuildOptions>(EMPTY_BUILD_OPTIONS);
   const [campoErrors, setCampoErrors] = useState<Record<string, string>>({});
   const { estimativa } = useCustoEstimadoDoPerfil(form.profile);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const setGitPick = (patch: Partial<GitPick>) => setGit((g) => ({ ...g, ...patch }));
-  const setBuildOption = (patch: Partial<BuildOptions>) => setBuildOptions((o) => ({ ...o, ...patch }));
+  const setBuildOption = (patch: Partial<BuildOptions>) =>
+    setBuildOptions((o) => ({ ...o, ...patch }));
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const buildKind = SOURCES.find((s) => s.id === form.source)?.build ?? "auto";
   const isGit = GIT_SOURCES.includes(form.source);
 
   // Caminhos digitáveis: validados aqui com a mesma regra do backend, para o
   // erro aparecer no passo do build em vez de só na resposta da criação.
-  const dockerfileError = buildKind === "dockerfile" ? validateRequiredRepoPath(form.dockerfile) : null;
+  const dockerfileError =
+    buildKind === "dockerfile" ? validateRequiredRepoPath(form.dockerfile) : null;
   const subPathError = buildKind === "dockerfile" ? validateRepoPath(form.subPath) : null;
   const composeError = buildKind === "compose" ? validateRequiredRepoPath(form.composeFile) : null;
-  const buildOptionsError = Object.values(validateBuildOptions(form.source, buildOptions))[0] ?? null;
+  const buildOptionsError =
+    Object.values(validateBuildOptions(form.source, buildOptions))[0] ?? null;
   const buildError = dockerfileError ?? subPathError ?? composeError ?? buildOptionsError;
 
   const next = () => {
-    if (step === 1 && isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch.");
+    if (step === 1 && isGit && (!git.gitConnectionId || !git.repo || !git.branch))
+      return toast.error("Selecione conexão, repositório e branch.");
     if (step === 1 && buildError) return toast.error(buildError);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
   async function finish() {
-    if (!projectId || !environmentId) return toast.error("Selecione um projeto e um ambiente no topo antes de criar.");
-    if (isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch no passo Build.");
+    if (!projectId || !environmentId)
+      return toast.error("Selecione um projeto e um ambiente no topo antes de criar.");
+    if (isGit && (!git.gitConnectionId || !git.repo || !git.branch))
+      return toast.error("Selecione conexão, repositório e branch no passo Build.");
     if (buildError) return toast.error(buildError);
     const sourceConfig: Record<string, unknown> = { domain: form.domain };
     if (buildKind === "image") sourceConfig.image = form.image;
@@ -217,10 +344,14 @@ export function NewApplicationWizard() {
         sourceConfig,
         env: env.filter((e) => e.key.trim()),
         buildArgs: buildArgs.filter((b) => b.key.trim()),
-        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: form.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
         volumes: volumes.filter((v) => v.name.trim() && v.mountPath.trim()),
         tlsMode: form.tlsMode,
-        tlsCertificateId: form.tlsMode === "UPLOADED" ? form.tlsCertificateId || undefined : undefined,
+        tlsCertificateId:
+          form.tlsMode === "UPLOADED" ? form.tlsCertificateId || undefined : undefined,
         registryId: form.registryId || undefined,
       } as any);
       toast.success("Aplicação criada! Iniciando primeiro deploy…");
@@ -245,10 +376,24 @@ export function NewApplicationWizard() {
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
-            <div className={cn("flex size-7 items-center justify-center rounded-full text-xs font-semibold", i < step && "bg-primary text-primary-foreground", i === step && "bg-primary/15 text-primary ring-2 ring-primary", i > step && "bg-muted text-muted-foreground")}>
+            <div
+              className={cn(
+                "flex size-7 items-center justify-center rounded-full text-xs font-semibold",
+                i < step && "bg-primary text-primary-foreground",
+                i === step && "bg-primary/15 text-primary ring-2 ring-primary",
+                i > step && "bg-muted text-muted-foreground",
+              )}
+            >
               {i < step ? <Check className="size-4" /> : i + 1}
             </div>
-            <span className={cn("text-sm", i === step ? "font-medium text-foreground" : "text-muted-foreground")}>{label}</span>
+            <span
+              className={cn(
+                "text-sm",
+                i === step ? "font-medium text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {label}
+            </span>
             {i < STEPS.length - 1 && <span className="mx-1 h-px w-5 bg-border" />}
           </div>
         ))}
@@ -258,13 +403,36 @@ export function NewApplicationWizard() {
         <CardContent className="space-y-5 pt-6">
           {step === 0 && (
             <>
-              <div className="space-y-1.5"><Label>Nome da aplicação</Label><Input placeholder="api-vendas" value={form.name} onChange={(e) => set({ name: e.target.value })} /></div>
-              <div className="space-y-1.5"><Label>Tags (separadas por vírgula, opcional)</Label><Input placeholder="backend, vendas, crítico" value={form.tags} onChange={(e) => set({ tags: e.target.value })} /></div>
+              <div className="space-y-1.5">
+                <Label>Nome da aplicação</Label>
+                <Input
+                  placeholder="api-vendas"
+                  value={form.name}
+                  onChange={(e) => set({ name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tags (separadas por vírgula, opcional)</Label>
+                <Input
+                  placeholder="backend, vendas, crítico"
+                  value={form.tags}
+                  onChange={(e) => set({ tags: e.target.value })}
+                />
+              </div>
               <div className="space-y-2">
                 <Label>De onde vem sua aplicação?</Label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {SOURCES.map(({ id, label, icon: Icon }) => (
-                    <button key={id} onClick={() => set({ source: id })} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors", form.source === id ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/40")}>
+                    <button
+                      key={id}
+                      onClick={() => set({ source: id })}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors",
+                        form.source === id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:border-primary/40",
+                      )}
+                    >
                       <Icon className="size-4" /> {label}
                     </button>
                   ))}
@@ -283,7 +451,9 @@ export function NewApplicationWizard() {
               )}
               {buildKind === "dockerfile" && (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">✨ Informe o Dockerfile do repositório (ou troque o builder).</div>
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                    ✨ Informe o Dockerfile do repositório (ou troque o builder).
+                  </div>
 
                   <div className="space-y-1.5">
                     <Label>Caminho do Dockerfile</Label>
@@ -302,7 +472,9 @@ export function NewApplicationWizard() {
                           onClick={() => set({ dockerfile: d })}
                           className={cn(
                             "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors",
-                            form.dockerfile === d ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/40",
+                            form.dockerfile === d
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border text-muted-foreground hover:border-primary/40",
                           )}
                         >
                           {d}
@@ -338,34 +510,70 @@ export function NewApplicationWizard() {
                 </div>
               )}
               {buildKind === "image" && (
-                <div className="space-y-1.5"><Label>Imagem Docker</Label><Input placeholder="ghcr.io/empresa/app:latest" value={form.image} onChange={(e) => set({ image: e.target.value })} /><p className="text-xs text-muted-foreground">Imagem pronta — sem build.</p></div>
+                <div className="space-y-1.5">
+                  <Label>Imagem Docker</Label>
+                  <Input
+                    placeholder="ghcr.io/empresa/app:latest"
+                    value={form.image}
+                    onChange={(e) => set({ image: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Imagem pronta — sem build.</p>
+                </div>
               )}
               {buildKind === "compose" && (
                 <div className="space-y-1.5">
                   <Label>Arquivo docker-compose</Label>
-                  <Input value={form.composeFile} onChange={(e) => set({ composeFile: e.target.value })} placeholder="docker-compose.yml" className="font-mono text-xs" spellCheck={false} />
+                  <Input
+                    value={form.composeFile}
+                    onChange={(e) => set({ composeFile: e.target.value })}
+                    placeholder="docker-compose.yml"
+                    className="font-mono text-xs"
+                    spellCheck={false}
+                  />
                   {composeError ? (
                     <p className="text-xs text-destructive">{composeError}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Construímos o serviço escolhido com o contexto e o Dockerfile dele.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Construímos o serviço escolhido com o contexto e o Dockerfile dele.
+                    </p>
                   )}
-                  <BuildOptionsFields source={form.source} value={buildOptions} onChange={setBuildOption} />
+                  <BuildOptionsFields
+                    source={form.source}
+                    value={buildOptions}
+                    onChange={setBuildOption}
+                  />
                 </div>
               )}
               {buildKind === "auto" && (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Build automático ({form.source}): detecta a linguagem e constrói sem Dockerfile.</div>
-                  <BuildOptionsFields source={form.source} value={buildOptions} onChange={setBuildOption} />
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Build automático ({form.source}): detecta a linguagem e constrói sem Dockerfile.
+                  </div>
+                  <BuildOptionsFields
+                    source={form.source}
+                    value={buildOptions}
+                    onChange={setBuildOption}
+                  />
                 </div>
               )}
               {registries.length > 0 && (
                 <div className="space-y-1.5 border-t border-border pt-3">
                   <Label>Registry privado (opcional)</Label>
-                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.registryId} onChange={(e) => set({ registryId: e.target.value })}>
+                  <select
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    value={form.registryId}
+                    onChange={(e) => set({ registryId: e.target.value })}
+                  >
                     <option value="">Público — sem autenticação</option>
-                    {registries.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.url})</option>)}
+                    {registries.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.url})
+                      </option>
+                    ))}
                   </select>
-                  <p className="text-xs text-muted-foreground">Gera um imagePullSecret para puxar imagens privadas.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Gera um imagePullSecret para puxar imagens privadas.
+                  </p>
                 </div>
               )}
             </div>
@@ -377,19 +585,43 @@ export function NewApplicationWizard() {
                 <Label>Tamanho</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {PROFILES.map((p) => (
-                    <button key={p.id} onClick={() => set({ profile: p.id })} className={cn("flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors", form.profile === p.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40")}>
-                      <span className="font-medium">{p.label}</span><span className="text-xs text-muted-foreground">{p.spec}</span>
+                    <button
+                      key={p.id}
+                      onClick={() => set({ profile: p.id })}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                        form.profile === p.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/40",
+                      )}
+                    >
+                      <span className="font-medium">{p.label}</span>
+                      <span className="text-xs text-muted-foreground">{p.spec}</span>
                     </button>
                   ))}
                 </div>
-                {estimativa && <p className="text-xs text-muted-foreground">Custo estimado: {formatCustoMensal(estimativa.custo, estimativa.currency)}</p>}
+                {estimativa && (
+                  <p className="text-xs text-muted-foreground">
+                    Custo estimado: {formatCustoMensal(estimativa.custo, estimativa.currency)}
+                  </p>
+                )}
                 <CampoErro message={campoErrors.profile} />
               </div>
               <div className="space-y-2">
                 <Label>Estratégia de deploy</Label>
                 {STRATEGIES.map((s) => (
-                  <button key={s.id} onClick={() => set({ rolloutStrategy: s.id })} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors", form.rolloutStrategy === s.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40")}>
-                    <span className="font-medium">{s.label}</span><span className="text-xs text-muted-foreground">{s.desc}</span>
+                  <button
+                    key={s.id}
+                    onClick={() => set({ rolloutStrategy: s.id })}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                      form.rolloutStrategy === s.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/40",
+                    )}
+                  >
+                    <span className="font-medium">{s.label}</span>
+                    <span className="text-xs text-muted-foreground">{s.desc}</span>
                   </button>
                 ))}
               </div>
@@ -400,13 +632,17 @@ export function NewApplicationWizard() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Variáveis de runtime</Label>
-                <p className="text-xs text-muted-foreground">Injetadas no container em execução. Não há como adivinhar — informe as suas.</p>
+                <p className="text-xs text-muted-foreground">
+                  Injetadas no container em execução. Não há como adivinhar — informe as suas.
+                </p>
                 <KVEditor list={env} setList={setEnv} kPlaceholder="DATABASE_URL" />
               </div>
               {(buildKind === "dockerfile" || buildKind === "auto" || buildKind === "compose") && (
                 <div className="space-y-2 border-t border-border pt-4">
                   <Label>Variáveis de build (build args)</Label>
-                  <p className="text-xs text-muted-foreground">Viram <code>--build-arg</code> / <code>ARG</code> durante o build.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Viram <code>--build-arg</code> / <code>ARG</code> durante o build.
+                  </p>
                   <KVEditor list={buildArgs} setList={setBuildArgs} kPlaceholder="NODE_VERSION" />
                 </div>
               )}
@@ -417,22 +653,56 @@ export function NewApplicationWizard() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Porta que sua aplicação escuta (porta alvo)</Label>
-                <Input type="number" value={form.port} onChange={(e) => set({ port: +e.target.value })} placeholder="3000" />
-                <p className="text-xs text-muted-foreground">É a única coisa de rede que não dá para adivinhar — o tráfego é roteado para essa porta.</p>
+                <Input
+                  type="number"
+                  value={form.port}
+                  onChange={(e) => set({ port: +e.target.value })}
+                  placeholder="3000"
+                />
+                <p className="text-xs text-muted-foreground">
+                  É a única coisa de rede que não dá para adivinhar — o tráfego é roteado para essa
+                  porta.
+                </p>
               </div>
-              <div className="space-y-1.5"><Label>Domínio (opcional)</Label><Input placeholder="api.empresa.com" value={form.domain} onChange={(e) => set({ domain: e.target.value })} /></div>
+              <div className="space-y-1.5">
+                <Label>Domínio (opcional)</Label>
+                <Input
+                  placeholder="api.empresa.com"
+                  value={form.domain}
+                  onChange={(e) => set({ domain: e.target.value })}
+                />
+              </div>
 
               {form.domain.trim() && (
                 <div className="space-y-2">
                   <Label>TLS / HTTPS</Label>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {[
-                      { id: "LETS_ENCRYPT", label: "Let's Encrypt", desc: "Automático (cert-manager)" },
-                      { id: "UPLOADED", label: "Certificado próprio", desc: "Usa um certificado cadastrado" },
+                      {
+                        id: "LETS_ENCRYPT",
+                        label: "Let's Encrypt",
+                        desc: "Automático (cert-manager)",
+                      },
+                      {
+                        id: "UPLOADED",
+                        label: "Certificado próprio",
+                        desc: "Usa um certificado cadastrado",
+                      },
                       { id: "NONE", label: "Sem TLS", desc: "Somente HTTP" },
                     ].map((m) => (
-                      <button key={m.id} type="button" onClick={() => set({ tlsMode: m.id })} className={cn("rounded-lg border px-3 py-2.5 text-left text-sm transition-colors", form.tlsMode === m.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40")}>
-                        <span className="block font-medium">{m.label}</span><span className="block text-xs text-muted-foreground">{m.desc}</span>
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => set({ tlsMode: m.id })}
+                        className={cn(
+                          "rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                          form.tlsMode === m.id
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/40",
+                        )}
+                      >
+                        <span className="block font-medium">{m.label}</span>
+                        <span className="block text-xs text-muted-foreground">{m.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -440,22 +710,38 @@ export function NewApplicationWizard() {
                     <div className="space-y-1.5">
                       <Label>Certificado</Label>
                       {certificates.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Nenhum certificado cadastrado. Cadastre em Organização → Certificados.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum certificado cadastrado. Cadastre em Organização → Certificados.
+                        </p>
                       ) : (
-                        <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.tlsCertificateId} onChange={(e) => set({ tlsCertificateId: e.target.value })}>
+                        <select
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                          value={form.tlsCertificateId}
+                          onChange={(e) => set({ tlsCertificateId: e.target.value })}
+                        >
                           <option value="">Selecione…</option>
-                          {certificates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          {certificates.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
                         </select>
                       )}
                     </div>
                   )}
                 </div>
               )}
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Com domínio: Ingress (Traefik), DNS, load balancing e o TLS escolhido — tudo automático. ✓</div>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                Com domínio: Ingress (Traefik), DNS, load balancing e o TLS escolhido — tudo
+                automático. ✓
+              </div>
 
               <div className="space-y-2 border-t border-border pt-4">
                 <Label>Volumes (pastas persistentes)</Label>
-                <p className="text-xs text-muted-foreground">Pastas que sobrevivem a deploys/reinícios. Marque "compartilhado" para que todas as réplicas vejam os mesmos arquivos (Longhorn RWX).</p>
+                <p className="text-xs text-muted-foreground">
+                  Pastas que sobrevivem a deploys/reinícios. Marque "compartilhado" para que todas
+                  as réplicas vejam os mesmos arquivos (Longhorn RWX).
+                </p>
                 <VolumeEditor list={volumes} setList={setVolumes} />
                 <CampoErro message={campoErrors.volumes} />
               </div>
@@ -463,11 +749,17 @@ export function NewApplicationWizard() {
           )}
 
           <div className="flex items-center justify-between pt-2">
-            <Button variant="ghost" onClick={back} disabled={step === 0}><ChevronLeft className="size-4" /> Voltar</Button>
+            <Button variant="ghost" onClick={back} disabled={step === 0}>
+              <ChevronLeft className="size-4" /> Voltar
+            </Button>
             {step < STEPS.length - 1 ? (
-              <Button variant="gradient" onClick={next}>Próximo <ChevronRight className="size-4" /></Button>
+              <Button variant="gradient" onClick={next}>
+                Próximo <ChevronRight className="size-4" />
+              </Button>
             ) : (
-              <Button variant="gradient" onClick={finish} disabled={isCreating}>Criar aplicação <Check className="size-4" /></Button>
+              <Button variant="gradient" onClick={finish} disabled={isCreating}>
+                Criar aplicação <Check className="size-4" />
+              </Button>
             )}
           </div>
         </CardContent>

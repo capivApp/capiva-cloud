@@ -24,7 +24,10 @@ export function useGitRepos(connectionId: string | null) {
 export function useGitBranches(connectionId: string | null, repo: string | null) {
   return useQuery({
     queryKey: ["git-branches", connectionId, repo],
-    queryFn: () => api.get<string[]>(`/git-connections/${connectionId}/branches?repo=${encodeURIComponent(repo!)}`),
+    queryFn: () =>
+      api.get<string[]>(
+        `/git-connections/${connectionId}/branches?repo=${encodeURIComponent(repo!)}`,
+      ),
     enabled: Boolean(connectionId && repo),
     staleTime: 60_000,
   });

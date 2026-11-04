@@ -9,6 +9,9 @@ export function buildConnectionKey(wsPath: string, session: number, width: numbe
 }
 
 /** Enquanto o socket novo não emite evento, o status registrado é da conexão anterior. */
-export function resolveTerminalStatus(connection: TerminalConnection, currentKey: string): TerminalStatus {
+export function resolveTerminalStatus(
+  connection: TerminalConnection,
+  currentKey: string,
+): TerminalStatus {
   return connection.key === currentKey ? connection.status : "connecting";
 }

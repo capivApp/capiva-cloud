@@ -15,7 +15,14 @@ import {
   stepReplicas,
 } from "@/lib/scaling";
 
-const policy = { id: "p1", applicationId: "a1", minReplicas: 2, maxReplicas: 6, metric: "CPU" as const, target: 70 };
+const policy = {
+  id: "p1",
+  applicationId: "a1",
+  minReplicas: 2,
+  maxReplicas: 6,
+  metric: "CPU" as const,
+  target: 70,
+};
 
 describe("limites manuais", () => {
   test("vão de 0 a 100 (mesmo contrato do backend)", () => {
@@ -47,13 +54,21 @@ describe("clampReplicas / stepReplicas", () => {
 
 describe("buildLimitesHpa", () => {
   test("mínimo vai de 1 até o máximo atual; máximo vai do mínimo atual até 100", () => {
-    expect(buildLimitesHpa(2, 6)).toEqual({ minimo: { min: 1, max: 6 }, maximo: { min: 2, max: 100 } });
+    expect(buildLimitesHpa(2, 6)).toEqual({
+      minimo: { min: 1, max: 6 },
+      maximo: { min: 2, max: 100 },
+    });
   });
 });
 
 describe("buildScalingPayload", () => {
   test("preserva métrica e alvo da política e troca só mínimo e máximo", () => {
-    expect(buildScalingPayload(policy, 3, 8)).toEqual({ minReplicas: 3, maxReplicas: 8, metric: "CPU", target: 70 });
+    expect(buildScalingPayload(policy, 3, 8)).toEqual({
+      minReplicas: 3,
+      maxReplicas: 8,
+      metric: "CPU",
+      target: 70,
+    });
   });
 });
 
@@ -63,7 +78,9 @@ describe("resolveModoEscala", () => {
   });
 
   test("sem política escala réplicas fixas", () => {
-    expect(resolveModoEscala({ policy: null, currentReplicas: 1, autoscalerActive: false })).toBe("manual");
+    expect(resolveModoEscala({ policy: null, currentReplicas: 1, autoscalerActive: false })).toBe(
+      "manual",
+    );
     expect(resolveModoEscala(null)).toBe("manual");
   });
 });

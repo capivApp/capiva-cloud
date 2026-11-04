@@ -20,15 +20,27 @@ export function useGitConnections() {
 
   const createMut = useMutation({
     mutationKey: ["git-connections", "create"],
-    mutationFn: (input: { provider: string; accessToken: string; accountLogin?: string; baseUrl?: string }) =>
-      api.post<GitConnection>("/git-connections", input),
+    mutationFn: (input: {
+      provider: string;
+      accessToken: string;
+      accountLogin?: string;
+      baseUrl?: string;
+    }) => api.post<GitConnection>("/git-connections", input),
   });
   const updateMut = useMutation({
     mutationKey: ["git-connections", "update"],
-    mutationFn: ({ id, patch }: { id: string; patch: { accessToken?: string; accountLogin?: string; baseUrl?: string } }) =>
-      api.patch(`/git-connections/${id}`, patch),
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { accessToken?: string; accountLogin?: string; baseUrl?: string };
+    }) => api.patch(`/git-connections/${id}`, patch),
   });
-  const removeMut = useMutation({ mutationKey: ["git-connections", "remove"], mutationFn: (id: string) => api.del(`/git-connections/${id}`) });
+  const removeMut = useMutation({
+    mutationKey: ["git-connections", "remove"],
+    mutationFn: (id: string) => api.del(`/git-connections/${id}`),
+  });
 
   return {
     connections: list.data ?? [],

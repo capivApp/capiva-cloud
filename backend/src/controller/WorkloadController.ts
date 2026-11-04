@@ -27,11 +27,18 @@ export class WorkloadController {
   updateWorker = async (req: Request, res: Response): Promise<void> => {
     const environmentId = req.body?.environmentId as string;
     if (!environmentId) throw HttpError.badRequest("environmentId é obrigatório.");
-    res.json(await this.workers.update(String(req.params.id), environmentId, {
-      replicas: req.body?.replicas,
-      image: req.body?.image,
-      env: req.body?.env,
-    }, tenantOf(req)));
+    res.json(
+      await this.workers.update(
+        String(req.params.id),
+        environmentId,
+        {
+          replicas: req.body?.replicas,
+          image: req.body?.image,
+          env: req.body?.env,
+        },
+        tenantOf(req),
+      ),
+    );
   };
 
   listCronJobs = async (req: Request, res: Response): Promise<void> => {
@@ -48,10 +55,17 @@ export class WorkloadController {
   updateCronJob = async (req: Request, res: Response): Promise<void> => {
     const environmentId = req.body?.environmentId as string;
     if (!environmentId) throw HttpError.badRequest("environmentId é obrigatório.");
-    res.json(await this.cronJobs.update(String(req.params.id), environmentId, {
-      schedule: req.body?.schedule,
-      image: req.body?.image,
-      env: req.body?.env,
-    }, tenantOf(req)));
+    res.json(
+      await this.cronJobs.update(
+        String(req.params.id),
+        environmentId,
+        {
+          schedule: req.body?.schedule,
+          image: req.body?.image,
+          env: req.body?.env,
+        },
+        tenantOf(req),
+      ),
+    );
   };
 }

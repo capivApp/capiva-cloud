@@ -46,12 +46,19 @@ export function useAlertRules(applicationId: string) {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
 
-  const createMut = useMutation({ mutationFn: (input: AlertRuleInput) => api.post<AlertRule>(url, input), onSuccess: invalidate });
-  const updateMut = useMutation({
-    mutationFn: ({ id, ...input }: Partial<AlertRuleInput> & { id: string }) => api.patch<AlertRule>(`${url}/${id}`, input),
+  const createMut = useMutation({
+    mutationFn: (input: AlertRuleInput) => api.post<AlertRule>(url, input),
     onSuccess: invalidate,
   });
-  const removeMut = useMutation({ mutationFn: (id: string) => api.del(`${url}/${id}`), onSuccess: invalidate });
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...input }: Partial<AlertRuleInput> & { id: string }) =>
+      api.patch<AlertRule>(`${url}/${id}`, input),
+    onSuccess: invalidate,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => api.del(`${url}/${id}`),
+    onSuccess: invalidate,
+  });
 
   return {
     rules: list.data ?? [],

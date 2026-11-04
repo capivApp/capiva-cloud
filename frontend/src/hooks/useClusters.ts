@@ -20,16 +20,29 @@ export function useClusters() {
 
   const createMut = useMutation({
     mutationKey: ["clusters", "create"],
-    mutationFn: (input: { name: string; region?: string; apiUrl: string; token: string; caCert?: string }) =>
-      api.post<Cluster>("/clusters", input),
+    mutationFn: (input: {
+      name: string;
+      region?: string;
+      apiUrl: string;
+      token: string;
+      caCert?: string;
+    }) => api.post<Cluster>("/clusters", input),
   });
 
   const updateMut = useMutation({
     mutationKey: ["clusters", "update"],
-    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; region?: string; apiUrl?: string; token?: string; caCert?: string } }) =>
-      api.patch(`/clusters/${id}`, patch),
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { name?: string; region?: string; apiUrl?: string; token?: string; caCert?: string };
+    }) => api.patch(`/clusters/${id}`, patch),
   });
-  const removeMut = useMutation({ mutationKey: ["clusters", "remove"], mutationFn: (id: string) => api.del(`/clusters/${id}`) });
+  const removeMut = useMutation({
+    mutationKey: ["clusters", "remove"],
+    mutationFn: (id: string) => api.del(`/clusters/${id}`),
+  });
 
   return {
     clusters: list.data ?? [],

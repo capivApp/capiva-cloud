@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { LOG_DIRECTIONS, LOG_EXPORT_FORMATS, LOG_LEVELS, LOG_SINCE, type LogFiltros } from "@interface/logs";
+import {
+  LOG_DIRECTIONS,
+  LOG_EXPORT_FORMATS,
+  LOG_LEVELS,
+  LOG_SINCE,
+  type LogFiltros,
+} from "@interface/logs";
 
 /**
  * Filtros de logs vindos da QUERY STRING (consulta, download e live tail).
@@ -24,20 +30,32 @@ const isValidRegex = (value: string): boolean => {
 
 /** Campo vazio na URL (`?q=`) é o mesmo que não filtrar. */
 const dropEmpty = (raw: unknown): unknown =>
-  raw && typeof raw === "object" ? Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== "")) : raw;
+  raw && typeof raw === "object"
+    ? Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ""))
+    : raw;
 
 const splitList = (value: unknown): unknown =>
-  typeof value === "string" ? value.split(",").map((v) => v.trim()).filter(Boolean) : value;
+  typeof value === "string"
+    ? value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : value;
 
 const texto = z.string().max(500, "Use até 500 caracteres.").optional();
-const isoDate = z.iso.datetime({ offset: true, error: "Informe a data no formato ISO 8601." }).optional();
+const isoDate = z.iso
+  .datetime({ offset: true, error: "Informe a data no formato ISO 8601." })
+  .optional();
 const limitMessage = `Use um limite entre 1 e ${LOG_QUERY_MAX_LIMIT} linhas.`;
 
 const filtrosShape = {
   q: texto,
   exclude: texto,
   regex: texto.refine((v) => !v || isValidRegex(v), "Expressão regular inválida."),
-  level: z.preprocess(splitList, z.array(z.enum(LOG_LEVELS, { error: "Nível de log inválido." })).optional()),
+  level: z.preprocess(
+    splitList,
+    z.array(z.enum(LOG_LEVELS, { error: "Nível de log inválido." })).optional(),
+  ),
   pod: z
     .string()
     .max(253, "Informe um nome de pod válido.")
@@ -46,7 +64,12 @@ const filtrosShape = {
   since: z.enum(LOG_SINCE, { error: "Escolha 15m, 1h ou 24h." }).optional(),
   start: isoDate,
   end: isoDate,
-  limit: z.coerce.number({ error: limitMessage }).int(limitMessage).min(1, limitMessage).max(LOG_QUERY_MAX_LIMIT, limitMessage).optional(),
+  limit: z.coerce
+    .number({ error: limitMessage })
+    .int(limitMessage)
+    .min(1, limitMessage)
+    .max(LOG_QUERY_MAX_LIMIT, limitMessage)
+    .optional(),
   direction: z.enum(LOG_DIRECTIONS, { error: "Use backward ou forward." }).optional(),
 };
 
@@ -55,8 +78,18 @@ type RawFiltros = z.infer<z.ZodObject<typeof filtrosShape>>;
 const checkIntervalo = (raw: Pick<RawFiltros, "start" | "end">, ctx: z.RefinementCtx) => {
   if (!raw.start || !raw.end) return;
   const range = Date.parse(raw.end) - Date.parse(raw.start);
-  if (range <= 0) ctx.addIssue({ code: "custom", path: ["start"], message: "O início precisa ser anterior ao fim." });
-  if (range > MAX_RANGE_MS) ctx.addIssue({ code: "custom", path: ["start"], message: "Escolha um intervalo de até 30 dias." });
+  if (range <= 0)
+    ctx.addIssue({
+      code: "custom",
+      path: ["start"],
+      message: "O início precisa ser anterior ao fim.",
+    });
+  if (range > MAX_RANGE_MS)
+    ctx.addIssue({
+      code: "custom",
+      path: ["start"],
+      message: "Escolha um intervalo de até 30 dias.",
+    });
 };
 
 const toFiltros = (raw: RawFiltros): LogFiltros => ({

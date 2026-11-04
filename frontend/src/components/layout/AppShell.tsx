@@ -30,7 +30,10 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/useAuthStore";
 
-const SECTIONS: { title: string; items: { to: string; label: string; icon: typeof Boxes; end?: boolean }[] }[] = [
+const SECTIONS: {
+  title: string;
+  items: { to: string; label: string; icon: typeof Boxes; end?: boolean }[];
+}[] = [
   {
     title: "Projeto",
     items: [
@@ -85,7 +88,9 @@ export function AppShell() {
         <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
           {SECTIONS.map((section) => (
             <div key={section.title} className="space-y-1">
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{section.title}</p>
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {section.title}
+              </p>
               {section.items.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to}
@@ -94,7 +99,9 @@ export function AppShell() {
                   className={({ isActive }) =>
                     cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
                     )
                   }
                 >
@@ -122,10 +129,13 @@ export function AppShell() {
         <header className="flex h-16 items-center justify-between border-b border-border px-6">
           <WorkspaceSwitcher />
           <button
-            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+            onClick={() =>
+              window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))
+            }
             className="inline-flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
           >
-            <Search className="size-3.5" /> Buscar <kbd className="rounded bg-muted px-1 font-mono">⌘K</kbd>
+            <Search className="size-3.5" /> Buscar{" "}
+            <kbd className="rounded bg-muted px-1 font-mono">⌘K</kbd>
           </button>
         </header>
         <CommandPalette />

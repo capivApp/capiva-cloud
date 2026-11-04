@@ -158,7 +158,12 @@
     "body": {
       "object_kind": "merge_request",
       "event_type": "merge_request",
-      "user": { "id": 1, "name": "Administrator", "username": "root", "email": "admin@example.com" },
+      "user": {
+        "id": 1,
+        "name": "Administrator",
+        "username": "root",
+        "email": "admin@example.com"
+      },
       "project": {
         "id": 1,
         "name": "Gitlab Test",

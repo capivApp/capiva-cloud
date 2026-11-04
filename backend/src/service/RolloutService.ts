@@ -49,7 +49,8 @@ export class RolloutService {
   async promote(id: string, tenant: { organizationId: string }): Promise<void> {
     const app = await this.appService.getById(id, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
-    if (app.rolloutStrategy === "ROLLING") throw HttpError.badRequest("Estratégia Rolling não suporta promote.");
+    if (app.rolloutStrategy === "ROLLING")
+      throw HttpError.badRequest("Estratégia Rolling não suporta promote.");
     await this.k8s.apply(ctx, {
       apiVersion: "argoproj.io/v1alpha1",
       kind: "Rollout",

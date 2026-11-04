@@ -16,7 +16,11 @@ describe("buildAlertMessage", () => {
   });
 
   it("alerta resolvido diz o valor atual", () => {
-    const m = buildAlertMessage("alert.resolved", { app: "api", rule: { ...rule, metric: "LATENCY_P95", threshold: 500 }, value: 120 });
+    const m = buildAlertMessage("alert.resolved", {
+      app: "api",
+      rule: { ...rule, metric: "LATENCY_P95", threshold: 500 },
+      value: 120,
+    });
     expect(m.title).toBe("Alerta resolvido: Latência p95 de api");
     expect(m.body).toBe("Latência p95 voltou para 120 ms. Limite: 500 ms.");
   });
@@ -25,16 +29,31 @@ describe("buildAlertMessage", () => {
 describe("buildUptimeMessage", () => {
   it("downtime cita a URL e o status", () => {
     const m = buildUptimeMessage("downtime", { app: "api", url: "https://api.x", statusCode: 503 });
-    expect(m).toEqual({ event: "downtime", title: "Aplicação fora do ar: api", body: "https://api.x respondeu 503." });
+    expect(m).toEqual({
+      event: "downtime",
+      title: "Aplicação fora do ar: api",
+      body: "https://api.x respondeu 503.",
+    });
   });
 
   it("downtime sem resposta", () => {
-    expect(buildUptimeMessage("downtime", { app: "api", url: "https://api.x" }).body).toBe("https://api.x não respondeu.");
+    expect(buildUptimeMessage("downtime", { app: "api", url: "https://api.x" }).body).toBe(
+      "https://api.x não respondeu.",
+    );
   });
 
   it("recovery avisa a volta", () => {
-    const m = buildUptimeMessage("recovery", { app: "api", url: "https://api.x", statusCode: 200, latencyMs: 87 });
-    expect(m).toEqual({ event: "recovery", title: "Aplicação de volta: api", body: "https://api.x voltou a responder (200 em 87 ms)." });
+    const m = buildUptimeMessage("recovery", {
+      app: "api",
+      url: "https://api.x",
+      statusCode: 200,
+      latencyMs: 87,
+    });
+    expect(m).toEqual({
+      event: "recovery",
+      title: "Aplicação de volta: api",
+      body: "https://api.x voltou a responder (200 em 87 ms).",
+    });
   });
 
   it("nenhum texto leva travessão", () => {

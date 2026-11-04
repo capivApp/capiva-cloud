@@ -26,7 +26,10 @@ const contextOf = (job: unknown) =>
 
 describe("resolveBuildRef", () => {
   it("sem gitRef usa a branch configurada", () => {
-    expect(resolveBuildRef({ branch: "develop" })).toEqual({ branch: "develop", gitRef: "refs/heads/develop" });
+    expect(resolveBuildRef({ branch: "develop" })).toEqual({
+      branch: "develop",
+      gitRef: "refs/heads/develop",
+    });
   });
 
   it("sem branch nem gitRef cai em main", () => {
@@ -34,22 +37,32 @@ describe("resolveBuildRef", () => {
   });
 
   it("gitRef de tag vence a branch e vira o nome curto para o git clone", () => {
-    expect(resolveBuildRef({ branch: "main", gitRef: "refs/tags/v1.2.0" })).toEqual({ branch: "v1.2.0", gitRef: "refs/tags/v1.2.0" });
+    expect(resolveBuildRef({ branch: "main", gitRef: "refs/tags/v1.2.0" })).toEqual({
+      branch: "v1.2.0",
+      gitRef: "refs/tags/v1.2.0",
+    });
   });
 
   it("gitRef de branch também é aceito", () => {
-    expect(resolveBuildRef({ gitRef: "refs/heads/release/2" })).toEqual({ branch: "release/2", gitRef: "refs/heads/release/2" });
+    expect(resolveBuildRef({ gitRef: "refs/heads/release/2" })).toEqual({
+      branch: "release/2",
+      gitRef: "refs/heads/release/2",
+    });
   });
 });
 
 describe("dockerfileJobManifest com gitRef", () => {
   it("o contexto do Kaniko aponta para a tag", () => {
-    expect(contextOf(dockerfileJobManifest({ ...baseInput, branch: "v1.2.0", gitRef: "refs/tags/v1.2.0" }))).toBe(
-      "--context=git://github.com/acme/api.git#refs/tags/v1.2.0",
-    );
+    expect(
+      contextOf(
+        dockerfileJobManifest({ ...baseInput, branch: "v1.2.0", gitRef: "refs/tags/v1.2.0" }),
+      ),
+    ).toBe("--context=git://github.com/acme/api.git#refs/tags/v1.2.0");
   });
 
   it("sem gitRef continua na branch", () => {
-    expect(contextOf(dockerfileJobManifest(baseInput))).toBe("--context=git://github.com/acme/api.git#refs/heads/main");
+    expect(contextOf(dockerfileJobManifest(baseInput))).toBe(
+      "--context=git://github.com/acme/api.git#refs/heads/main",
+    );
   });
 });

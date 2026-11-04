@@ -21,8 +21,16 @@ const PROFILES = ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE"] as const;
 /** Estimativa do wizard: perfil e réplicas (mínimo e máximo do HPA, opcionais). */
 export const estimateAplicacaoSchema = z.object({
   profile: z.enum(PROFILES, { error: "Escolha um perfil válido." }),
-  minReplicas: z.coerce.number().int().min(1, "Mínimo de réplicas precisa ser ao menos 1.").optional(),
-  maxReplicas: z.coerce.number().int().min(1, "Máximo de réplicas precisa ser ao menos 1.").optional(),
+  minReplicas: z.coerce
+    .number()
+    .int()
+    .min(1, "Mínimo de réplicas precisa ser ao menos 1.")
+    .optional(),
+  maxReplicas: z.coerce
+    .number()
+    .int()
+    .min(1, "Máximo de réplicas precisa ser ao menos 1.")
+    .optional(),
 });
 
 export type SetQuotaDTO = z.infer<typeof setQuotaSchema>;

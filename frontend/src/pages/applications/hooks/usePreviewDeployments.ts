@@ -10,7 +10,8 @@ export function usePreviewDeployments(applicationId: string) {
 
   const destroyMut = useMutation({
     mutationKey: ["application", "previews", "destroy", applicationId],
-    mutationFn: (previewId: string) => api.del(`/applications/${applicationId}/previews/${previewId}`),
+    mutationFn: (previewId: string) =>
+      api.del(`/applications/${applicationId}/previews/${previewId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["application", applicationId] }),
   });
 

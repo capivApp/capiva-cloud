@@ -3,7 +3,11 @@ import { AlertRuleRepository, type AlertRuleWithOwner } from "@repository/AlertR
 import { PrometheusAdapter } from "@infra/observability/PrometheusAdapter";
 import { LokiAdapter } from "@infra/observability/LokiAdapter";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
-import { createAlertMetricStrategies, type AlertMetricStrategy, type AlertTarget } from "@infra/alerts/alertMetric.strategy";
+import {
+  createAlertMetricStrategies,
+  type AlertMetricStrategy,
+  type AlertTarget,
+} from "@infra/alerts/alertMetric.strategy";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { NotificationService } from "@service/NotificationService";
 import { RequestsService } from "@service/RequestsService";
@@ -45,16 +49,28 @@ export class AlertService {
 
   async getById(applicationId: string, id: string, tenant: Tenant): Promise<AlertRule> {
     const rule = await withTransaction(() => this.rules.findById(id), { tenant });
-    if (!rule || rule.applicationId !== applicationId) throw HttpError.notFound("Regra de alerta não encontrada.");
+    if (!rule || rule.applicationId !== applicationId)
+      throw HttpError.notFound("Regra de alerta não encontrada.");
     return rule;
   }
 
-  async create(applicationId: string, input: CreateAlertRuleDTO, tenant: Tenant): Promise<AlertRule> {
-    const rule = await withTransaction(() => this.rules.create({ applicationId, ...input }), { tenant });
+  async create(
+    applicationId: string,
+    input: CreateAlertRuleDTO,
+    tenant: Tenant,
+  ): Promise<AlertRule> {
+    const rule = await withTransaction(() => this.rules.create({ applicationId, ...input }), {
+      tenant,
+    });
     return this.getById(applicationId, rule.id, tenant);
   }
 
-  async update(applicationId: string, id: string, input: UpdateAlertRuleDTO, tenant: Tenant): Promise<AlertRule> {
+  async update(
+    applicationId: string,
+    id: string,
+    input: UpdateAlertRuleDTO,
+    tenant: Tenant,
+  ): Promise<AlertRule> {
     await this.getById(applicationId, id, tenant);
     // Regra desligada volta para OK em silêncio: ao religar, se ainda estiver
     // fora do limite, o alerta dispara de novo em vez de ficar preso em FIRING.
@@ -70,7 +86,9 @@ export class AlertService {
 
   /** Avalia todas as regras habilitadas (scheduler). Devolve quantas foram avaliadas. */
   async evaluateAll(): Promise<number> {
-    const rules = await withTransaction(() => this.rules.listEnabled(), {}).catch(() => [] as AlertRuleWithOwner[]);
+    const rules = await withTransaction(() => this.rules.listEnabled(), {}).catch(
+      () => [] as AlertRuleWithOwner[],
+    );
     const targets = new Map<string, Promise<AlertTarget>>();
     const targetOf = (rule: AlertRuleWithOwner) => {
       const cached = targets.get(rule.applicationId) ?? this.resolveTarget(rule);
@@ -78,13 +96,23 @@ export class AlertService {
       return cached;
     };
     await Promise.all(
-      rules.map((rule) => this.evaluate(rule, targetOf).catch((e) => console.error(`[alert] regra ${rule.id}:`, (e as Error).message))),
+      rules.map((rule) =>
+        this.evaluate(rule, targetOf).catch((e) =>
+          console.error(`[alert] regra ${rule.id}:`, (e as Error).message),
+        ),
+      ),
     );
     return rules.length;
   }
 
-  private async evaluate(rule: AlertRuleWithOwner, targetOf: (rule: AlertRuleWithOwner) => Promise<AlertTarget>): Promise<void> {
-    const value = await this.strategies[rule.metric].measure(await targetOf(rule), rule.windowMinutes);
+  private async evaluate(
+    rule: AlertRuleWithOwner,
+    targetOf: (rule: AlertRuleWithOwner) => Promise<AlertTarget>,
+  ): Promise<void> {
+    const value = await this.strategies[rule.metric].measure(
+      await targetOf(rule),
+      rule.windowMinutes,
+    );
     const result = evaluateAlertRule(rule, value);
     const now = new Date();
 
@@ -100,7 +128,11 @@ export class AlertService {
     );
 
     if (!result.event || result.value === null) return;
-    const message = buildAlertMessage(result.event, { app: rule.application.name, rule, value: result.value });
+    const message = buildAlertMessage(result.event, {
+      app: rule.application.name,
+      rule,
+      value: result.value,
+    });
     await this.notifications.dispatch(rule.application.project.organizationId, message);
   }
 
@@ -110,6 +142,11 @@ export class AlertService {
       this.kube.forEnvironment(rule.application.environmentId, tenant),
       this.requests.hostOf(rule.applicationId, tenant).catch(() => undefined),
     ]);
-    return { app: rule.application.name, namespace: ctx.namespace, kubeconfig: ctx.kubeconfig, host };
+    return {
+      app: rule.application.name,
+      namespace: ctx.namespace,
+      kubeconfig: ctx.kubeconfig,
+      host,
+    };
   }
 }
