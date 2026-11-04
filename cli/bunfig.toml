@@ -1,0 +1,4 @@
+[alias]
+"@core/*" = "./src/core/*"
+"@command/*" = "./src/commands/*"
+"@test/*" = "./src/__tests__/*"

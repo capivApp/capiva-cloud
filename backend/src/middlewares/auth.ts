@@ -104,6 +104,13 @@ export async function sseAuthMiddleware(req: Request, _res: Response, next: Next
     const token = header?.startsWith("Bearer ") ? header.slice(7) : (req.query.access_token as string);
     if (!token) throw HttpError.unauthorized();
 
+    // CLI (`deploy --wait`, `logs -f`) acompanha os streams com a chave de API.
+    if (token.startsWith("cap_")) {
+      if (!(await authenticateApiKey(req, token))) throw HttpError.unauthorized("API key inválida.");
+      await attachOrganization(req);
+      return next();
+    }
+
     const payload = verifyAccessToken(token);
     const active = await withTransaction(() => container.get(SessionService).isActive(payload.sid));
     if (!active) throw HttpError.unauthorized("Sessão revogada ou expirada.");

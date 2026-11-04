@@ -49,9 +49,6 @@ export interface CreateApplicationInput {
   previewOf?: { applicationId: string; prNumber: number };
 }
 
-/** Preview roda com uma réplica; as demais aplicações, com duas. */
-const defaultReplicasOf = (app: Application): number => (app.previewOfId ? 1 : 2);
-
 /**
  * Regras de aplicação: cria a entidade (estado desejado), reconcilia para o
  * cluster e gerencia o ciclo de vida (stop/restart/remove). O usuário nunca vê
@@ -169,7 +166,7 @@ export class ApplicationService {
   }
 
   /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
-  async reconcile(app: Application, tenant: { organizationId: string }, replicas = defaultReplicasOf(app), imageOverride?: string) {
+  async reconcile(app: Application, tenant: { organizationId: string }, replicas = desiredReplicasOf(app), imageOverride?: string) {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     const cfg = app.sourceConfig as Record<string, unknown>;
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
@@ -296,6 +293,9 @@ export class ApplicationService {
       previewsEnabled?: boolean;
       deployTrigger?: DeployTrigger;
       tagPattern?: string;
+      replicas?: number;
+      buildCommand?: string;
+      startCommand?: string;
     },
     tenant: { organizationId: string },
   ): Promise<Application> {
@@ -323,6 +323,10 @@ export class ApplicationService {
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
     if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews as object) ?? {}), enabled: dto.previewsEnabled };
     if (dto.deployTrigger !== undefined) cfg.deployTrigger = dto.deployTrigger;
+    // Réplicas e comandos de build/start (declarados pelo capiva.json ou pela tela).
+    for (const key of ["replicas", "buildCommand", "startCommand"] as const) {
+      if (dto[key] !== undefined) cfg[key] = dto[key];
+    }
 
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;
@@ -381,7 +385,7 @@ export class ApplicationService {
   /** Inicia a aplicação novamente. */
   async start(id: string, tenant: { organizationId: string }): Promise<Application> {
     const app = await this.getById(id, tenant);
-    await this.reconcile(app, tenant, 2);
+    await this.reconcile(app, tenant);
     return withTransaction(() => this.apps.update(id, { desiredStatus: "running" }), { tenant });
   }
 
@@ -395,6 +399,19 @@ export class ApplicationService {
       metadata: { name: app.name, namespace: ctx.namespace },
       spec: { template: { metadata: { annotations: { "capiva.cloud/restartedAt": new Date().toISOString() } } } },
     });
+  }
+
+  /**
+   * Marca os campos "definidos pelo capiva.json" (a tela os mostra somente leitura).
+   * `null` limpa a marca quando o arquivo some do repositório. Metadado: não reconcilia.
+   */
+  async saveCapivaMarker(id: string, marker: CapivaMarker | null, tenant: { organizationId: string }): Promise<Application> {
+    return withTransaction(async () => {
+      const app = await this.getById(id, tenant);
+      const { capivaJson: _previous, ...cfg } = (app.sourceConfig as Record<string, unknown>) ?? {};
+      const next = marker ? { ...cfg, capivaJson: marker } : cfg;
+      return this.apps.update(id, { sourceConfig: next as Prisma.InputJsonValue });
+    }, { tenant });
   }
 
   /** Build args (ARG do Dockerfile) armazenados no sourceConfig. */
@@ -448,4 +465,20 @@ function safeDecrypt(value: string): string {
   } catch {
     return value;
   }
+}
+
+/** Campos que o capiva.json declarou no último deploy (a tela os mostra somente leitura). */
+export interface CapivaMarker {
+  path: string;
+  ref: string;
+  fields: string[];
+  envKeys: string[];
+}
+
+/** Réplicas desejadas: as gravadas (tela ou capiva.json) ou o padrão de 2. */
+export function desiredReplicasOf(app: { sourceConfig: unknown; previewOfId?: string | null }): number {
+  const replicas = (app.sourceConfig as Record<string, unknown> | null)?.replicas;
+  if (typeof replicas === "number") return replicas;
+  // Preview roda com uma réplica; as demais aplicações, com duas.
+  return app.previewOfId ? 1 : 2;
 }

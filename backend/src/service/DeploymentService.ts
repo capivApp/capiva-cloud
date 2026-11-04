@@ -11,7 +11,9 @@ import { CommitStatusService } from "@service/CommitStatusService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
-import { ImageScanService } from "@service/ImageScanService";
+import { ImageScanBlockedError, ImageScanService } from "@service/ImageScanService";
+import { CapivaConfigService } from "@service/CapivaConfigService";
+import { CapivaConfigError } from "@schemas/capivaConfig.schema";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -46,6 +48,7 @@ export class DeploymentService {
     private readonly registries: DockerRegistryService,
     private readonly scans: ImageScanService,
     private readonly commitStatus: CommitStatusService,
+    private readonly capivaConfig: CapivaConfigService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -90,9 +93,11 @@ export class DeploymentService {
     );
 
     const commit = { sha: origin?.commitSha, deploymentId: deployment.id };
-    this.run(deployment.id, app, version, tenant, origin).catch(async (error) => {
+    this.run(deployment.id, app, version, tenant, origin, commitId).catch(async (error) => {
       void this.commitStatus.report(app, commit, "errored", tenant);
-      await this.fail(deployment.id, tenant);
+      // capiva.json inválido ou imagem bloqueada pelo scan param antes de tocar no que
+      // está no ar: não há o que reverter.
+      await this.fail(deployment.id, tenant, !(error instanceof CapivaConfigError || error instanceof ImageScanBlockedError));
       console.error("[deploy] falhou", error);
     });
 
@@ -115,14 +120,14 @@ export class DeploymentService {
 
   private async run(
     deploymentId: string,
-    app: Application,
+    declared: Application,
     version: string,
     tenant: { organizationId: string },
     origin?: DeployOrigin,
+    commitId?: string,
   ): Promise<void> {
     const commit = { sha: origin?.commitSha, deploymentId };
-    void this.commitStatus.report(app, commit, "started", tenant);
-    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
+    void this.commitStatus.report(declared, commit, "started", tenant);
 
     const step = (label: string, status: Deployment["status"], progress: number) =>
       withTransaction(async () => {
@@ -130,6 +135,10 @@ export class DeploymentService {
         await this.deployments.update(deploymentId, { status, progress });
         deploymentEvents.emit(deploymentId, { label, status, progress });
       }, { tenant });
+
+    // capiva.json no commit do deploy: aplicado pelos services da tela antes do build.
+    const app = await this.capivaConfig.applyForDeploy(declared, origin?.commitSha ?? commitId, tenant, (label) => step(label, "QUEUED", 5));
+    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     await step("Build iniciado", "BUILDING", 10);
     // Destino do push: registry padrão da org (host real) ou fallback hospedado.
@@ -234,7 +243,7 @@ export class DeploymentService {
     return { ready: false, replicas: health.ready, podsTotal: health.total, issues: health.issues };
   }
 
-  private async fail(deploymentId: string, tenant: { organizationId: string }): Promise<void> {
+  private async fail(deploymentId: string, tenant: { organizationId: string }, rollback = true): Promise<void> {
     await withTransaction(async () => {
       await this.deployments.addEvent({ deploymentId, label: "Deploy falhou" });
       await this.deployments.update(deploymentId, { status: "FAILED", finishedAt: new Date() });
@@ -251,6 +260,7 @@ export class DeploymentService {
 
     // Smart rollback: se a app tem rollback automático e existe um deploy saudável
     // anterior, restaura automaticamente a versão estável.
+    if (!rollback) return;
     if (!failed) return;
     const app = await withTransaction(() => this.apps.findById(failed.applicationId), { tenant });
     const autoRollback = (app?.rolloutConfig as Record<string, unknown> | null)?.autoRollback !== false;

@@ -23,6 +23,7 @@ import { PreviewsTab } from "@/pages/applications/detail/PreviewsTab";
 import { PreviewBadge } from "@/pages/applications/components/PreviewBadge";
 import { isPreviewDisponivel } from "@/pages/applications/preview";
 import { LogsTab } from "@/pages/applications/detail/LogsTab";
+import { CapivaJsonNotice } from "@/pages/applications/components/CapivaJsonNotice";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 import { DeploymentScanBadge } from "@/pages/applications/components/scan/DeploymentScanBadge";
 import { ScanPolicyCard } from "@/pages/applications/components/scan/ScanPolicyCard";
@@ -165,18 +166,22 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="env" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["env", "buildArgs"]} />}
           {app && <EnvVarsTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="domains" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["domains"]} />}
           {app && <DomainsTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="scaling" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["scaling", "replicas"]} />}
           {app && <ScalingTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="volumes" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["volumes"]} />}
           {app && <VolumesTab applicationId={app.id} />}
         </TabsContent>
 

@@ -187,6 +187,11 @@ export const updateApplicationSchema = z
     deployTrigger: z.enum(DEPLOY_TRIGGERS, { error: "Escolha branch, tag ou release." }).optional(),
     /** Glob das tags aceitas nos modos tag/release (ex.: `v*`). Vazio limpa. */
     tagPattern: z.string().trim().max(100, "Use no máximo 100 caracteres.").optional(),
+    /** Réplicas desejadas (sem autoscaling) → sourceConfig.replicas. */
+    replicas: z.number().int().min(0).max(100).optional(),
+    /** Comandos de build e de start → sourceConfig.buildCommand / startCommand. */
+    buildCommand: z.string().max(1000).optional(),
+    startCommand: z.string().max(1000).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nada para atualizar." });
 

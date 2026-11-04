@@ -1,0 +1,20 @@
+{
+  "name": "@capiva/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CLI do Capiva Cloud (capiva): deploy, logs, variáveis e capiva.json pelo terminal.",
+  "type": "module",
+  "bin": {
+    "capiva": "src/index.ts"
+  },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "compile": "bun build --compile src/index.ts --outfile dist/capiva"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^6"
+  }
+}

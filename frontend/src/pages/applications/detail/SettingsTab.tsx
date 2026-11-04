@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { validateRepoPath } from "@/lib/repoPath";
+import { isCapivaManaged, readCapivaMarker } from "@/lib/capivaJson";
+import { CapivaJsonBadge, CapivaJsonNotice } from "@/pages/applications/components/CapivaJsonNotice";
 import type { Application } from "@/pages/applications/hooks/useApplications";
 import { isPreviewDisponivel } from "@/pages/applications/preview";
 
@@ -46,6 +48,9 @@ interface PatchInput {
 export function SettingsTab({ app }: { app: Application }) {
   const queryClient = useQueryClient();
   const cfg = app.sourceConfig ?? {};
+  // Campos declarados pelo capiva.json: o próximo deploy sobrescreveria a edição.
+  const marker = readCapivaMarker(cfg);
+  const managed = (field: string) => isCapivaManaged(marker, field);
 
   const [name, setName] = useState(app.name);
   const [profile, setProfile] = useState(app.profile);
@@ -105,6 +110,7 @@ export function SettingsTab({ app }: { app: Application }) {
     <Card>
       <CardContent className="space-y-4 pt-5">
         <p className="flex items-center gap-2 text-sm font-medium"><Settings2 className="size-4" /> Configurações gerais</p>
+        <CapivaJsonNotice sourceConfig={cfg} fields={["port", "profile", "healthPath", "dockerfile", "subPath"]} />
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -112,21 +118,21 @@ export function SettingsTab({ app }: { app: Application }) {
             <Input value={name} onChange={(e) => setName(e.target.value)} className="font-mono text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Porta</Label>
-            <Input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} />
+            <Label className="text-xs">Porta<CapivaJsonBadge sourceConfig={cfg} field="port" /></Label>
+            <Input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} disabled={managed("port")} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Perfil de recursos</Label>
-            <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={profile} onChange={(e) => setProfile(e.target.value)}>
+            <Label className="text-xs">Perfil de recursos<CapivaJsonBadge sourceConfig={cfg} field="profile" /></Label>
+            <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-50" value={profile} onChange={(e) => setProfile(e.target.value)} disabled={managed("profile")}>
               {PROFILES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Health check (path)</Label>
-            <Input value={healthPath} onChange={(e) => setHealthPath(e.target.value)} placeholder="/" className="font-mono text-xs" />
+            <Label className="text-xs">Health check (path)<CapivaJsonBadge sourceConfig={cfg} field="healthPath" /></Label>
+            <Input value={healthPath} onChange={(e) => setHealthPath(e.target.value)} placeholder="/" className="font-mono text-xs" disabled={managed("healthPath")} />
           </div>
         </div>
 
@@ -152,12 +158,12 @@ export function SettingsTab({ app }: { app: Application }) {
           <p className="text-sm font-medium">Build</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Dockerfile</Label>
-              <Input value={dockerfile} onChange={(e) => setDockerfile(e.target.value)} placeholder="Dockerfile" className="font-mono text-xs" spellCheck={false} />
+              <Label className="text-xs">Dockerfile<CapivaJsonBadge sourceConfig={cfg} field="dockerfile" /></Label>
+              <Input value={dockerfile} onChange={(e) => setDockerfile(e.target.value)} placeholder="Dockerfile" className="font-mono text-xs" spellCheck={false} disabled={managed("dockerfile")} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Contexto de build (monorepo)</Label>
-              <Input value={subPath} onChange={(e) => setSubPath(e.target.value)} placeholder="apps/api" className="font-mono text-xs" spellCheck={false} />
+              <Label className="text-xs">Contexto de build (monorepo)<CapivaJsonBadge sourceConfig={cfg} field="subPath" /></Label>
+              <Input value={subPath} onChange={(e) => setSubPath(e.target.value)} placeholder="apps/api" className="font-mono text-xs" spellCheck={false} disabled={managed("subPath")} />
             </div>
           </div>
           {buildError ? (

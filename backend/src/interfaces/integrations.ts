@@ -158,6 +158,8 @@ export interface IGitProvider {
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void>;
   /** Cria ou atualiza (pelo `marker`, comentário HTML oculto) o comentário da plataforma no PR/MR. */
   commentOnPullRequest(repo: string, number: number, body: string, marker: string): Promise<void>;
+  /** capiva.json: conteúdo de um arquivo no commit/branch `ref`. null = arquivo ausente. */
+  readFile(repo: string, ref: string, path: string): Promise<string | null>;
 }
 
 // --------- Build (Strategy) ---------

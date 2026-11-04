@@ -6,6 +6,7 @@ import { scanPolicySchema } from "@schemas/scan.schema";
 import { LOG_DIRECTIONS, LOG_EXPORT_FORMATS, LOG_LEVELS, LOG_SINCE } from "@interface/logs";
 import { LOG_DOWNLOAD_DEFAULT_LINES, LOG_DOWNLOAD_MAX_LINES, LOG_QUERY_MAX_LIMIT } from "@schemas/logs.schema";
 import { createSecretStoreSchema } from "@schemas/secretStore.schema";
+import { capivaConfigSchema } from "@schemas/capivaConfig.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -413,6 +414,16 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             "401": { description: "Assinatura inválida" },
             "404": { description: "Conexão Git não encontrada" },
           },
+        },
+      },
+      "/schemas/capiva.json": {
+        servers: [{ url: "/", description: "Raiz (rota pública)" }],
+        get: {
+          tags: ["Applications"],
+          summary: "JSON Schema do capiva.json",
+          description:
+            "Schema do arquivo `capiva.json` (infra como código da aplicação), gerado do schema Zod que valida o arquivo no deploy. Aponte o campo `$schema` do arquivo para esta URL para ter autocompletar no editor. Público, sem autenticação.",
+          responses: { "200": { description: "JSON Schema", content: { "application/schema+json": { schema: json(capivaConfigSchema) } } } },
         },
       },
       "/databases": {
