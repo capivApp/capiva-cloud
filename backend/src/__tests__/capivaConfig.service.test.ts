@@ -97,6 +97,17 @@ describe("CapivaConfigService.applyForDeploy", () => {
     expect(envVars.replace).not.toHaveBeenCalled();
   });
 
+  it("falha da API do provedor para o deploy com aviso na timeline", async () => {
+    const { service, readFile, apps, events, onEvent } = makeService();
+    readFile.mockImplementation(async () => {
+      throw new Error("Git API 500");
+    });
+    expect(service.applyForDeploy(makeApp(), "abc", tenant, onEvent)).rejects.toBeInstanceOf(CapivaConfigError);
+    await Bun.sleep(0);
+    expect(events[0]).toContain("Não foi possível ler o capiva.json");
+    expect(apps.patch).not.toHaveBeenCalled();
+  });
+
   it("arquivo válido passa pelos services da tela e grava a marcação", async () => {
     const config = {
       port: 8080,

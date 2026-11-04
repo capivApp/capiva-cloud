@@ -13,7 +13,7 @@ const readFlag = (ctx: CommandContext, flag: string, question: string): string =
 
 const requireApiKey = (token: string): void => {
   if (token.startsWith("cap_")) return;
-  throw new CliError("A chave de API começa com cap_. Crie uma em Configurações, Chaves de API.");
+  throw new CliError("A chave de API começa com cap_. Crie uma em Organização, API Keys.");
 };
 
 /** `capiva login`: valida a chave na API e grava em ~/.config/capiva/config.json (600). */
