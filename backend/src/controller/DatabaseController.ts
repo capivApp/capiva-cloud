@@ -2,6 +2,9 @@ import type { Request, Response } from "express";
 import { Injectable } from "@di/index";
 import { ManagedDatabaseService } from "@service/ManagedDatabaseService";
 import { DatabaseBackupService } from "@service/DatabaseBackupService";
+import { DatabaseRestoreService } from "@service/DatabaseRestoreService";
+import { AuditService } from "@service/AuditService";
+import { restoreBackupSchema } from "@schemas/restore.schema";
 import { createDatabaseSchema, updateDatabaseSchema } from "@schemas/resource.schema";
 import { tenantOf } from "@functions/tenant";
 import { HttpError } from "@functions/HttpError";
@@ -11,6 +14,8 @@ export class DatabaseController {
   constructor(
     private readonly databases: ManagedDatabaseService,
     private readonly backups: DatabaseBackupService,
+    private readonly restores: DatabaseRestoreService,
+    private readonly audit: AuditService,
   ) {}
 
   listBackups = async (req: Request, res: Response): Promise<void> => {
@@ -23,7 +28,23 @@ export class DatabaseController {
   };
 
   restoreBackup = async (req: Request, res: Response): Promise<void> => {
-    res.status(202).json(await this.backups.restore(String(req.params.id), String(req.params.backupId), tenantOf(req)));
+    const dto = restoreBackupSchema.parse(req.body);
+    const backupId = String(req.params.backupId);
+    const restore = await this.restores.requestRestore(String(req.params.id), backupId, dto, tenantOf(req), req.auth?.sub);
+    this.audit.fromRequest(req, "database.restore", {
+      targetType: "database",
+      targetId: restore.targetDatabaseId ?? String(req.params.id),
+      detail: `${dto.mode} backup=${backupId} restore=${restore.id}`,
+    });
+    res.status(202).json(restore);
+  };
+
+  listRestores = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.restores.list(String(req.params.id), tenantOf(req)));
+  };
+
+  getRestore = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.restores.getById(String(req.params.id), String(req.params.restoreId), tenantOf(req)));
   };
 
   list = async (req: Request, res: Response): Promise<void> => {

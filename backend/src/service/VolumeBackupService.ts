@@ -8,7 +8,23 @@ import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { longhornBackupManifest, longhornBackupTargetSecretManifest } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
-import type { Backup } from "@prisma-generated/client";
+import type { Backup, Volume } from "@prisma-generated/client";
+
+/** Nome do Backup CR do Longhorn de um backup de volume (lido de volta pelo restore). */
+export const longhornBackupNameOf = (appName: string, volumeName: string, backupId: string): string =>
+  `${appName}-${volumeName}-${backupId.slice(-6)}`;
+
+/** Resolve o volume garantindo que pertence à aplicação E à organização ativa. */
+export async function requireApplicationVolume(
+  volumes: VolumeRepository,
+  applicationId: string,
+  volumeId: string,
+  tenant: { organizationId: string },
+): Promise<Volume> {
+  const volume = await withTransaction(() => volumes.findById(volumeId), { tenant });
+  if (!volume || volume.applicationId !== applicationId) throw HttpError.notFound("Volume não encontrado.");
+  return volume;
+}
 
 /**
  * Backups de volume: snapshot do PVC (Longhorn) enviado a um StorageProvider S3.
@@ -37,11 +53,8 @@ export class VolumeBackupService {
     return withTransaction(() => this.backups.listByVolume(volumeId), { tenant });
   }
 
-  /** Resolve o volume garantindo que pertence à aplicação E à organização ativa. */
-  private async requireVolume(applicationId: string, volumeId: string, tenant: { organizationId: string }) {
-    const volume = await withTransaction(() => this.volumes.findById(volumeId), { tenant });
-    if (!volume || volume.applicationId !== applicationId) throw HttpError.notFound("Volume não encontrado.");
-    return volume;
+  private requireVolume(applicationId: string, volumeId: string, tenant: { organizationId: string }) {
+    return requireApplicationVolume(this.volumes, applicationId, volumeId, tenant);
   }
 
   /** Dispara um backup do volume para o StorageProvider (default da org se omitido). */
@@ -72,7 +85,7 @@ export class VolumeBackupService {
     try {
       const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
       await this.k8s.apply(ctx, longhornBackupTargetSecretManifest("capiva-backup-target", creds));
-      await this.k8s.apply(ctx, longhornBackupManifest(`${app.name}-${volume.name}-${backup.id.slice(-6)}`, `${app.name}-${volume.name}`));
+      await this.k8s.apply(ctx, longhornBackupManifest(longhornBackupNameOf(app.name, volume.name, backup.id), `${app.name}-${volume.name}`));
       await withTransaction(() => this.backups.update(backup.id, { status: "completed", finishedAt: new Date() }), { tenant });
     } catch (error) {
       console.error("[volume-backup] Longhorn indisponível:", (error as Error).message);
@@ -80,13 +93,5 @@ export class VolumeBackupService {
     }
 
     return withTransaction(() => this.backups.findById(backup.id), { tenant }) as Promise<Backup>;
-  }
-
-  /** Restaura um backup de volume (cria PVC a partir do backup Longhorn). */
-  async restore(applicationId: string, volumeId: string, backupId: string, tenant: { organizationId: string }): Promise<{ ok: boolean }> {
-    const backup = await withTransaction(() => this.backups.findById(backupId), { tenant });
-    if (!backup || backup.volumeId !== volumeId) throw HttpError.notFound("Backup não encontrado.");
-    // O restore real cria um PVC `fromBackup` (Longhorn). Best-effort em dev.
-    return { ok: backup.status === "completed" };
   }
 }

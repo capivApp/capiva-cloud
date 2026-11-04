@@ -8,6 +8,7 @@ import { DeploymentService } from "@service/DeploymentService";
 import { DependencyService } from "@service/DependencyService";
 import { RolloutService } from "@service/RolloutService";
 import { VolumeBackupService } from "@service/VolumeBackupService";
+import { VolumeRestoreService } from "@service/VolumeRestoreService";
 import { AuditService } from "@service/AuditService";
 import { UptimeService } from "@service/UptimeService";
 import { ReportService } from "@service/ReportService";
@@ -31,6 +32,7 @@ export class ApplicationController {
     private readonly dependencies: DependencyService,
     private readonly rollouts: RolloutService,
     private readonly volumeBackups: VolumeBackupService,
+    private readonly volumeRestores: VolumeRestoreService,
     private readonly audit: AuditService,
     private readonly uptime: UptimeService,
     private readonly reports: ReportService,
@@ -252,7 +254,14 @@ export class ApplicationController {
   };
 
   restoreVolumeBackup = async (req: Request, res: Response): Promise<void> => {
-    res.json(await this.volumeBackups.restore(String(req.params.id), String(req.params.volId), String(req.params.backupId), org(req)));
+    const backupId = String(req.params.backupId);
+    const restore = await this.volumeRestores.requestRestore(String(req.params.id), String(req.params.volId), backupId, org(req), req.auth?.sub);
+    this.audit.fromRequest(req, "volume.restore", { targetType: "volume", targetId: String(req.params.volId), detail: `backup=${backupId} restore=${restore.id}` });
+    res.status(202).json(restore);
+  };
+
+  listVolumeRestores = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.volumeRestores.list(String(req.params.id), String(req.params.volId), org(req)));
   };
 
   removeVolume = async (req: Request, res: Response): Promise<void> => {

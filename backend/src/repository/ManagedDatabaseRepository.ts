@@ -29,6 +29,11 @@ export class ManagedDatabaseRepository extends BaseRepository {
     return this.tx.managedDatabase.findFirst({ where: { id, ...this.scope("managedDatabase") } });
   }
 
+  /** Banco com o mesmo nome no ambiente: o nome vira o nome do recurso no namespace. */
+  findByNameInEnvironment(environmentId: string, name: string): Promise<ManagedDatabase | null> {
+    return this.tx.managedDatabase.findFirst({ where: { environmentId, name, ...this.scope("managedDatabase") } });
+  }
+
   async updateStatus(id: string, observedStatus: string): Promise<ManagedDatabase> {
     await this.ensureScoped(() => this.findById(id), "Banco");
     return this.tx.managedDatabase.update({ where: { id }, data: { observedStatus } });
