@@ -1,0 +1,58 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  // Padrão de backend do time (arh-backend). Roda com `oxlint --type-aware`, que usa o
+  // `oxlint-tsgolint` (compilador TS 7) para as regras que dependem de tipo.
+  // Regras da casa: `no-enum` — TypeScript não usa `enum` (cópia do plugin do bun-commons).
+  "jsPlugins": [{ "name": "quality", "specifier": "./lint/oxlint-quality.mjs" }],
+  "plugins": ["typescript", "oxc", "promise"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist", "coverage", "node_modules"],
+  "rules": {
+    "quality/no-enum": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksVoidReturn": false
+      }
+    ],
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "typescript/prefer-optional-chain": "warn",
+    "typescript/no-unused-vars": [
+      "error",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        // `const { segredo, ...publico } = registro` é o jeito de NÃO devolver o campo cifrado.
+        "ignoreRestSiblings": true
+      }
+    ],
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-explicit-any": "warn",
+    "eqeqeq": [
+      "error",
+      "always",
+      {
+        "null": "ignore"
+      }
+    ],
+    "no-debugger": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "promise/no-callback-in-promise": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/tests/**", "src/__tests__/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    }
+  ]
+}

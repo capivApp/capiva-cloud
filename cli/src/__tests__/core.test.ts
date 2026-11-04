@@ -74,7 +74,8 @@ describe("createApiClient", () => {
     const api = createApiClient({ apiUrl: "https://c.io", token: "cap_a" }, fetchFn as unknown as typeof fetch);
     expect(await api.get<{ id: string }[]>("/projects")).toEqual([{ id: "p1" }]);
     expect(fetchFn.mock.calls[0]?.[0]).toBe("https://c.io/api/projects");
-    expect((fetchFn.mock.calls[0]?.[1]?.headers as Record<string, string>).Authorization).toBe("Bearer cap_a");
+    const headers = (fetchFn.mock.calls[0]?.[1]?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer cap_a");
   });
 
   it("erro da API vira CliError com a mensagem do servidor", async () => {

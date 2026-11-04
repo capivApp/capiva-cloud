@@ -20,9 +20,9 @@
     "prisma:migrate": "bun run --cwd backend prisma:migrate",
     "compose:up": "docker compose up -d",
     "compose:down": "docker compose down",
-    "lint": "bun run --cwd backend lint && bun run --cwd frontend lint && bun run --cwd mobile lint",
-    "format": "bun run --cwd backend format && bun run --cwd frontend format && bun run --cwd mobile format",
-    "format:check": "bun run --cwd backend format:check && bun run --cwd frontend format:check && bun run --cwd mobile format:check",
+    "lint": "bun run --cwd backend lint && bun run --cwd frontend lint && bun run --cwd mobile lint && bun run --cwd cli lint",
+    "format": "bun run --cwd backend format && bun run --cwd frontend format && bun run --cwd mobile format && bun run --cwd cli format",
+    "format:check": "bun run --cwd backend format:check && bun run --cwd frontend format:check && bun run --cwd mobile format:check && bun run --cwd cli format:check",
     "build:cli": "bun run --cwd cli compile"
   },
   "devDependencies": {

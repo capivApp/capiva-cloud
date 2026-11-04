@@ -57,10 +57,11 @@ export function makeDeps(routes: Record<string, FakeHandler> = {}, options: { cr
   let saved: StoredCredentials | null = options.credentials === undefined ? { token: "cap_test", apiUrl: "https://capiva.test" } : options.credentials;
 
   const fetchFn = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    const url = new URL(String(input));
+    const url = new URL(input instanceof Request ? input.url : input);
     const path = `${url.pathname.replace(/^\/api/, "")}${url.search}`;
     const method = init?.method ?? "GET";
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    // O cliente da CLI sempre manda o corpo como JSON em string.
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
     calls.push({ method, path, body, headers: (init?.headers ?? {}) as Record<string, string> });
     const handler = all[`${method} ${path}`];
     if (!handler) return Response.json({ error: "NOT_FOUND", message: `Rota falsa ausente: ${method} ${path}` }, { status: 404 });
