@@ -1,4 +1,4 @@
-import { Pencil, Plus, Server, Trash2 } from "lucide-react";
+import { Gauge, Pencil, Plus, Server, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ClusterNodesDrawer } from "@/pages/settings/components/ClusterNodesDraw
 import { EnvironmentDrawer, type EnvEditing } from "@/pages/settings/components/EnvironmentDrawer";
 import { GitConnectionDrawer, type GitEditing } from "@/pages/settings/components/GitConnectionDrawer";
 import { ProvisionClusterDrawer } from "@/pages/settings/components/ProvisionClusterDrawer";
+import { QuotaDrawer } from "@/pages/settings/components/QuotaDrawer";
 
 export function SettingsPage() {
   return (
@@ -73,6 +74,7 @@ function EnvironmentsTab() {
   const { environments, remove, refetch } = useEnvironments();
   const [drawer, setDrawer] = useState(false);
   const [editing, setEditing] = useState<EnvEditing | null>(null);
+  const [quotaOf, setQuotaOf] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -82,12 +84,14 @@ function EnvironmentsTab() {
           <span className="font-medium">{e.name}</span>
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">{e.kind} · {e.namespace}</span>
+            <Button variant="ghost" size="sm" onClick={() => setQuotaOf({ id: e.id, name: e.name })}><Gauge className="size-4" /> Quota</Button>
             <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: e.id, name: e.name, kind: e.kind, clusterId: e.clusterId }); setDrawer(true); }}><Pencil className="size-4" /></Button>
             <Button variant="ghost" size="icon" onClick={async () => { await remove(e.id); refetch(); }}><Trash2 className="size-4" /></Button>
           </div>
         </Row>
       ))}
       <EnvironmentDrawer open={drawer} onClose={() => setDrawer(false)} editing={editing} onSaved={refetch} />
+      <QuotaDrawer environment={quotaOf} onClose={() => setQuotaOf(null)} />
     </div>
   );
 }

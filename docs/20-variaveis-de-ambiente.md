@@ -51,3 +51,16 @@ Lidas pelo backend (`@service/preview/previewSettings`). Ver
 |----------------------------|---------|-----------|
 | `CAPIVA_PREVIEW_DOMAIN`    | (vazio) | Domínio base dos previews por PR. O PR 42 da aplicação `api` sobe em `pr-42-api.<CAPIVA_PREVIEW_DOMAIN>`. Aponte um DNS curinga (`*.preview.exemplo.com`) para o ingress do cluster. Vazio: o preview é criado sem domínio público. |
 | `CAPIVA_PREVIEW_TTL_DAYS`  | `7`     | Dias sem atividade (sem push no PR, sem deploy) até o scheduler destruir o preview. Valor inválido ou `<= 0` volta ao default. |
+
+## Variáveis da plataforma: tabela de preços (FinOps)
+
+Lidas pelo backend a cada estimativa (`readTabelaDePrecos`, `@functions/finops/custo`). Valor
+vazio, inválido ou negativo volta ao default. Só visibilidade de custo: não há cobrança.
+Detalhes em [42-quotas-e-custos.md](42-quotas-e-custos.md).
+
+| Variável                     | Default | Descrição                         |
+|------------------------------|---------|-----------------------------------|
+| `CAPIVA_PRICE_CURRENCY`      | `BRL`   | Moeda (código ISO 4217).          |
+| `CAPIVA_PRICE_VCPU_HOUR`     | `0.2`   | Preço por vCPU-hora.              |
+| `CAPIVA_PRICE_RAM_GB_HOUR`   | `0.03`  | Preço por GB de RAM-hora.         |
+| `CAPIVA_PRICE_DISK_GB_MONTH` | `0.5`   | Preço por GB de disco-mês.        |

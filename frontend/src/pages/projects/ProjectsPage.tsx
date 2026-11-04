@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreateProjectDrawer } from "@/components/CreateProjectDrawer";
 import { useProjects } from "@/hooks/useProjects";
+import { useCosts } from "@/hooks/useCosts";
+import { CustoIndicador } from "@/components/finops/CustoIndicador";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 
 export function ProjectsPage() {
   const { projects, isLoading, update, remove, refetch } = useProjects();
   const setProject = useWorkspaceStore((s) => s.setProject);
+  const { relatorio } = useCosts();
   const [creating, setCreating] = useState(false);
   const [edit, setEdit] = useState<{ id: string; name: string } | null>(null);
 
@@ -48,6 +51,7 @@ export function ProjectsPage() {
                   <FolderGit2 className="size-4 text-primary" /> {p.name}
                 </button>
                 <div className="flex items-center gap-1">
+                  <CustoIndicador custo={relatorio?.projetos.find((c) => c.id === p.id)?.custo} currency={relatorio?.currency} />
                   <Button variant="ghost" size="icon" onClick={() => setEdit({ id: p.id, name: p.name })}><Pencil className="size-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
                 </div>

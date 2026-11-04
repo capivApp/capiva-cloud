@@ -12,6 +12,7 @@ import {
   createGitConnectionSchema,
 } from "@schemas/resource.schema";
 import { buildRestorePaths } from "@openapi/restorePaths";
+import { setQuotaSchema } from "@schemas/finops.schema";
 
 /**
  * Documento OpenAPI 3.1 gerado a partir dos schemas Zod (fonte da verdade dos
@@ -56,6 +57,26 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     { name: "direction", in: "query", schema: { type: "string", enum: [...LOG_DIRECTIONS], default: "backward" }, description: "Qual ponta do intervalo vem quando passa do limite." },
   ];
 
+  /** Recusa antecipada por quota: cada violação volta para o campo do formulário. */
+  const quotaExceeded = {
+    description: "Excede a quota do ambiente",
+    content: {
+      "application/json": {
+        example: {
+          error: "QUOTA_EXCEEDED",
+          message: "Memória acima da quota do ambiente. Pedido: 2 GiB. Disponível: 1 GiB.",
+          errors: [{ path: "profile", message: "Memória acima da quota do ambiente. Pedido: 2 GiB. Disponível: 1 GiB." }],
+        },
+      },
+    },
+  };
+  const quotaExample = {
+    environmentId: "env_123",
+    limite: { cpuMillicores: 4000, memoryMib: 8192, pods: 20, storageGi: 100 },
+    uso: { cpuMillicores: 1500, memoryMib: 3072, pods: 6, storageGi: 30 },
+    disponivel: { cpuMillicores: 2500, memoryMib: 5120, pods: 14, storageGi: 70 },
+  };
+
   return {
     openapi: "3.1.0",
     info: {
@@ -80,6 +101,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: "Applications", description: "Aplicações, deploys e dependências" },
       { name: "Databases", description: "Bancos gerenciados (HA, backups)" },
       { name: "Observability", description: "Logs (busca, download e SSE) e métricas" },
+      { name: "FinOps", description: "Quotas por ambiente e custo mensal estimado" },
     ],
     paths: {
       "/auth/register": {
@@ -111,7 +133,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [orgHeader],
           requestBody: body(createApplicationSchema),
-          responses: { "201": { description: "Criado" }, "400": { description: "Caminho de build inválido" }, "403": { description: "Não é membro da organização" } },
+          responses: { "201": { description: "Criado" }, "400": { description: "Caminho de build inválido" }, "403": { description: "Não é membro da organização" }, "422": quotaExceeded },
         },
       },
       "/applications/{id}": {
@@ -131,7 +153,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(updateApplicationSchema),
-          responses: { "200": { description: "Atualizado" }, "400": { description: "Caminho de build inválido" }, "404": { description: "Fora da organização ativa" } },
+          responses: { "200": { description: "Atualizado" }, "400": { description: "Caminho de build inválido" }, "404": { description: "Fora da organização ativa" }, "422": quotaExceeded },
         },
         delete: { tags: ["Applications"], summary: "Remover aplicação e seus recursos", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
       },
@@ -350,7 +372,51 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/databases": {
         get: { tags: ["Databases"], summary: "Listar bancos do projeto", security: bearer, responses: { "200": { description: "OK" } } },
-        post: { tags: ["Databases"], summary: "Criar banco gerenciado", security: bearer, requestBody: body(createDatabaseSchema), responses: { "201": { description: "Criado" } } },
+        post: { tags: ["Databases"], summary: "Criar banco gerenciado", security: bearer, requestBody: body(createDatabaseSchema), responses: { "201": { description: "Criado" }, "422": quotaExceeded } },
+      },
+      "/environments/{id}/quota": {
+        get: {
+          tags: ["FinOps"],
+          summary: "Quota do ambiente: limite, uso e disponível",
+          description: "Uso conta as réplicas MÁXIMAS do HPA, os volumes e os bancos gerenciados do ambiente. `null` no limite = sem limite.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "200": { description: "OK", content: { "application/json": { example: quotaExample } } }, "404": { description: "Fora da organização ativa" } },
+        },
+        put: {
+          tags: ["FinOps"],
+          summary: "Definir quota do ambiente (ADMIN+)",
+          description: "Grava os limites e aplica `ResourceQuota` + `LimitRange` no namespace do ambiente. Todos os campos `null` removem a quota do cluster.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(setQuotaSchema),
+          responses: { "200": { description: "Atualizado", content: { "application/json": { example: quotaExample } } }, "422": { description: "Limite inválido" } },
+        },
+      },
+      "/costs": {
+        get: {
+          tags: ["FinOps"],
+          summary: "Custo mensal estimado da organização",
+          description:
+            "Estimativa (sem cobrança) por aplicação (com volumes), banco gerenciado, projeto e ambiente, com mínimo e máximo do HPA. Preços vêm de `CAPIVA_PRICE_*`.",
+          security: bearer,
+          parameters: [orgHeader],
+          responses: { "200": { description: "OK" } },
+        },
+      },
+      "/costs/estimate/application": {
+        get: {
+          tags: ["FinOps"],
+          summary: "Estimativa de custo mensal de uma aplicação (wizard)",
+          security: bearer,
+          parameters: [
+            orgHeader,
+            { name: "profile", in: "query", required: true, schema: { type: "string", enum: ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE"] } },
+            { name: "minReplicas", in: "query", required: false, schema: { type: "integer", minimum: 1 } },
+            { name: "maxReplicas", in: "query", required: false, schema: { type: "integer", minimum: 1 } },
+          ],
+          responses: { "200": { description: "OK", content: { "application/json": { example: { currency: "BRL", custo: { min: 46.43, max: 46.43 } } } } } },
+        },
       },
       ...buildRestorePaths(bearer, orgHeader),
     },

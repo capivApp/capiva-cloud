@@ -8,6 +8,7 @@ import { useDatabases } from "@/hooks/useDatabases";
 import { useProjects } from "@/hooks/useProjects";
 import { ServiceCard } from "@/pages/dashboard/components/ServiceCard";
 import { OverviewSection } from "@/pages/dashboard/components/OverviewSection";
+import { CostCard } from "@/pages/dashboard/components/CostCard";
 import { useApplications } from "@/pages/applications/hooks/useApplications";
 import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 
@@ -49,6 +50,7 @@ export function DashboardPage() {
       </div>
 
       <OverviewSection />
+      <CostCard />
 
       {applications.length === 0 && databases.length === 0 ? (
         <Card>

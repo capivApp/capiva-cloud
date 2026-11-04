@@ -6,7 +6,9 @@ import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
 import type { HpaLiveStatus } from "@interface/integrations";
-import type { ScalingMetric, ScalingPolicy } from "@prisma-generated/client";
+import { QuotaService } from "@service/QuotaService";
+import { toRecursoDaAplicacao } from "@functions/finops/inventario";
+import type { Application, ScalingMetric, ScalingPolicy } from "@prisma-generated/client";
 
 export interface SetScalingInput {
   minReplicas: number;
@@ -35,7 +37,28 @@ export class ScalingService {
     private readonly apps: ApplicationService,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
+    private readonly quotas: QuotaService,
   ) {}
+
+  /** Réplicas novas (máximo do HPA ou escala manual) no lugar das atuais, contra a quota do ambiente. */
+  private async requireQuotaDeReplicas(
+    app: Application,
+    next: { minReplicas: number; maxReplicas: number },
+    path: string,
+    tenant: { organizationId: string },
+  ): Promise<void> {
+    const atual = await withTransaction(() => this.policies.findByApplication(app.id), { tenant });
+    const base = { profile: app.profile, customResources: app.customResources };
+    await this.quotas.requireCabe(
+      app.environmentId,
+      {
+        pedido: [toRecursoDaAplicacao({ ...base, scaling: next })],
+        substitui: [toRecursoDaAplicacao({ ...base, scaling: atual })],
+        paths: { cpuMillicores: path, memoryMib: path, pods: path },
+      },
+      tenant,
+    );
+  }
 
   getPolicy(applicationId: string, tenant: { organizationId: string }): Promise<ScalingPolicy | null> {
     return withTransaction(() => this.policies.findByApplication(applicationId), { tenant });
@@ -48,6 +71,7 @@ export class ScalingService {
       throw HttpError.badRequest("Autoscaling (HPA) disponível apenas para estratégia ROLLING.");
     }
     if (input.maxReplicas < input.minReplicas) throw HttpError.badRequest("maxReplicas deve ser ≥ minReplicas.");
+    await this.requireQuotaDeReplicas(app, input, "maxReplicas", tenant);
 
     const policy = await withTransaction(
       () => this.policies.upsert({ applicationId, minReplicas: input.minReplicas, maxReplicas: input.maxReplicas, metric: input.metric, target: input.target }),
@@ -94,6 +118,7 @@ export class ScalingService {
     const app = await this.apps.getById(applicationId, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     if (!ctx.kubeconfig) throw HttpError.badRequest("Ambiente sem cluster configurado.");
+    await this.requireQuotaDeReplicas(app, { minReplicas: replicas, maxReplicas: replicas }, "replicas", tenant);
 
     await this.k8s.scaleDeployment(ctx, app.name, replicas);
     const policy = await withTransaction(() => this.policies.findByApplication(applicationId), { tenant });

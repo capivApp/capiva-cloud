@@ -8,6 +8,8 @@ import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { OperatorInstallerService } from "@service/OperatorInstallerService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
+import { QuotaService } from "@service/QuotaService";
+import { toRecursoDoBanco } from "@functions/finops/inventario";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt, encrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
@@ -74,6 +76,7 @@ export class ManagedDatabaseService {
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
     private readonly operators: OperatorInstallerService,
+    private readonly quotas: QuotaService,
   ) {}
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<ManagedDatabase[]> {
@@ -81,6 +84,12 @@ export class ManagedDatabaseService {
   }
 
   async create(input: CreateDatabaseInput, tenant: { organizationId: string }): Promise<ManagedDatabase> {
+    const recurso = toRecursoDoBanco({ kind: input.kind, size: input.size ?? "SMALL", highAvailability: input.highAvailability ?? false });
+    await this.quotas.requireCabe(
+      input.environmentId,
+      { pedido: [recurso], paths: { cpuMillicores: "size", memoryMib: "size", pods: "highAvailability", storageGi: "size" } },
+      tenant,
+    );
     const config: DatabaseConfig = {
       username: input.username || "capiva",
       passwordCipher: encrypt(input.password || crypto.randomBytes(18).toString("base64url")),

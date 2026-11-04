@@ -7,6 +7,8 @@ export class HttpError extends Error {
     public readonly message: string,
     public readonly status: number = 400,
     public readonly code?: string,
+    /** Erros por campo (`path` na notação do formulário), devolvidos em `errors`. */
+    public readonly errors?: { path: string; message: string }[],
   ) {
     super(message);
     this.name = "HttpError";

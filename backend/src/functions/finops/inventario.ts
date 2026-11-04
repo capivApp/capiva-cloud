@@ -1,0 +1,69 @@
+import {
+  buildFaixaDeConsumo,
+  resolveReplicasDaAplicacao,
+  sumConsumo,
+  type AplicacaoDeConsumo,
+  type BancoDeConsumo,
+  type Consumo,
+  type RecursoMedido,
+  type VolumeDeConsumo,
+} from "@functions/finops/consumo";
+
+/** Recursos que consomem cluster, como saem do banco (forma neutra, sem Prisma). */
+export interface AplicacaoInventario {
+  id: string;
+  name: string;
+  projectId: string;
+  environmentId: string;
+  profile: string;
+  customResources: unknown;
+  scaling: { minReplicas: number; maxReplicas: number } | null;
+  volumes: { id: string; name: string; sizeGi: number }[];
+}
+
+export interface BancoInventario {
+  id: string;
+  name: string;
+  projectId: string;
+  environmentId: string;
+  kind: string;
+  size: string;
+  highAvailability: boolean;
+}
+
+export interface Inventario {
+  aplicacoes: AplicacaoInventario[];
+  bancos: BancoInventario[];
+}
+
+export const toRecursoDaAplicacao = (app: Pick<AplicacaoInventario, "profile" | "customResources" | "scaling">): AplicacaoDeConsumo => {
+  const replicas = resolveReplicasDaAplicacao(app.scaling);
+  return {
+    tipo: "APPLICATION",
+    profile: app.profile,
+    customResources: (app.customResources as Record<string, unknown> | null) ?? null,
+    minReplicas: replicas.min,
+    maxReplicas: replicas.max,
+  };
+};
+
+export const toRecursoDoBanco = (banco: Pick<BancoInventario, "kind" | "size" | "highAvailability">): BancoDeConsumo => ({
+  tipo: "DATABASE",
+  kind: banco.kind,
+  size: banco.size,
+  highAvailability: banco.highAvailability,
+});
+
+export const toRecursoDoVolume = (volume: { sizeGi: number }): VolumeDeConsumo => ({ tipo: "VOLUME", sizeGi: volume.sizeGi });
+
+export const listRecursosMedidos = (inventario: Inventario): RecursoMedido[] => [
+  ...inventario.aplicacoes.flatMap((app) => [toRecursoDaAplicacao(app), ...app.volumes.map(toRecursoDoVolume)]),
+  ...inventario.bancos.map(toRecursoDoBanco),
+];
+
+/** Pico de consumo de um conjunto de recursos: é o que a quota precisa comportar. */
+export const buildConsumoMaximo = (recursos: RecursoMedido[]): Consumo =>
+  sumConsumo(recursos.map((recurso) => buildFaixaDeConsumo(recurso).max));
+
+/** Uso que a quota considera: réplicas máximas do HPA, volumes e bancos. */
+export const buildUsoDoInventario = (inventario: Inventario): Consumo => buildConsumoMaximo(listRecursosMedidos(inventario));

@@ -2,6 +2,8 @@ import { Activity, Boxes, Cpu, Globe, MemoryStick } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMetricsStream } from "@/hooks/useMetricsStream";
+import { useCosts } from "@/hooks/useCosts";
+import { CustoIndicador } from "@/components/finops/CustoIndicador";
 import { StatusBadge } from "@/pages/applications/components/StatusBadge";
 import { ApplicationActions } from "@/pages/applications/components/ApplicationActions";
 import { PreviewBadge } from "@/pages/applications/components/PreviewBadge";
@@ -13,6 +15,8 @@ import type { Application } from "@/pages/applications/hooks/useApplications";
  */
 export function ServiceCard({ app, onChange }: { app: Application; onChange?: () => void }) {
   const metrics = useMetricsStream(app.id);
+  const { relatorio } = useCosts();
+  const custo = relatorio?.aplicacoes.find((c) => c.id === app.id)?.custo;
   const domain = (app.sourceConfig?.domain as string) || null;
   const stopped = app.desiredStatus === "stopped";
 
@@ -39,6 +43,7 @@ export function ServiceCard({ app, onChange }: { app: Application; onChange?: ()
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <PreviewBadge app={app} />
           <span className="rounded bg-muted px-1.5 py-0.5">{app.rolloutStrategy}</span>
+          <CustoIndicador custo={custo} currency={relatorio?.currency} />
           {domain && (
             <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
               <Globe className="size-3" /> {domain}

@@ -208,6 +208,11 @@ model Environment {
   name           String
   kind           EnvironmentKind   @default(DEVELOPMENT)
   namespace      String
+  // Quota do namespace (ResourceQuota). null = sem limite naquele recurso.
+  quotaCpuMillicores Int?
+  quotaMemoryMib     Int?
+  quotaPods          Int?
+  quotaStorageGi     Int?
   createdAt      DateTime          @default(now())
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cluster        Cluster?          @relation(fields: [clusterId], references: [id])
