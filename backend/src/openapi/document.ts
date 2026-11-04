@@ -102,7 +102,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           tags: ["Applications"],
           summary: "Editar configurações gerais e de build",
           description:
-            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy por push e `watchPaths` restringe o disparo a caminhos do monorepo. Mudanças de build valem no próximo deploy.",
+            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy automático, `watchPaths` restringe o disparo a caminhos do monorepo, `deployTrigger` escolhe o gatilho (`branch` padrão, `tag` ou `release`) e `tagPattern` (glob, ex. `v*`) filtra as tags aceitas. Mudanças de build valem no próximo deploy.",
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(updateApplicationSchema),
@@ -138,6 +138,25 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/git-connections/{id}/repos": {
         get: { tags: ["Git"], summary: "Listar repositórios", security: bearer, responses: { "200": { description: "OK" } } },
+      },
+      "/webhooks/git/{connectionId}": {
+        post: {
+          tags: ["Git"],
+          summary: "Receber webhook Git (push, tag, release, PR/MR)",
+          description:
+            "Endpoint público, fora de `/api`, autenticado pela assinatura (`X-Hub-Signature-256` no GitHub/Gitea, `X-Gitlab-Token` no GitLab). O tipo vem de `X-GitHub-Event`, `X-Gitlab-Event` ou `X-Gitea-Event` (sem header, é deduzido do corpo). Push, tag e release disparam deploy nas aplicações cujo `sourceConfig.deployTrigger` (`branch`, `tag`, `release`) e `tagPattern` casam. PR/MR (opened, synchronized, reopened, closed, merged) não fazem deploy: são publicados no barramento interno `gitEvents`.",
+          servers: [{ url: "/", description: "Raiz (fora de /api)" }],
+          parameters: [{ name: "connectionId", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", description: "Payload original do provedor" } } } },
+          responses: {
+            "200": {
+              description: "Processado",
+              content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, triggered: { type: "integer" } } }, example: { ok: true, triggered: 1 } } },
+            },
+            "401": { description: "Assinatura inválida" },
+            "404": { description: "Conexão Git não encontrada" },
+          },
+        },
       },
       "/databases": {
         get: { tags: ["Databases"], summary: "Listar bancos do projeto", security: bearer, responses: { "200": { description: "OK" } } },

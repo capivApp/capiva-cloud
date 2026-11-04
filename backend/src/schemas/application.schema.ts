@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEPLOY_TRIGGERS } from "@service/git/deployTrigger.strategy";
 
 export const sourceKind = z.enum([
   "DOCKER_IMAGE",
@@ -147,6 +148,10 @@ export const updateApplicationSchema = z
      * (monorepo). Vazio = qualquer alteração dispara.
      */
     watchPaths: z.array(z.string().trim().min(1).max(255)).max(50).optional(),
+    /** O que dispara o deploy automático: push na branch (padrão), tag ou release. */
+    deployTrigger: z.enum(DEPLOY_TRIGGERS, { error: "Escolha branch, tag ou release." }).optional(),
+    /** Glob das tags aceitas nos modos tag/release (ex.: `v*`). Vazio limpa. */
+    tagPattern: z.string().trim().max(100, "Use no máximo 100 caracteres.").optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nada para atualizar." });
 

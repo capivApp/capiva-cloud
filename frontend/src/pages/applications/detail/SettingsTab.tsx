@@ -12,6 +12,14 @@ import type { Application } from "@/pages/applications/hooks/useApplications";
 
 const PROFILES = ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE", "CUSTOM"];
 
+/** O que dispara o deploy automático (sourceConfig.deployTrigger). */
+const DEPLOY_TRIGGERS = [
+  { value: "branch", label: "Push na branch" },
+  { value: "tag", label: "Nova tag" },
+  { value: "release", label: "Release publicada" },
+] as const;
+type DeployTrigger = (typeof DEPLOY_TRIGGERS)[number]["value"];
+
 interface PatchInput {
   name?: string;
   profile?: string;
@@ -24,6 +32,8 @@ interface PatchInput {
   subPath?: string;
   autoDeploy?: boolean;
   watchPaths?: string[];
+  deployTrigger?: DeployTrigger;
+  tagPattern?: string;
 }
 
 /**
@@ -47,6 +57,9 @@ export function SettingsTab({ app }: { app: Application }) {
   const [subPath, setSubPath] = useState(String(cfg.subPath ?? ""));
   const [autoDeploy, setAutoDeploy] = useState(cfg.autoDeploy !== false);
   const [watchPaths, setWatchPaths] = useState((Array.isArray(cfg.watchPaths) ? cfg.watchPaths : []).join(", "));
+  const savedTrigger = (cfg.deployTrigger as DeployTrigger | undefined) ?? "branch";
+  const [deployTrigger, setDeployTrigger] = useState<DeployTrigger>(savedTrigger);
+  const [tagPattern, setTagPattern] = useState(String(cfg.tagPattern ?? ""));
 
   const parsedWatchPaths = watchPaths.split(",").map((p) => p.trim()).filter(Boolean);
   const buildError = [dockerfile, subPath].map(validateRepoPath).find(Boolean) ?? null;
@@ -71,6 +84,8 @@ export function SettingsTab({ app }: { app: Application }) {
     if (parsedWatchPaths.join(",") !== (Array.isArray(cfg.watchPaths) ? cfg.watchPaths : []).join(",")) {
       dto.watchPaths = parsedWatchPaths;
     }
+    if (deployTrigger !== savedTrigger) dto.deployTrigger = deployTrigger;
+    if (tagPattern.trim() !== (cfg.tagPattern ?? "")) dto.tagPattern = tagPattern.trim();
     if (buildError) return toast.error(buildError);
     if (Object.keys(dto).length === 0) return toast.info("Nada alterado.");
     try {
@@ -150,16 +165,33 @@ export function SettingsTab({ app }: { app: Application }) {
         <div className="space-y-3 border-t border-border pt-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={autoDeploy} onChange={(e) => setAutoDeploy(e.target.checked)} className="accent-primary" />
-            <span className="font-medium">Deploy automático a cada push</span>
+            <span className="font-medium">Deploy automático</span>
           </label>
-          <p className="text-xs text-muted-foreground">Desligado, o push é ignorado e o deploy passa a ser só manual.</p>
+          <p className="text-xs text-muted-foreground">Desligado, o deploy passa a ser só manual.</p>
 
           {autoDeploy && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Disparar com</Label>
+              <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={deployTrigger} onChange={(e) => setDeployTrigger(e.target.value as DeployTrigger)}>
+                {DEPLOY_TRIGGERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+          )}
+
+          {autoDeploy && deployTrigger !== "branch" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Padrão de tag (opcional)</Label>
+              <Input value={tagPattern} onChange={(e) => setTagPattern(e.target.value)} placeholder="v*" className="font-mono text-xs" spellCheck={false} />
+              <p className="text-xs text-muted-foreground">Use * e ?. Vazio aceita qualquer tag.</p>
+            </div>
+          )}
+
+          {autoDeploy && deployTrigger === "branch" && (
             <div className="space-y-1.5">
               <Label className="text-xs">Caminhos observados (opcional)</Label>
               <Input value={watchPaths} onChange={(e) => setWatchPaths(e.target.value)} placeholder="apps/api, packages/shared" className="font-mono text-xs" spellCheck={false} />
               <p className="text-xs text-muted-foreground">
-                Separados por vírgula. Só dispara quando o push mexer nesses caminhos — evita reconstruir todo monorepo a cada commit. Vazio = qualquer alteração dispara.
+                Separados por vírgula. Só dispara quando o push mexer nesses caminhos. Vazio: qualquer alteração dispara.
               </p>
             </div>
           )}

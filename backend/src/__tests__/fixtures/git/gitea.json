@@ -1,0 +1,213 @@
+{
+  "push": {
+    "event": "push",
+    "body": {
+      "ref": "refs/heads/develop",
+      "before": "28e1879d029cb852e4844d9c718537df08844e03",
+      "after": "bffeb74224043ba2feb48d137756c8a9331c449a",
+      "compare_url": "https://git.acme.dev/gitea/webhooks/compare/28e1879d029cb852e4844d9c718537df08844e03...bffeb74224043ba2feb48d137756c8a9331c449a",
+      "commits": [
+        {
+          "id": "bffeb74224043ba2feb48d137756c8a9331c449a",
+          "message": "Webhooks Yay!",
+          "url": "https://git.acme.dev/gitea/webhooks/commit/bffeb74224043ba2feb48d137756c8a9331c449a",
+          "author": { "name": "Gitea", "email": "someone@gitea.io", "username": "gitea" },
+          "committer": { "name": "Gitea", "email": "someone@gitea.io", "username": "gitea" },
+          "timestamp": "2026-11-04T10:15:32-04:00",
+          "added": ["services/api/main.go"],
+          "removed": [],
+          "modified": ["README.md"]
+        }
+      ],
+      "head_commit": {
+        "id": "bffeb74224043ba2feb48d137756c8a9331c449a",
+        "message": "Webhooks Yay!",
+        "added": ["services/api/main.go"],
+        "removed": [],
+        "modified": ["README.md"]
+      },
+      "repository": {
+        "id": 140,
+        "owner": { "id": 1, "login": "gitea", "full_name": "Gitea", "username": "gitea" },
+        "name": "webhooks",
+        "full_name": "gitea/webhooks",
+        "private": false,
+        "html_url": "https://git.acme.dev/gitea/webhooks",
+        "clone_url": "https://git.acme.dev/gitea/webhooks.git",
+        "default_branch": "master"
+      },
+      "pusher": { "id": 1, "login": "gitea", "username": "gitea" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "tag": {
+    "event": "push",
+    "body": {
+      "ref": "refs/tags/release-2026.11",
+      "before": "0000000000000000000000000000000000000000",
+      "after": "bffeb74224043ba2feb48d137756c8a9331c449a",
+      "compare_url": "",
+      "commits": [],
+      "head_commit": { "id": "bffeb74224043ba2feb48d137756c8a9331c449a", "message": "Webhooks Yay!" },
+      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "private": false, "default_branch": "master" },
+      "pusher": { "id": 1, "login": "gitea", "username": "gitea" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "tagDeleted": {
+    "event": "push",
+    "body": {
+      "ref": "refs/tags/release-2026.10",
+      "before": "28e1879d029cb852e4844d9c718537df08844e03",
+      "after": "0000000000000000000000000000000000000000",
+      "commits": [],
+      "head_commit": null,
+      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks" }
+    }
+  },
+  "release": {
+    "event": "release",
+    "body": {
+      "action": "published",
+      "release": {
+        "id": 5,
+        "tag_name": "release-2026.11",
+        "target_commitish": "master",
+        "name": "Release 2026.11",
+        "body": "Notas",
+        "url": "https://git.acme.dev/api/v1/repos/gitea/webhooks/releases/5",
+        "html_url": "https://git.acme.dev/gitea/webhooks/releases/tag/release-2026.11",
+        "draft": false,
+        "prerelease": false,
+        "created_at": "2026-11-04T10:15:32-04:00",
+        "published_at": "2026-11-04T10:15:32-04:00",
+        "author": { "id": 1, "login": "gitea", "username": "gitea" }
+      },
+      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "default_branch": "master" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "releaseDeleted": {
+    "event": "release",
+    "body": {
+      "action": "deleted",
+      "release": { "id": 5, "tag_name": "release-2026.11", "target_commitish": "master", "name": "Release 2026.11", "draft": false },
+      "repository": { "id": 140, "full_name": "gitea/webhooks" }
+    }
+  },
+  "pullRequestOpened": {
+    "event": "pull_request",
+    "body": {
+      "action": "opened",
+      "number": 7,
+      "pull_request": {
+        "id": 17,
+        "url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "number": 7,
+        "user": { "id": 1, "login": "gitea", "username": "gitea" },
+        "title": "Adiciona healthcheck",
+        "body": "",
+        "state": "open",
+        "html_url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "mergeable": true,
+        "merged": false,
+        "merged_at": null,
+        "merge_commit_sha": null,
+        "base": {
+          "label": "master",
+          "ref": "master",
+          "sha": "28e1879d029cb852e4844d9c718537df08844e03",
+          "repo_id": 140,
+          "repo": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks" }
+        },
+        "head": {
+          "label": "feature/health",
+          "ref": "feature/health",
+          "sha": "bffeb74224043ba2feb48d137756c8a9331c449a",
+          "repo_id": 140,
+          "repo": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks" }
+        }
+      },
+      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks", "default_branch": "master" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "pullRequestSynchronized": {
+    "event": "pull_request",
+    "body": {
+      "action": "synchronized",
+      "number": 7,
+      "pull_request": {
+        "number": 7,
+        "title": "Adiciona healthcheck",
+        "state": "open",
+        "html_url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "user": { "id": 1, "login": "gitea", "username": "gitea" },
+        "merged": false,
+        "base": { "ref": "master", "sha": "28e1879d029cb852e4844d9c718537df08844e03" },
+        "head": { "ref": "feature/health", "sha": "9a8b7c6d5e4f30211234567890abcdef12345678" }
+      },
+      "repository": { "id": 140, "name": "webhooks", "full_name": "gitea/webhooks" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "pullRequestReopened": {
+    "event": "pull_request",
+    "body": {
+      "action": "reopened",
+      "number": 7,
+      "pull_request": {
+        "number": 7,
+        "title": "Adiciona healthcheck",
+        "state": "open",
+        "html_url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "user": { "id": 1, "login": "gitea", "username": "gitea" },
+        "merged": false,
+        "base": { "ref": "master" },
+        "head": { "ref": "feature/health", "sha": "9a8b7c6d5e4f30211234567890abcdef12345678" }
+      },
+      "repository": { "id": 140, "full_name": "gitea/webhooks" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "pullRequestClosed": {
+    "event": "pull_request",
+    "body": {
+      "action": "closed",
+      "number": 7,
+      "pull_request": {
+        "number": 7,
+        "title": "Adiciona healthcheck",
+        "state": "closed",
+        "html_url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "user": { "id": 1, "login": "gitea", "username": "gitea" },
+        "merged": false,
+        "base": { "ref": "master" },
+        "head": { "ref": "feature/health", "sha": "9a8b7c6d5e4f30211234567890abcdef12345678" }
+      },
+      "repository": { "id": 140, "full_name": "gitea/webhooks" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  },
+  "pullRequestMerged": {
+    "event": "pull_request",
+    "body": {
+      "action": "closed",
+      "number": 7,
+      "pull_request": {
+        "number": 7,
+        "title": "Adiciona healthcheck",
+        "state": "closed",
+        "html_url": "https://git.acme.dev/gitea/webhooks/pulls/7",
+        "user": { "id": 1, "login": "gitea", "username": "gitea" },
+        "merged": true,
+        "merged_at": "2026-11-04T15:00:00-04:00",
+        "merge_commit_sha": "f0e1d2c3b4a5968778695a4b3c2d1e0f1a2b3c4d",
+        "base": { "ref": "master" },
+        "head": { "ref": "feature/health", "sha": "9a8b7c6d5e4f30211234567890abcdef12345678" }
+      },
+      "repository": { "id": 140, "full_name": "gitea/webhooks" },
+      "sender": { "id": 1, "login": "gitea", "username": "gitea" }
+    }
+  }
+}
