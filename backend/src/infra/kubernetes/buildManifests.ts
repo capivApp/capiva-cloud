@@ -19,6 +19,8 @@ export interface BuildJobInput {
   /** Repositório SEM protocolo (`github.com/acme/api.git`): o protocolo vem da tentativa. */
   repo: string;
   branch: string;
+  /** Ref completa (`refs/tags/v1.2.0`). Sem ela, o Kaniko usa `refs/heads/<branch>`. */
+  gitRef?: string;
   gitPullMethod: "http" | "https";
   /** Subpasta do repositório usada como raiz do build (monorepo). */
   subPath?: string;
@@ -111,7 +113,7 @@ function kanikoFromWorkspace(input: BuildJobInput, context: string, dockerfile: 
 export function dockerfileJobManifest(input: BuildJobInput): K8sManifest {
   return kanikoJobManifest({
     ...kanikoBase(input),
-    context: `git://${input.repo}#refs/heads/${input.branch}`,
+    context: `git://${input.repo}#${input.gitRef ?? `refs/heads/${input.branch}`}`,
     dockerfile: configString(input, "dockerfile") ?? "Dockerfile",
     contextSubPath: input.subPath,
     gitCredentialsSecret: input.gitCredentialsSecret,

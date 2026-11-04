@@ -1,5 +1,6 @@
 import { Injectable } from "@di/index";
 import { BuildConfigError } from "@infra/build/BuildConfigError";
+import { resolveBuildRef } from "@infra/build/buildRef";
 import type { BuildJobInput } from "@infra/kubernetes/buildManifests";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { dockerConfigSecretManifest, gitCredentialsSecretManifest } from "@infra/kubernetes/manifests";
@@ -60,7 +61,7 @@ export class BuildJobRunner {
       namespace: req.ctx.namespace,
       imageRef: req.imageRef,
       repo: repo.replace(/^https?:\/\//, ""),
-      branch: (req.config.branch as string | undefined) ?? "main",
+      ...resolveBuildRef(req.config),
       subPath: req.config.subPath as string | undefined,
       buildArgs: (req.config.buildArgs as { key: string; value: string }[] | undefined) ?? [],
       deploymentId: req.deploymentId,
