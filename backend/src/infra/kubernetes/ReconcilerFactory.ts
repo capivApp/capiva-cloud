@@ -2,6 +2,7 @@ import { Injectable, container } from "@di/index";
 import { ApplicationReconciler } from "@infra/kubernetes/reconcilers/ApplicationReconciler";
 import { DatabaseReconciler } from "@infra/kubernetes/reconcilers/DatabaseReconciler";
 import { CronJobReconciler, WorkerReconciler } from "@infra/kubernetes/reconcilers/WorkloadReconcilers";
+import { QuotaReconciler } from "@infra/kubernetes/reconcilers/QuotaReconciler";
 
 /**
  * Factory que escolhe a Strategy de reconciliação por tipo de recurso.
@@ -23,5 +24,9 @@ export class ReconcilerFactory {
 
   forCronJob(): CronJobReconciler {
     return container.get(CronJobReconciler);
+  }
+
+  forQuota(): QuotaReconciler {
+    return container.get(QuotaReconciler);
   }
 }

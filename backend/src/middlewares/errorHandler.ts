@@ -9,7 +9,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.code ?? "ERROR", message: err.message });
+    res.status(err.status).json({ error: err.code ?? "ERROR", message: err.message, ...(err.errors ? { errors: err.errors } : {}) });
     return;
   }
   console.error("[error]", err);

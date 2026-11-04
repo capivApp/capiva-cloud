@@ -10,6 +10,8 @@ import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { TlsCertificateService } from "@service/TlsCertificateService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
+import { QuotaService } from "@service/QuotaService";
+import { toRecursoDaAplicacao, toRecursoDoVolume } from "@functions/finops/inventario";
 import { dockerConfigSecretManifest, type TlsModeManifest } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -61,7 +63,37 @@ export class ApplicationService {
     private readonly k8s: KubernetesAdapter,
     private readonly tlsCerts: TlsCertificateService,
     private readonly registries: DockerRegistryService,
+    private readonly quotas: QuotaService,
   ) {}
+
+  /** Recusa antes de gravar a criação que estoura a quota do ambiente. */
+  private requireQuotaDaCriacao(input: CreateApplicationInput, tenant: { organizationId: string }): Promise<void> {
+    const app = toRecursoDaAplicacao({ profile: input.profile ?? "SMALL", customResources: null, scaling: null });
+    const volumes = (input.volumes ?? []).filter((v) => v.name.trim() && v.mountPath.trim()).map(toRecursoDoVolume);
+    return this.quotas.requireCabe(
+      input.environmentId,
+      { pedido: [app, ...volumes], paths: { cpuMillicores: "profile", memoryMib: "profile", pods: "profile", storageGi: "volumes" } },
+      tenant,
+    );
+  }
+
+  /** Troca de perfil/recursos: desconta o consumo atual da própria aplicação. */
+  private async requireQuotaDoPerfil(
+    app: Application,
+    next: { profile: string; customResources: unknown },
+    tenant: { organizationId: string },
+  ): Promise<void> {
+    const scaling = await withTransaction(() => this.scalingRepo.findByApplication(app.id), { tenant });
+    return this.quotas.requireCabe(
+      app.environmentId,
+      {
+        pedido: [toRecursoDaAplicacao({ ...next, scaling })],
+        substitui: [toRecursoDaAplicacao({ profile: app.profile, customResources: app.customResources, scaling })],
+        paths: { cpuMillicores: "profile", memoryMib: "profile", pods: "profile" },
+      },
+      tenant,
+    );
+  }
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<Application[]> {
     return withTransaction(() => this.apps.listByProject(projectId), { tenant });
@@ -75,6 +107,7 @@ export class ApplicationService {
     // Build args ficam no sourceConfig (usados pelo builder); envs de runtime viram EnvVar.
     const sourceConfig = { ...sourceWithoutDomain, buildArgs: input.buildArgs ?? [] };
     const tlsMode = input.tlsMode ?? "LETS_ENCRYPT";
+    await this.requireQuotaDaCriacao(input, tenant);
 
     const app = await withTransaction(
       async () => {
@@ -208,6 +241,7 @@ export class ApplicationService {
     tenant: { organizationId: string },
   ) {
     const app = await this.getById(applicationId, tenant);
+    await this.quotas.requireCabe(app.environmentId, { pedido: [toRecursoDoVolume(input)], paths: { storageGi: "sizeGi" } }, tenant);
     const vol = await withTransaction(
       () => this.volumes.create({ applicationId, name: input.name, mountPath: input.mountPath, sizeGi: input.sizeGi, accessMode: input.accessMode }),
       { tenant },
@@ -253,6 +287,10 @@ export class ApplicationService {
   ): Promise<Application> {
     const app = await this.getById(id, tenant);
     const renaming = Boolean(dto.name && dto.name !== app.name);
+    const isRecursoAlterado = dto.profile !== undefined || dto.customResources !== undefined;
+    if (isRecursoAlterado) {
+      await this.requireQuotaDoPerfil(app, { profile: dto.profile ?? app.profile, customResources: dto.customResources ?? app.customResources }, tenant);
+    }
 
     const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}) };
     if (dto.branch !== undefined) cfg.branch = dto.branch;

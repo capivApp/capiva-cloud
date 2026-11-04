@@ -107,7 +107,7 @@ export function databaseBackupJobManifest(name: string, namespace: string, comma
  */
 const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
 /** Storage por tamanho, configurável por env (clusters com discos menores). */
-const storageFor = (size: string): string => {
+export const storageFor = (size: string): string => {
   const map: Record<string, string> = {
     EXTRA_SMALL: process.env.CAPIVA_DB_STORAGE_EXTRA_SMALL || "2Gi",
     SMALL: process.env.CAPIVA_DB_STORAGE_SMALL || "10Gi",
