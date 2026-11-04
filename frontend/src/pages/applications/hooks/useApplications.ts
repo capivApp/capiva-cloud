@@ -12,7 +12,25 @@ export interface Application {
   port: number | null;
   sourceConfig: Record<string, unknown>;
   tags?: string[] | null;
+  gitConnectionId?: string | null;
+  /** Preview por PR: aplicação de origem e número do PR. */
+  previewOfId?: string | null;
+  previewPrNumber?: number | null;
+  /** Vem no detalhe (GET /applications/:id). */
+  previews?: PreviewApplication[];
+  previewOf?: { id: string; name: string } | null;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PreviewApplication {
+  id: string;
+  name: string;
+  observedStatus: string;
+  previewPrNumber: number | null;
+  sourceConfig: Record<string, unknown>;
+  domains: { host: string; tlsMode: string }[];
+  updatedAt: string;
 }
 
 export interface VolumeSpec {

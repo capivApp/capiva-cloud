@@ -27,6 +27,8 @@ export class ApplicationModel implements Application {
   registryId!: string | null;
   desiredStatus!: string;
   observedStatus!: string;
+  previewOfId!: string | null;
+  previewPrNumber!: number | null;
   createdAt!: Date;
   updatedAt!: Date;
 }

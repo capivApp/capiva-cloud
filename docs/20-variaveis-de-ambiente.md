@@ -41,3 +41,13 @@ Todos sob `/api/applications/:id` (auth + RBAC). Leitura: qualquer papel. Mutaç
 
 `PUT /applications/:id/env` → `kubectl -n <ns> get deploy <app> -o jsonpath='{..env}'`
 mostra as variáveis; o `GET` não vaza o valor dos segredos.
+
+## Variáveis do control plane: preview deployments
+
+Lidas pelo backend (`@service/preview/previewSettings`). Ver
+[37-preview-deployments.md](37-preview-deployments.md).
+
+| Variável                   | Default | Descrição |
+|----------------------------|---------|-----------|
+| `CAPIVA_PREVIEW_DOMAIN`    | (vazio) | Domínio base dos previews por PR. O PR 42 da aplicação `api` sobe em `pr-42-api.<CAPIVA_PREVIEW_DOMAIN>`. Aponte um DNS curinga (`*.preview.exemplo.com`) para o ingress do cluster. Vazio: o preview é criado sem domínio público. |
+| `CAPIVA_PREVIEW_TTL_DAYS`  | `7`     | Dias sem atividade (sem push no PR, sem deploy) até o scheduler destruir o preview. Valor inválido ou `<= 0` volta ao default. |

@@ -18,6 +18,9 @@ import { TerminalTab } from "@/pages/applications/detail/TerminalTab";
 import { DomainsTab } from "@/pages/applications/detail/DomainsTab";
 import { ScalingTab } from "@/pages/applications/detail/ScalingTab";
 import { SettingsTab } from "@/pages/applications/detail/SettingsTab";
+import { PreviewsTab } from "@/pages/applications/detail/PreviewsTab";
+import { PreviewBadge } from "@/pages/applications/components/PreviewBadge";
+import { isPreviewDisponivel } from "@/pages/applications/preview";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 
 interface LogLine { ts: string; line: string }
@@ -63,6 +66,12 @@ export function ApplicationDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold tracking-tight">{app?.name ?? id}</h1>
           {app && <StatusBadge status={app.observedStatus} />}
+          {app && <PreviewBadge app={app} />}
+          {app?.previewOf && (
+            <Link to={`/applications/${app.previewOf.id}`} className="text-sm text-muted-foreground hover:text-foreground">
+              de {app.previewOf.name}
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setStrategyOpen(true)}><Settings2 className="size-4" /> Estratégia</Button>
@@ -91,6 +100,7 @@ export function ApplicationDetailPage() {
           <TabsTrigger value="domains">Domínios</TabsTrigger>
           <TabsTrigger value="scaling">Autoscaling</TabsTrigger>
           <TabsTrigger value="volumes">Volumes</TabsTrigger>
+          {app && isPreviewDisponivel(app) && <TabsTrigger value="previews">Previews</TabsTrigger>}
           <TabsTrigger value="terminal">Terminal</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
@@ -156,6 +166,10 @@ export function ApplicationDetailPage() {
 
         <TabsContent value="volumes" className="pt-5">
           {app && <VolumesTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="previews" className="pt-5">
+          {app && <PreviewsTab app={app} />}
         </TabsContent>
 
         <TabsContent value="terminal" className="pt-5">

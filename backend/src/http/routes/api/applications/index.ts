@@ -2,6 +2,7 @@ import type { Router } from "express";
 import { container } from "@di/index";
 import { ApplicationController } from "@controller/ApplicationController";
 import { ObservabilityController } from "@controller/ObservabilityController";
+import { PreviewDeploymentController } from "@controller/PreviewDeploymentController";
 import { authMiddleware } from "@middleware/auth";
 import { requireRole } from "@middleware/rbac";
 
@@ -14,6 +15,7 @@ const dev = requireRole("DEVELOPER");
 export const registry = (router: Router): void => {
   const ctrl = container.get(ApplicationController);
   const obs = container.get(ObservabilityController);
+  const previews = container.get(PreviewDeploymentController);
   router.get("/", ctrl.list);
   router.post("/", dev, ctrl.create);
   router.get("/:id", ctrl.get);
@@ -56,5 +58,6 @@ export const registry = (router: Router): void => {
   router.post("/:id/uptime-checks/:checkId/run", dev, ctrl.runUptimeCheck);
   router.delete("/:id/uptime-checks/:checkId", dev, ctrl.removeUptimeCheck);
   router.get("/:id/reports", ctrl.reportsView);
+  router.delete("/:id/previews/:previewId", dev, previews.destroy);
   router.delete("/:id", dev, ctrl.remove);
 };

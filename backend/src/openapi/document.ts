@@ -97,18 +97,35 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         },
       },
       "/applications/{id}": {
-        get: { tags: ["Applications"], summary: "Detalhe da aplicação", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } } },
+        get: {
+          tags: ["Applications"],
+          summary: "Detalhe da aplicação",
+          description: "Registro completo. Inclui `previews` (preview deployments por PR, com `previewPrNumber`, `sourceConfig.preview` e `domains`) e, quando a aplicação é um preview, `previewOf`.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } },
+        },
         patch: {
           tags: ["Applications"],
           summary: "Editar configurações gerais e de build",
           description:
-            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy por push e `watchPaths` restringe o disparo a caminhos do monorepo. Mudanças de build valem no próximo deploy.",
+            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy por push e `watchPaths` restringe o disparo a caminhos do monorepo. `previewsEnabled` liga os preview deployments por PR (ver docs/37-preview-deployments.md). Mudanças de build valem no próximo deploy.",
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(updateApplicationSchema),
           responses: { "200": { description: "Atualizado" }, "400": { description: "Caminho de build inválido" }, "404": { description: "Fora da organização ativa" } },
         },
         delete: { tags: ["Applications"], summary: "Remover aplicação e seus recursos", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
+      },
+      "/applications/{id}/previews/{previewId}": {
+        delete: {
+          tags: ["Applications"],
+          summary: "Destruir preview de PR",
+          description: "Remove o preview (recursos no cluster e linhas no banco) antes do PR fechar. Um novo push no PR recria o preview.",
+          security: bearer,
+          parameters: [appId, { name: "previewId", in: "path", required: true, schema: { type: "string" } }, orgHeader],
+          responses: { "204": { description: "Removido" }, "404": { description: "Preview não pertence à aplicação" } },
+        },
       },
       "/applications/{id}/deploy": {
         post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },

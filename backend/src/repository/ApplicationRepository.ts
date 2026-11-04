@@ -2,6 +2,17 @@ import { Injectable } from "@di/index";
 import { BaseRepository } from "@repository/BaseRepository";
 import type { Prisma, Application } from "@prisma-generated/client";
 
+/**
+ * Previews por PR que acompanham o registro da aplicação (lista na tela da
+ * origem) e, no preview, a origem (marca na lista de aplicações).
+ */
+const INCLUDE_PREVIEWS = {
+  previews: { include: { domains: { select: { host: true, tlsMode: true } } }, orderBy: { previewPrNumber: "asc" } },
+  previewOf: { select: { id: true, name: true } },
+} satisfies Prisma.ApplicationInclude;
+
+export type ApplicationWithPreviews = Prisma.ApplicationGetPayload<{ include: typeof INCLUDE_PREVIEWS }>;
+
 @Injectable()
 export class ApplicationRepository extends BaseRepository {
   async create(data: Prisma.ApplicationUncheckedCreateInput): Promise<Application> {
@@ -10,8 +21,24 @@ export class ApplicationRepository extends BaseRepository {
   }
 
   /** Busca restrita à organização ativa (ver BaseRepository.scope). */
-  findById(id: string): Promise<Application | null> {
-    return this.tx.application.findFirst({ where: { id, ...this.scope("application") } });
+  findById(id: string): Promise<ApplicationWithPreviews | null> {
+    return this.tx.application.findFirst({ where: { id, ...this.scope("application") }, include: INCLUDE_PREVIEWS });
+  }
+
+  /** Preview do PR `prNumber` da aplicação de origem. */
+  findPreview(previewOfId: string, prNumber: number): Promise<Application | null> {
+    return this.tx.application.findFirst({ where: { previewOfId, previewPrNumber: prNumber, ...this.scope("application") } });
+  }
+
+  /**
+   * Todos os previews, de todas as organizações: só para o scheduler de TTL,
+   * que reabre a transação com o tenant de cada um antes de destruir.
+   */
+  listAllPreviewsWithOrg(): Promise<(Application & { project: { organizationId: string } })[]> {
+    return this.tx.application.findMany({
+      where: { previewOfId: { not: null } },
+      include: { project: { select: { organizationId: true } } },
+    });
   }
 
   listByProject(projectId: string): Promise<Application[]> {

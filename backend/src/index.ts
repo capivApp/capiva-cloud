@@ -2,8 +2,10 @@ import "reflect-metadata";
 import { assertProductionSecrets, config } from "./config";
 import { noAwaitedFunction } from "@functions/noAwaitedFunction";
 import { bootstrapRegistry } from "./bootstrap/registry";
+import { startPreviewDeployments } from "@bootstrap/previewDeployments";
 import { startUptimeScheduler, UPTIME_LOCK } from "@infra/scheduler/uptimeScheduler";
 import { startDatabaseBackupScheduler, DB_BACKUP_LOCK } from "@infra/scheduler/databaseBackupScheduler";
+import { startPreviewCleanupScheduler, PREVIEW_CLEANUP_LOCK } from "@infra/scheduler/previewCleanupScheduler";
 import { releaseLeadership } from "@infra/scheduler/leaderElection";
 import { startTerminalGateway } from "@infra/realtime/TerminalGateway";
 import HttpServer from "./http/server";
@@ -23,7 +25,7 @@ function installShutdownHandlers(server: HttpServer, timers: ReturnType<typeof s
 
     for (const timer of timers) clearInterval(timer);
     await server.stop().catch((e) => console.error("[shutdown] http:", (e as Error).message));
-    await releaseLeadership([UPTIME_LOCK, DB_BACKUP_LOCK]);
+    await releaseLeadership([UPTIME_LOCK, DB_BACKUP_LOCK, PREVIEW_CLEANUP_LOCK]);
 
     console.log("[shutdown] concluído.");
     process.exit(0);
@@ -39,7 +41,8 @@ async function main(): Promise<void> {
     await bootstrapRegistry();
     const server = new HttpServer(config.port);
     await server.init();
-    const timers = [startUptimeScheduler(), startDatabaseBackupScheduler()];
+    const timers = [startUptimeScheduler(), startDatabaseBackupScheduler(), startPreviewCleanupScheduler()];
+    startPreviewDeployments();
     startTerminalGateway(config.terminalPort);
 
     installShutdownHandlers(server, timers);

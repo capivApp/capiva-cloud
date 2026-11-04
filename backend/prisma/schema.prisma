@@ -326,12 +326,17 @@ model Application {
   // estado desejado x observado
   desiredStatus   String              @default("running")
   observedStatus  String              @default("pending")
+  // preview deployment por PR/MR: cópia efêmera de `previewOf` na branch do PR
+  previewOfId     String?
+  previewPrNumber Int?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   environment   Environment         @relation(fields: [environmentId], references: [id])
   gitConnection GitConnection?      @relation(fields: [gitConnectionId], references: [id])
+  previewOf     Application?        @relation("ApplicationPreviews", fields: [previewOfId], references: [id], onDelete: Cascade)
+  previews      Application[]       @relation("ApplicationPreviews")
   deployments   Deployment[]
   domains       Domain[]
   envVars       EnvVar[]
@@ -341,6 +346,7 @@ model Application {
   volumes       Volume[]
   uptimeChecks  UptimeCheck[]
 
+  @@unique([previewOfId, previewPrNumber])
   @@map("applications")
 }
 

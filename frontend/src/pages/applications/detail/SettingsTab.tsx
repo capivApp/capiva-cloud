@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { validateRepoPath } from "@/lib/repoPath";
 import type { Application } from "@/pages/applications/hooks/useApplications";
+import { isPreviewDisponivel } from "@/pages/applications/preview";
 
 const PROFILES = ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE", "CUSTOM"];
 
@@ -24,6 +25,7 @@ interface PatchInput {
   subPath?: string;
   autoDeploy?: boolean;
   watchPaths?: string[];
+  previewsEnabled?: boolean;
 }
 
 /**
@@ -47,6 +49,8 @@ export function SettingsTab({ app }: { app: Application }) {
   const [subPath, setSubPath] = useState(String(cfg.subPath ?? ""));
   const [autoDeploy, setAutoDeploy] = useState(cfg.autoDeploy !== false);
   const [watchPaths, setWatchPaths] = useState((Array.isArray(cfg.watchPaths) ? cfg.watchPaths : []).join(", "));
+  const previewsSalvos = (cfg.previews as { enabled?: boolean } | undefined)?.enabled === true;
+  const [previewsEnabled, setPreviewsEnabled] = useState(previewsSalvos);
 
   const parsedWatchPaths = watchPaths.split(",").map((p) => p.trim()).filter(Boolean);
   const buildError = [dockerfile, subPath].map(validateRepoPath).find(Boolean) ?? null;
@@ -71,6 +75,7 @@ export function SettingsTab({ app }: { app: Application }) {
     if (parsedWatchPaths.join(",") !== (Array.isArray(cfg.watchPaths) ? cfg.watchPaths : []).join(",")) {
       dto.watchPaths = parsedWatchPaths;
     }
+    if (previewsEnabled !== previewsSalvos) dto.previewsEnabled = previewsEnabled;
     if (buildError) return toast.error(buildError);
     if (Object.keys(dto).length === 0) return toast.info("Nada alterado.");
     try {
@@ -164,6 +169,18 @@ export function SettingsTab({ app }: { app: Application }) {
             </div>
           )}
         </div>
+
+        {isPreviewDisponivel(app) && (
+          <div className="space-y-1.5 border-t border-border pt-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={previewsEnabled} onChange={(e) => setPreviewsEnabled(e.target.checked)} className="accent-primary" />
+              <span className="font-medium">Ambientes de preview por PR</span>
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Cada PR para a branch {String(cfg.branch ?? "main")} ganha um ambiente próprio. Ele é removido quando o PR é fechado.
+            </p>
+          </div>
+        )}
 
         {name !== app.name && <p className="text-xs text-warning">Renomear recria os recursos no cluster (breve indisponibilidade).</p>}
 
