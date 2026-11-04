@@ -1,16 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { Deployment } from "@/lib/deployments";
 import type { Application } from "@/hooks/useApplications";
 
-export interface Deployment {
-  id: string;
-  version: string;
-  status: string;
-  startedAt: string;
-  finishedAt: string | null;
-}
+export type { Deployment } from "@/lib/deployments";
 
-/** Detalhe + ciclo de vida de uma aplicação (deploy/stop/start/restart/rollback). */
+/** Detalhe + ciclo de vida de uma aplicação (redeploy/stop/start/restart/rollback). */
 export function useApplication(id: string | null) {
   const queryClient = useQueryClient();
 
@@ -39,17 +34,28 @@ export function useApplication(id: string | null) {
     onSuccess: invalidate,
   });
 
-  const deployMut = useMutation(lifecycle("deploy"));
+  const deployMut = useMutation({
+    mutationKey: ["application", id, "deploy"],
+    mutationFn: () => api.post<Deployment>(`/applications/${id}/deploy`, {}),
+    onSuccess: invalidate,
+  });
   const stopMut = useMutation(lifecycle("stop"));
   const startMut = useMutation(lifecycle("start"));
   const restartMut = useMutation(lifecycle("restart"));
-  const rollbackMut = useMutation(lifecycle("rollback"));
+  const rollbackMut = useMutation({
+    mutationKey: ["application", id, "rollback"],
+    mutationFn: (deploymentId: string) => api.post<Deployment>(`/applications/${id}/rollback`, { deploymentId }),
+    onSuccess: invalidate,
+  });
 
   return {
     app: detail.data,
     isLoading: detail.isLoading,
+    isFetching: detail.isFetching,
+    error: detail.error as Error | null,
     refetch: detail.refetch,
     deployments: deployments.data ?? [],
+    refetchDeployments: deployments.refetch,
     deploy: deployMut.mutateAsync,
     isDeploying: deployMut.isPending,
     stop: stopMut.mutateAsync,
@@ -60,5 +66,6 @@ export function useApplication(id: string | null) {
     isRestarting: restartMut.isPending,
     rollback: rollbackMut.mutateAsync,
     isRollingBack: rollbackMut.isPending,
+    rollbackTargetId: rollbackMut.isPending ? rollbackMut.variables : null,
   };
 }

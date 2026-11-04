@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import { Activity, Boxes, LayoutDashboard, Settings } from "lucide-react-native";
+import { usePendingNotificationHref } from "@/hooks/useNotificationRedirect";
 import { nativeTheme } from "@/lib/theme";
 
 export default function TabsLayout() {
+  usePendingNotificationHref();
+
   return (
     <Tabs
       screenOptions={{

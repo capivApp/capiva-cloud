@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { colorScheme } from "nativewind";
+import { useNotificationRedirect } from "@/hooks/useNotificationRedirect";
 import { queryClient } from "@/lib/query";
 import { nativeTheme } from "@/lib/theme";
 
@@ -11,6 +12,8 @@ import { nativeTheme } from "@/lib/theme";
 colorScheme.set("dark");
 
 export default function RootLayout() {
+  useNotificationRedirect();
+
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="light" />
