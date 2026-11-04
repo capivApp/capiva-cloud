@@ -30,6 +30,7 @@ The documentation is intended to serve as the primary source of technical knowle
 | 31  | [HA & Failover Demo](./31-ha-failover-demo.md)                                  | Reproducible test: surviving node loss for apps, control plane and database (k3d)            |
 | 32  | [Production Hardening](./32-hardening-producao.md)                              | Production-readiness sweep: tenant isolation, secrets, HA primitives and operator actions    |
 | 33  | [Build Configuration](./33-configuracao-de-build.md)                            | Custom Dockerfile path, monorepo build context, auto-deploy toggle and watch paths           |
+| 34  | [Build Strategies](./34-build-strategies.md)                                    | One build Job per source: Kaniko, Nixpacks, Railpack (BuildKit), Buildpacks, Static, Compose |
 
 ## Documentation Principles
 

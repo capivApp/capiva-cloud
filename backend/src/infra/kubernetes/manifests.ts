@@ -132,6 +132,46 @@ export interface KanikoBuildInput {
   insecure?: boolean;
   /** Protocolo de clone do contexto Git (default do Kaniko é https). */
   gitPullMethod?: "http" | "https";
+  /**
+   * Contexto preparado por initContainers (clone + gerador de Dockerfile) num
+   * emptyDir montado em `/workspace`. Usado com `context: dir:///workspace/...`.
+   */
+  workspace?: { initContainers: Record<string, unknown>[] };
+}
+
+/**
+ * Build sem teto compete com as aplicações do mesmo nó. O request é modesto (o Job
+ * só precisa ser agendado) e o limit contém o pico. Vale para todo Job de build.
+ */
+export function buildResources() {
+  return {
+    requests: { cpu: process.env.CAPIVA_BUILD_CPU_REQUEST || "250m", memory: process.env.CAPIVA_BUILD_MEMORY_REQUEST || "512Mi" },
+    limits: { cpu: process.env.CAPIVA_BUILD_CPU_LIMIT || "2", memory: process.env.CAPIVA_BUILD_MEMORY_LIMIT || "4Gi" },
+  };
+}
+
+/** Volume `docker-config` com o `config.json` do registry de destino (secret de push). */
+export function dockerConfigVolume(pushSecret: string) {
+  return { name: "docker-config", secret: { secretName: pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] } };
+}
+
+/** Casca comum dos Jobs de build (Kaniko, BuildKit, Buildpacks): labels, retries, TTL e deadline. */
+export function buildJobEnvelope(input: { name: string; namespace: string; deploymentId?: string }, podSpec: Record<string, unknown>): K8sManifest {
+  // Label do deploy → permite buscar os logs do build (podLogsByLabel).
+  const buildLabels = { ...labels(input.name), ...(input.deploymentId ? { "capiva.cloud/deployment": input.deploymentId } : {}) };
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: { name: input.name, namespace: input.namespace, labels: buildLabels },
+    spec: {
+      backoffLimit: 0,
+      ttlSecondsAfterFinished: 300,
+      // Build travado (rede, registry inacessível) segura um pod e as reservas
+      // do nó indefinidamente — o deadline encerra o Job.
+      activeDeadlineSeconds: Number(process.env.CAPIVA_BUILD_TIMEOUT_SECONDS ?? 1800),
+      template: { metadata: { labels: buildLabels }, spec: { restartPolicy: "Never", ...podSpec } },
+    },
+  };
 }
 
 /**
@@ -150,9 +190,11 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
     ...(input.insecure ? ["--insecure", "--skip-tls-verify", "--insecure-pull", "--skip-tls-verify-pull"] : []),
     ...(input.buildArgs ?? []).map((a) => `--build-arg=${a.key}=${a.value}`),
   ];
-  const mountSecret = input.pushSecret
-    ? { volumeMounts: [{ name: "docker-config", mountPath: "/kaniko/.docker" }] }
-    : {};
+  const volumeMounts = [
+    ...(input.pushSecret ? [{ name: "docker-config", mountPath: "/kaniko/.docker" }] : []),
+    ...(input.workspace ? [{ name: "workspace", mountPath: "/workspace" }] : []),
+  ];
+  const mountSecret = volumeMounts.length ? { volumeMounts } : {};
   // Credenciais Git (repo privado): Kaniko lê GIT_USERNAME/GIT_PASSWORD do ambiente.
   // GIT_PULL_METHOD escolhe http/https para clonar o contexto Git.
   const env = input.gitPullMethod ? [{ name: "GIT_PULL_METHOD", value: input.gitPullMethod }] : [];
@@ -160,45 +202,26 @@ export function kanikoJobManifest(input: KanikoBuildInput): K8sManifest {
     ...(env.length ? { env } : {}),
     ...(input.gitCredentialsSecret ? { envFrom: [{ secretRef: { name: input.gitCredentialsSecret } }] } : {}),
   };
-  const secretVolume = input.pushSecret
-    ? { volumes: [{ name: "docker-config", secret: { secretName: input.pushSecret, items: [{ key: ".dockerconfigjson", path: "config.json" }] } }] }
-    : {};
-  // Label do deploy → permite buscar os logs do build (podLogsByLabel).
-  const buildLabels = { ...labels(input.name), ...(input.deploymentId ? { "capiva.cloud/deployment": input.deploymentId } : {}) };
-  return {
-    apiVersion: "batch/v1",
-    kind: "Job",
-    metadata: { name: input.name, namespace: input.namespace, labels: buildLabels },
-    spec: {
-      backoffLimit: 0,
-      ttlSecondsAfterFinished: 300,
-      // Build travado (rede, registry inacessível) segura um pod e as reservas
-      // do nó indefinidamente — o deadline encerra o Job.
-      activeDeadlineSeconds: Number(process.env.CAPIVA_BUILD_TIMEOUT_SECONDS ?? 1800),
-      template: {
-        metadata: { labels: buildLabels },
-        spec: {
-          restartPolicy: "Never",
-          containers: [
-            {
-              name: "kaniko",
-              image: process.env.CAPIVA_KANIKO_IMAGE || "gcr.io/kaniko-project/executor:latest",
-              args,
-              // Build sem teto compete com as aplicações do mesmo nó. O request
-              // é modesto (o Job só precisa ser agendado) e o limit contém o pico.
-              resources: {
-                requests: { cpu: process.env.CAPIVA_BUILD_CPU_REQUEST || "250m", memory: process.env.CAPIVA_BUILD_MEMORY_REQUEST || "512Mi" },
-                limits: { cpu: process.env.CAPIVA_BUILD_CPU_LIMIT || "2", memory: process.env.CAPIVA_BUILD_MEMORY_LIMIT || "4Gi" },
-              },
-              ...mountSecret,
-              ...gitEnv,
-            },
-          ],
-          ...secretVolume,
-        },
+  const volumes = [
+    ...(input.pushSecret ? [dockerConfigVolume(input.pushSecret)] : []),
+    ...(input.workspace ? [{ name: "workspace", emptyDir: {} }] : []),
+  ];
+  const secretVolume = volumes.length ? { volumes } : {};
+  const initContainers = input.workspace ? { initContainers: input.workspace.initContainers } : {};
+  return buildJobEnvelope(input, {
+    ...initContainers,
+    containers: [
+      {
+        name: "kaniko",
+        image: process.env.CAPIVA_KANIKO_IMAGE || "gcr.io/kaniko-project/executor:latest",
+        args,
+        resources: buildResources(),
+        ...mountSecret,
+        ...gitEnv,
       },
-    },
-  };
+    ],
+    ...secretVolume,
+  });
 }
 
 /** Deployment (estratégia Rolling). Para Blue/Green e Canary usa-se Rollout (Argo). */

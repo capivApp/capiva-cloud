@@ -42,6 +42,30 @@ export const repoPathSchema = z
  */
 const optionalRepoPath = z.union([z.literal(""), repoPathSchema]).optional();
 
+/** Referência de imagem (builder do Buildpacks): vira a imagem de um container do Job. */
+const imageRefSchema = z
+  .string()
+  .trim()
+  .max(255)
+  .regex(/^[a-z0-9][a-z0-9._\-/:@]*$/i, "Informe uma imagem válida, como paketobuildpacks/builder-jammy-base.");
+
+/** Nome de serviço do docker-compose. */
+const composeServiceSchema = z
+  .string()
+  .trim()
+  .max(63)
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, "Informe o nome de um serviço do compose.");
+
+/** Chaves do `sourceConfig` que viram argumento, caminho ou imagem do Job de build. */
+const SOURCE_CONFIG_FIELDS: Record<string, z.ZodType> = {
+  dockerfile: repoPathSchema,
+  subPath: repoPathSchema,
+  compose: repoPathSchema,
+  outputDir: repoPathSchema,
+  builder: imageRefSchema,
+  composeService: composeServiceSchema,
+};
+
 export const volumeSchema = z.object({
   name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Use minúsculas, números e hífen"),
   mountPath: z.string().min(1),
@@ -65,10 +89,10 @@ export const createApplicationSchema = z.object({
     .record(z.string(), z.unknown())
     .default({})
     .superRefine((cfg, ctx) => {
-      for (const key of ["dockerfile", "subPath", "compose"] as const) {
+      for (const [key, schema] of Object.entries(SOURCE_CONFIG_FIELDS)) {
         const value = cfg[key];
         if (value === undefined || value === "") continue;
-        const parsed = repoPathSchema.safeParse(value);
+        const parsed = schema.safeParse(value);
         if (!parsed.success) {
           ctx.addIssue({ code: "custom", path: [key], message: parsed.error.issues[0]?.message ?? "Caminho inválido." });
         }

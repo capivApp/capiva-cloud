@@ -122,7 +122,7 @@ export class DeploymentService {
     // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
     // própria imagem informada; para origens por código é a imagem publicada.
     const push = pushTarget ? { insecure: pushTarget.insecure, credentials: pushTarget.credentials } : undefined;
-    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push });
+    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push, port: app.port ?? undefined });
     // Origens por código geram um Job de build (Kaniko) — aplica para rodar e expor logs.
     if (built.manifest) await this.k8s.apply(ctx, built.manifest).catch((e) => console.error("[build] apply:", (e as Error).message));
     const imageRef = built.imageRef;

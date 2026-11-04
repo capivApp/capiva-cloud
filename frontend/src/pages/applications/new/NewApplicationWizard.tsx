@@ -16,9 +16,12 @@ import { useDockerRegistries } from "@/hooks/useDockerRegistries";
 import { useGitConnections } from "@/hooks/useGitConnections";
 import { useGitRepos, useGitBranches } from "@/hooks/useGitRepos";
 import { findTemplate } from "@/pages/applications/new/appTemplates";
+import { BuildOptionsFields } from "@/pages/applications/new/BuildOptionsFields";
+import { EMPTY_BUILD_OPTIONS, buildOptionsConfig, validateBuildOptions, type BuildOptions } from "@/pages/applications/new/buildOptions";
 
 const STEPS = ["Origem", "Build", "Recursos", "Variáveis", "Rede"] as const;
-const GIT_SOURCES = ["GITHUB", "GITLAB", "GITEA"];
+/** Origens que clonam um repositório Git para construir (todas menos imagem pronta). */
+const GIT_SOURCES = ["GITHUB", "GITLAB", "GITEA", "DOCKER_COMPOSE", "NIXPACKS", "RAILPACK", "BUILDPACKS", "STATIC"];
 
 const SOURCES = [
   { id: "GITHUB", label: "GitHub", icon: Github, build: "dockerfile" },
@@ -27,6 +30,7 @@ const SOURCES = [
   { id: "DOCKER_IMAGE", label: "Docker Image", icon: Container, build: "image" },
   { id: "DOCKER_COMPOSE", label: "Docker Compose", icon: Box, build: "compose" },
   { id: "NIXPACKS", label: "Nixpacks", icon: Box, build: "auto" },
+  { id: "RAILPACK", label: "Railpack", icon: Box, build: "auto" },
   { id: "BUILDPACKS", label: "Buildpacks", icon: Box, build: "auto" },
   { id: "STATIC", label: "Static", icon: Globe, build: "auto" },
 ];
@@ -146,9 +150,11 @@ export function NewApplicationWizard() {
   const [env, setEnv] = useState<KV[]>(template?.env ?? []);
   const [volumes, setVolumes] = useState<VolumeSpec[]>(template?.volumes ?? []);
   const [git, setGit] = useState<GitPick>({ gitConnectionId: "", repo: "", cloneUrl: "", branch: "" });
+  const [buildOptions, setBuildOptions] = useState<BuildOptions>(EMPTY_BUILD_OPTIONS);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const setGitPick = (patch: Partial<GitPick>) => setGit((g) => ({ ...g, ...patch }));
+  const setBuildOption = (patch: Partial<BuildOptions>) => setBuildOptions((o) => ({ ...o, ...patch }));
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const buildKind = SOURCES.find((s) => s.id === form.source)?.build ?? "auto";
   const isGit = GIT_SOURCES.includes(form.source);
@@ -158,7 +164,8 @@ export function NewApplicationWizard() {
   const dockerfileError = buildKind === "dockerfile" ? validateRequiredRepoPath(form.dockerfile) : null;
   const subPathError = buildKind === "dockerfile" ? validateRepoPath(form.subPath) : null;
   const composeError = buildKind === "compose" ? validateRequiredRepoPath(form.composeFile) : null;
-  const buildError = dockerfileError ?? subPathError ?? composeError;
+  const buildOptionsError = Object.values(validateBuildOptions(form.source, buildOptions))[0] ?? null;
+  const buildError = dockerfileError ?? subPathError ?? composeError ?? buildOptionsError;
 
   const next = () => {
     if (step === 1 && isGit && (!git.gitConnectionId || !git.repo || !git.branch)) return toast.error("Selecione conexão, repositório e branch.");
@@ -173,6 +180,7 @@ export function NewApplicationWizard() {
     const sourceConfig: Record<string, unknown> = { domain: form.domain };
     if (buildKind === "image") sourceConfig.image = form.image;
     if (buildKind === "compose") sourceConfig.compose = form.composeFile.trim();
+    Object.assign(sourceConfig, buildOptionsConfig(form.source, buildOptions));
     if (buildKind === "dockerfile") {
       sourceConfig.dockerfile = form.dockerfile.trim();
       // Só envia o contexto quando informado — vazio significa raiz do repo.
@@ -319,12 +327,16 @@ export function NewApplicationWizard() {
                   {composeError ? (
                     <p className="text-xs text-destructive">{composeError}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Construímos a partir do compose — sem seleção de Dockerfile.</p>
+                    <p className="text-xs text-muted-foreground">Construímos o serviço escolhido com o contexto e o Dockerfile dele.</p>
                   )}
+                  <BuildOptionsFields source={form.source} value={buildOptions} onChange={setBuildOption} />
                 </div>
               )}
               {buildKind === "auto" && (
-                <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Build automático ({form.source}) — detecta a linguagem e constrói sozinho, sem Dockerfile. 🪄</div>
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">Build automático ({form.source}): detecta a linguagem e constrói sem Dockerfile.</div>
+                  <BuildOptionsFields source={form.source} value={buildOptions} onChange={setBuildOption} />
+                </div>
               )}
               {registries.length > 0 && (
                 <div className="space-y-1.5 border-t border-border pt-3">
