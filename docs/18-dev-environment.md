@@ -60,6 +60,41 @@ bun run prisma:db-push      # creates all tables (Phase 3 models included)
 bun src/index.ts            # API on :3000  (Scalar docs at /docs)
 ```
 
+## Tooling: lint, format, typecheck
+
+All three packages (`backend`, `frontend`, `mobile`) use the same toolchain. There is
+no ESLint and no Prettier in the repo (see ADR-019).
+
+| Tool | Version | Config | Notes |
+| --- | --- | --- | --- |
+| TypeScript | `7.0.2` (pinned) | `tsconfig.json` per package | Native compiler; the package still ships the `tsc` binary. |
+| oxlint | `^1.91.0` | `.oxlintrc.json` per package | Backend runs `--type-aware` through `oxlint-tsgolint` (`^7.0.2005`). |
+| oxfmt | `^0.76.0` | `.oxfmtrc.json` per package | Defaults (Prettier-compatible); the file only lists `ignorePatterns`. |
+
+Every package exposes the same scripts, and the root runs them across packages
+(`mobile` is not a workspace: run `bun install` inside it first):
+
+```bash
+bun run format:check   # oxfmt --check   (bun run format to write)
+bun run lint           # oxlint (backend: oxlint --type-aware)
+bun run typecheck      # tsc --noEmit (root: backend + frontend; mobile: cd mobile)
+bun run test           # bun test in backend
+```
+
+- **Lint rules.** Backend follows the team backend preset (plugins `typescript`,
+  `oxc`, `promise`; `no-floating-promises`, `await-thenable`, `no-misused-promises`
+  as errors). Frontend and mobile follow the team frontend preset (plugins
+  `eslint`, `typescript`, `react`; the React Compiler rules `set-state-in-effect`,
+  `refs` and `incompatible-library` as errors).
+- **`quality/no-enum`.** TypeScript does not use `enum`; use an `as const` object
+  plus a type with the same name. The rule is a JS plugin; each package keeps a
+  copy in `lint/oxlint-quality.mjs` (source: `@qualitysistemas/bun-commons`,
+  `src/oxlint/quality.mjs`). Change it there first, then copy.
+- **Ignored by the formatter.** `dist`, `build`, `coverage`, the generated Prisma
+  client (`backend/src/prisma/generated`), `frontend/public` and the Expo
+  folders (`.expo`, `ios`, `android`, `web-build`).
+- **Editor.** Use the Oxc extension (`oxc.oxc-vscode`) for both lint and format.
+
 ## Storage: RWO vs RWX in k3d (IMPORTANT)
 
 - **RWO** volumes work out of the box in k3d via the built-in `local-path`

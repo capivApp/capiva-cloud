@@ -133,3 +133,11 @@ Format: **Context → Decision → Consequences**
 **Consequences:** fewer drift bugs, faster iteration, single source of truth.
 
 ---
+
+## ADR-019 — oxlint + oxfmt + TypeScript 7
+
+**Context:** `typescript@7` (native compiler) no longer publishes the compiler JS API, so `typescript-eslint` type-aware rules cannot run. The repo had leftover `eslint.config.js` files without ESLint installed, and no formatter.
+**Decision:** oxlint for lint (backend `--type-aware` via `oxlint-tsgolint`), oxfmt for formatting with its Prettier-compatible defaults, TypeScript pinned to 7 in every package. House rule `quality/no-enum` runs as an oxlint JS plugin.
+**Consequences:** one Rust toolchain (Oxc) for lint and format, fast enough to run on every change; type-aware rules keep working on TS 7. Rules that only existed in ESLint plugins (`sonarjs/cognitive-complexity`, the custom `can-throw`) are gone.
+
+---
