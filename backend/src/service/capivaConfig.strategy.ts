@@ -4,7 +4,14 @@ import type { Application, ScalingMetric } from "@prisma-generated/client";
 /** Estado atual da aplicação, como a tela o vê (variáveis secretas mascaradas). */
 export interface CapivaSnapshot {
   app: Pick<Application, "source" | "port" | "profile"> & { sourceConfig: unknown };
-  env: { key: string; value: string; secret: boolean; source: "MANUAL" | "INJECTED" }[];
+  env: {
+    key: string;
+    value: string;
+    secret: boolean;
+    source: "MANUAL" | "INJECTED" | "EXTERNAL";
+    secretStoreId?: string | null;
+    remoteProperty?: string | null;
+  }[];
   domains: { id: string; host: string }[];
   volumes: { name: string }[];
   scaling: { minReplicas: number; maxReplicas: number; metric: ScalingMetric; target: number } | null;
@@ -30,11 +37,19 @@ export interface CapivaVolume {
   accessMode: "RWO" | "RWX";
 }
 
+/** Variável do lote de env; `external` mantém a referência ao cofre (o replace apagaria sem ela). */
+export interface CapivaEnvVar {
+  key: string;
+  value: string;
+  secret: boolean;
+  external?: { secretStoreId: string; remoteKey: string; remoteProperty: string | null };
+}
+
 /** Uma chamada a um service existente. Cada `kind` tem um executor no CapivaConfigService. */
 export type CapivaAction =
   | { kind: "patch"; dto: CapivaPatchDto }
   | { kind: "buildArgs"; buildArgs: { key: string; value: string }[] }
-  | { kind: "env"; vars: { key: string; value: string; secret: boolean }[] }
+  | { kind: "env"; vars: CapivaEnvVar[] }
   | { kind: "scaling"; policy: { minReplicas: number; maxReplicas: number; metric: ScalingMetric; target: number } }
   | { kind: "addDomain"; host: string }
   | { kind: "removeDomain"; domainId: string }
@@ -117,10 +132,19 @@ const envSection: CapivaSectionStrategy = {
     const added = Object.entries(declared)
       .filter(([key]) => !manual.some((v) => v.key === key))
       .map(([key, value]) => ({ key, value, secret: false }));
+    // Do cofre externo: fica como está, salvo se o arquivo declarar a mesma chave.
+    const fromVault: CapivaEnvVar[] = snapshot.env
+      .filter((v) => v.source === "EXTERNAL" && v.secretStoreId && declared[v.key] === undefined)
+      .map((v) => ({
+        key: v.key,
+        value: v.value,
+        secret: v.secret,
+        external: { secretStoreId: v.secretStoreId!, remoteKey: v.value, remoteProperty: v.remoteProperty ?? null },
+      }));
     return {
       fields: ["env"],
       envKeys: Object.keys(declared),
-      actions: changed ? [{ kind: "env", vars: [...kept, ...added] }] : [],
+      actions: changed ? [{ kind: "env", vars: [...kept, ...fromVault, ...added] }] : [],
     };
   },
 };

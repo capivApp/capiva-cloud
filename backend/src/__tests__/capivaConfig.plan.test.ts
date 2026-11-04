@@ -93,6 +93,32 @@ describe("planCapivaConfig: variáveis de ambiente", () => {
     expect(result.envKeys).toEqual(["LOG_LEVEL", "NOVA"]);
   });
 
+  it("preserva as variáveis do cofre externo, que o replace apagaria se ficassem fora do lote", () => {
+    const comCofre: CapivaSnapshot["env"] = [
+      ...env,
+      { key: "API_TOKEN", value: "prod/api", secret: true, source: "EXTERNAL", secretStoreId: "store-1", remoteProperty: "token" },
+    ];
+    const result = plan({ env: { LOG_LEVEL: "info" } }, makeSnapshot({ env: comCofre }));
+    expect(result.actions).toEqual([
+      {
+        kind: "env",
+        vars: [
+          { key: "LOG_LEVEL", value: "info", secret: false },
+          { key: "DB_PASSWORD", value: "", secret: true },
+          { key: "API_TOKEN", value: "prod/api", secret: true, external: { secretStoreId: "store-1", remoteKey: "prod/api", remoteProperty: "token" } },
+        ],
+      },
+    ]);
+  });
+
+  it("chave do cofre declarada no arquivo passa a valer o valor do arquivo", () => {
+    const comCofre: CapivaSnapshot["env"] = [
+      { key: "API_TOKEN", value: "prod/api", secret: true, source: "EXTERNAL", secretStoreId: "store-1", remoteProperty: null },
+    ];
+    const result = plan({ env: { API_TOKEN: "local" } }, makeSnapshot({ env: comCofre }));
+    expect(result.actions).toEqual([{ kind: "env", vars: [{ key: "API_TOKEN", value: "local", secret: false }] }]);
+  });
+
   it("sem diferença, não regrava as variáveis", () => {
     const result = plan({ env: { LOG_LEVEL: "debug" } }, makeSnapshot({ env }));
     expect(result.actions).toEqual([]);
