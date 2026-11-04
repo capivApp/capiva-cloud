@@ -177,8 +177,8 @@ All packages use TypeScript 7, **oxlint** for linting and **oxfmt** for formatti
 Prettier). From the repository root:
 
 ```bash
-bun run typecheck      # backend, frontend and cli
-bun run lint           # oxlint in backend (type-aware), frontend and mobile
+bun run typecheck      # backend, frontend, cli and mobile
+bun run lint           # oxlint in backend and cli (type-aware), frontend and mobile
 bun run format:check   # oxfmt --check in every package (bun run format to fix)
 bun run test           # backend, cli, frontend and mobile tests
 ```
