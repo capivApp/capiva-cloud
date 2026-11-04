@@ -1,9 +1,8 @@
 import { Injectable } from "@di/index";
+import type { LogLine, LogRangeRequest, LogSource } from "@interface/logs";
+import { createLogSource, SimulatedLogSource } from "@infra/observability/logSources";
 
-export interface LogLine {
-  ts: string;
-  line: string;
-}
+export type { LogLine } from "@interface/logs";
 
 /**
  * Adapter de logs (Loki). O usuário nunca vê LogQL — a Service traduz o nome da
@@ -11,8 +10,18 @@ export interface LogLine {
  * um conjunto simulado para a UI funcionar sem a stack de observabilidade.
  */
 @Injectable()
-export class LokiAdapter {
+export class LokiAdapter implements LogSource {
   private readonly baseUrl = process.env.LOKI_URL;
+  private readonly source = createLogSource(this.baseUrl);
+
+  /** Busca com filtros (ver `@service/logSearch/logql`). Sem Loki, a fonte simulada filtrada. */
+  range(request: LogRangeRequest): Promise<LogLine[]> {
+    return this.source.range(request);
+  }
+
+  labelValues(label: string, request: LogRangeRequest): Promise<string[]> {
+    return this.source.labelValues(label, request);
+  }
 
   async queryBySelector(selector: string, limit = 200): Promise<LogLine[]> {
     if (!this.baseUrl) return this.simulated();
@@ -30,12 +39,6 @@ export class LokiAdapter {
   }
 
   private simulated(): LogLine[] {
-    const now = new Date();
-    return [
-      "INFO  server listening on :3000",
-      "INFO  GET /health 200 2ms",
-      "WARN  slow query 812ms",
-      "INFO  POST /orders 201 41ms",
-    ].map((line, i) => ({ ts: String((now.getTime() - i * 1000) * 1e6), line: `${now.toISOString()}  ${line}` }));
+    return new SimulatedLogSource().lines();
   }
 }

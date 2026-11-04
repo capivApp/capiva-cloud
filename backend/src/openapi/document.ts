@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
 import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { LOG_DIRECTIONS, LOG_EXPORT_FORMATS, LOG_LEVELS, LOG_SINCE } from "@interface/logs";
+import { LOG_DOWNLOAD_DEFAULT_LINES, LOG_DOWNLOAD_MAX_LINES, LOG_QUERY_MAX_LIMIT } from "@schemas/logs.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -37,6 +39,18 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description: "Organização ativa. O usuário precisa ser membro; caso contrário 403.",
   };
   const appId = { name: "id", in: "path", required: true, schema: { type: "string" } };
+  const logParams = [
+    { name: "q", in: "query", schema: { type: "string", maxLength: 500 }, description: "Linha contém (LogQL `|=`, diferencia maiúsculas)." },
+    { name: "exclude", in: "query", schema: { type: "string", maxLength: 500 }, description: "Linha não contém (`!=`)." },
+    { name: "regex", in: "query", schema: { type: "string", maxLength: 500 }, description: "Expressão regular RE2 (`|~`)." },
+    { name: "level", in: "query", schema: { type: "string" }, description: `Níveis separados por vírgula: ${LOG_LEVELS.join(", ")}.` },
+    { name: "pod", in: "query", schema: { type: "string" }, description: "Nome exato do pod (réplica)." },
+    { name: "since", in: "query", schema: { type: "string", enum: [...LOG_SINCE] }, description: "Últimos N. Padrão 1h. Ignorado quando há `start`." },
+    { name: "start", in: "query", schema: { type: "string", format: "date-time" } },
+    { name: "end", in: "query", schema: { type: "string", format: "date-time" }, description: "Padrão: agora." },
+    { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: LOG_QUERY_MAX_LIMIT, default: 200 } },
+    { name: "direction", in: "query", schema: { type: "string", enum: [...LOG_DIRECTIONS], default: "backward" }, description: "Qual ponta do intervalo vem quando passa do limite." },
+  ];
 
   return {
     openapi: "3.1.0",
@@ -61,7 +75,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: "Git", description: "Conexões Git, repos/branches e webhooks" },
       { name: "Applications", description: "Aplicações, deploys e dependências" },
       { name: "Databases", description: "Bancos gerenciados (HA, backups)" },
-      { name: "Observability", description: "Logs (SSE) e métricas" },
+      { name: "Observability", description: "Logs (busca, download e SSE) e métricas" },
     ],
     paths: {
       "/auth/register": {
@@ -116,6 +130,61 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "/applications/{id}/dependencies": {
         get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },
         post: { tags: ["Applications"], summary: "Conectar dependência (injeta URL)", security: bearer, responses: { "201": { description: "Conectado" } } },
+      },
+      "/applications/{id}/logs": {
+        get: {
+          tags: ["Observability"],
+          summary: "Buscar logs com filtros",
+          description:
+            "Monta a consulta ao Loki a partir dos filtros. O escopo (namespace e app da aplicação) é sempre o do servidor: nenhum filtro consegue ler logs de outra aplicação. Sem `LOKI_URL`, os filtros valem sobre as linhas de exemplo. Linhas em ordem cronológica, com `level` detectado (JSON `level`, logfmt `level=` ou palavra ERROR/WARN/INFO/DEBUG).",
+          security: bearer,
+          parameters: [appId, orgHeader, ...logParams],
+          responses: {
+            "200": { description: "`{ lines: [{ ts, line, pod?, level? }] }` (`ts` em nanossegundos)" },
+            "400": { description: "Filtro recusado pelo Loki (regex RE2 inválida)" },
+            "404": { description: "Fora da organização ativa" },
+            "422": { description: "Filtro inválido (mensagens em português)" },
+          },
+        },
+      },
+      "/applications/{id}/logs/pods": {
+        get: {
+          tags: ["Observability"],
+          summary: "Pods com log no intervalo",
+          security: bearer,
+          parameters: [appId, orgHeader, ...logParams.filter((p) => ["since", "start", "end"].includes(p.name))],
+          responses: { "200": { description: "`{ pods: string[] }` (vazio sem Loki)" }, "404": { description: "Fora da organização ativa" } },
+        },
+      },
+      "/applications/{id}/logs/download": {
+        get: {
+          tags: ["Observability"],
+          summary: "Baixar logs filtrados (.txt ou .ndjson)",
+          description: `Mesmos filtros da busca. A resposta sai em streaming, paginando o Loki, até \`maxLines\` (teto ${LOG_DOWNLOAD_MAX_LINES}). \`direction=backward\` (padrão) começa pela linha mais recente.`,
+          security: bearer,
+          parameters: [
+            appId,
+            orgHeader,
+            ...logParams.filter((p) => p.name !== "limit"),
+            { name: "format", in: "query", schema: { type: "string", enum: [...LOG_EXPORT_FORMATS], default: "txt" } },
+            { name: "maxLines", in: "query", schema: { type: "integer", minimum: 1, maximum: LOG_DOWNLOAD_MAX_LINES, default: LOG_DOWNLOAD_DEFAULT_LINES } },
+          ],
+          responses: {
+            "200": { description: "Arquivo", content: { "text/plain": { schema: { type: "string" } }, "application/x-ndjson": { schema: { type: "string" } } } },
+            "404": { description: "Fora da organização ativa" },
+            "422": { description: "Filtro inválido" },
+          },
+        },
+      },
+      "/streams/applications/{id}/logs": {
+        get: {
+          tags: ["Observability"],
+          summary: "Live tail de logs (SSE)",
+          description:
+            "Evento `logs` a cada 2s com as linhas dos últimos 30 minutos (até 200). Aceita `q`, `exclude`, `regex`, `level` e `pod`; intervalo e limite não se aplicam. Autentica por `access_token` e `org` na query (EventSource não envia headers).",
+          parameters: [appId, ...logParams.filter((p) => ["q", "exclude", "regex", "level", "pod"].includes(p.name))],
+          responses: { "200": { description: "text/event-stream" }, "422": { description: "Filtro inválido" } },
+        },
       },
       "/applications/{id}/metrics": {
         get: { tags: ["Observability"], summary: "Métricas simples (CPU/mem/req/lat/erros)", security: bearer, responses: { "200": { description: "OK" } } },
