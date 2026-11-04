@@ -21,6 +21,10 @@ export class ApplicationRepository extends BaseRepository {
     });
   }
 
+  listByEnvironment(environmentId: string): Promise<Application[]> {
+    return this.tx.application.findMany({ where: { environmentId, ...this.scope("application") } });
+  }
+
   /**
    * Aplicações vinculadas a uma conexão Git — usadas no auto-deploy por webhook.
    * O tenant vem da própria conexão (resolvida antes), então segue escopado.

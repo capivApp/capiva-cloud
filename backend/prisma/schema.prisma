@@ -207,6 +207,8 @@ model Environment {
   name           String
   kind           EnvironmentKind   @default(DEVELOPMENT)
   namespace      String
+  // NetworkPolicy padrão do namespace (deny-all de ingress + liberações da plataforma)
+  networkIsolation Boolean         @default(true)
   createdAt      DateTime          @default(now())
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cluster        Cluster?          @relation(fields: [clusterId], references: [id])

@@ -5,29 +5,38 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useClusters } from "@/hooks/useClusters";
-import { useEnvironments } from "@/hooks/useEnvironments";
+import { useEnvironments, type Environment } from "@/hooks/useEnvironments";
 
 export interface EnvEditing {
   id: string;
   name: string;
   kind: string;
   clusterId: string | null;
+  networkIsolation: boolean;
 }
 
 export function EnvironmentDrawer({ open, onClose, editing, onSaved }: { open: boolean; onClose: () => void; editing?: EnvEditing | null; onSaved: () => void }) {
   const { create, update, isCreating } = useEnvironments();
   const { clusters } = useClusters();
-  const [f, setF] = useState({ name: "", kind: "PRODUCTION", clusterId: "" });
+  const [f, setF] = useState({ name: "", kind: "PRODUCTION", clusterId: "", networkIsolation: true });
 
   useEffect(() => {
-    if (open) setF({ name: editing?.name ?? "", kind: editing?.kind ?? "PRODUCTION", clusterId: editing?.clusterId ?? "" });
+    if (open) {
+      setF({
+        name: editing?.name ?? "",
+        kind: editing?.kind ?? "PRODUCTION",
+        clusterId: editing?.clusterId ?? "",
+        networkIsolation: editing?.networkIsolation ?? true,
+      });
+    }
   }, [open, editing]);
 
   async function submit() {
     if (!f.name) return toast.error("Informe um nome.");
     try {
-      if (editing) await update({ id: editing.id, patch: { name: f.name, kind: f.kind, clusterId: f.clusterId || null } });
-      else await create({ name: f.name, kind: f.kind as any, clusterId: f.clusterId || undefined });
+      const kind = f.kind as Environment["kind"];
+      if (editing) await update({ id: editing.id, patch: { name: f.name, kind, clusterId: f.clusterId || null, networkIsolation: f.networkIsolation } });
+      else await create({ name: f.name, kind, clusterId: f.clusterId || undefined, networkIsolation: f.networkIsolation });
       toast.success(editing ? "Ambiente atualizado" : "Ambiente criado");
       onSaved();
       onClose();
@@ -40,6 +49,10 @@ export function EnvironmentDrawer({ open, onClose, editing, onSaved }: { open: b
         <div className="space-y-1.5"><Label>Nome</Label><Input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Produção" /></div>
         <div className="space-y-1.5"><Label>Tipo</Label><select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="DEVELOPMENT">Dev</option><option value="STAGING">Homolog</option><option value="PRODUCTION">Produção</option></select></div>
         <div className="space-y-1.5"><Label>Cluster</Label><select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={f.clusterId} onChange={(e) => setF({ ...f, clusterId: e.target.value })}><option value="">(nenhum)</option>{clusters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={f.networkIsolation} onChange={(e) => setF({ ...f, networkIsolation: e.target.checked })} className="accent-primary" /> Isolamento de rede</label>
+          <p className="text-xs text-muted-foreground">Bloqueia o acesso vindo de outros ambientes. As dependências conectadas continuam liberadas.</p>
+        </div>
       </div>
     </Drawer>
   );

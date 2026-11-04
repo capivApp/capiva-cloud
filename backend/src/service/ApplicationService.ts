@@ -1,7 +1,6 @@
 import { Injectable } from "@di/index";
 import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
-import { ServiceDependencyRepository } from "@repository/ServiceDependencyRepository";
 import { VolumeRepository } from "@repository/VolumeRepository";
 import { DomainRepository } from "@repository/DomainRepository";
 import { ScalingPolicyRepository } from "@repository/ScalingPolicyRepository";
@@ -10,6 +9,7 @@ import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { TlsCertificateService } from "@service/TlsCertificateService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
+import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { dockerConfigSecretManifest, type TlsModeManifest } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -52,7 +52,6 @@ export class ApplicationService {
   constructor(
     private readonly apps: ApplicationRepository,
     private readonly envVars: EnvVarRepository,
-    private readonly deps: ServiceDependencyRepository,
     private readonly volumes: VolumeRepository,
     private readonly domainRepo: DomainRepository,
     private readonly scalingRepo: ScalingPolicyRepository,
@@ -61,6 +60,7 @@ export class ApplicationService {
     private readonly k8s: KubernetesAdapter,
     private readonly tlsCerts: TlsCertificateService,
     private readonly registries: DockerRegistryService,
+    private readonly networkPolicies: NetworkPolicyService,
   ) {}
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<Application[]> {
@@ -131,11 +131,10 @@ export class ApplicationService {
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
     const domain = cfg?.domain as string | undefined;
 
-    const [envVars, deps, volumes, domainRows, scalingPolicy] = await withTransaction(
+    const [envVars, volumes, domainRows, scalingPolicy] = await withTransaction(
       async () =>
         [
           await this.envVars.listByApplication(app.id),
-          await this.deps.listForApplication(app.id),
           await this.volumes.listByApplication(app.id),
           await this.domainRepo.listByApplication(app.id),
           await this.scalingRepo.findByApplication(app.id),
@@ -145,12 +144,8 @@ export class ApplicationService {
     const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
     const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" }));
 
-    // Origens que dependem desta app (target == app) → liberadas na NetworkPolicy.
-    const allowedSourceIds = deps.filter((d) => d.targetId === app.id).map((d) => d.sourceId);
-    const allowedFrom = await withTransaction(
-      async () => (await Promise.all(allowedSourceIds.map((id) => this.apps.findById(id)))).flatMap((a) => (a ? [a.name] : [])),
-      { tenant },
-    );
+    // NetworkPolicy padrão do namespace (deny-all + liberações + dependências).
+    await this.networkPolicies.syncEnvironmentQuietly(app.environmentId, tenant);
 
     // TLS por domínio: se UPLOADED, decifra o certificado da org para virar Secret.
     const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT") as TlsModeManifest;
@@ -189,7 +184,7 @@ export class ApplicationService {
       : undefined;
 
     const status = await this.reconcilers.forApplication().reconcile(
-      { app, image, replicas, envVars: resolvedEnv, allowedFrom, domain, tlsMode, tlsCert, domains, scaling, volumes: volumeSpecs, imagePullSecret },
+      { app, image, replicas, envVars: resolvedEnv, domain, tlsMode, tlsCert, domains, scaling, volumes: volumeSpecs, imagePullSecret },
       ctx,
     );
     await withTransaction(() => this.apps.updateStatus(app.id, status.ready ? "running" : "progressing"), { tenant });

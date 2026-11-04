@@ -6,6 +6,7 @@ import {
   createDatabaseSchema,
   createEnvironmentSchema,
   createGitConnectionSchema,
+  updateEnvironmentSchema,
 } from "@schemas/resource.schema";
 
 /**
@@ -127,6 +128,19 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       "/environments": {
         get: { tags: ["Environments"], summary: "Listar ambientes", security: bearer, responses: { "200": { description: "OK" } } },
         post: { tags: ["Environments"], summary: "Criar ambiente", security: bearer, requestBody: body(createEnvironmentSchema), responses: { "201": { description: "Criado" } } },
+      },
+      "/environments/{id}": {
+        patch: {
+          tags: ["Environments"],
+          summary: "Editar ambiente",
+          description:
+            "Altera nome, tipo, cluster e `networkIsolation`. Com o isolamento ligado (padrão) o namespace recebe a NetworkPolicy padrão: deny-all de ingress, liberando o próprio namespace, o ingress controller, o monitoramento, os operators de banco e as dependências declaradas vindas de outros ambientes. Desligado, as policies padrão são removidas.",
+          security: bearer,
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader],
+          requestBody: body(updateEnvironmentSchema),
+          responses: { "200": { description: "Atualizado" }, "404": { description: "Fora da organização ativa" } },
+        },
+        delete: { tags: ["Environments"], summary: "Remover ambiente", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }, orgHeader], responses: { "204": { description: "Removido" } } },
       },
       "/clusters": {
         get: { tags: ["Clusters"], summary: "Listar clusters", security: bearer, responses: { "200": { description: "OK" } } },

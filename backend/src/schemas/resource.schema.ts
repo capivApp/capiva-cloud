@@ -18,6 +18,14 @@ export const createEnvironmentSchema = z.object({
   name: z.string().min(1),
   kind: z.enum(["DEVELOPMENT", "STAGING", "PRODUCTION"]).default("DEVELOPMENT"),
   clusterId: z.string().optional(),
+  networkIsolation: z.boolean().optional(),
+});
+
+export const updateEnvironmentSchema = z.object({
+  name: z.string().min(1).optional(),
+  kind: z.enum(["DEVELOPMENT", "STAGING", "PRODUCTION"]).optional(),
+  clusterId: z.string().nullable().optional(),
+  networkIsolation: z.boolean().optional(),
 });
 
 export const createClusterSchema = z.object({

@@ -603,33 +603,6 @@ export function hpaManifest(
   };
 }
 
-/**
- * NetworkPolicy: default-deny de ingress, liberando APENAS as origens declaradas
- * no grafo de dependências (isolamento entre serviços). Gerada a partir das
- * dependências — o usuário nunca escreve policy.
- */
-export function networkPolicyManifest(name: string, namespace: string, allowedFrom: string[]): K8sManifest {
-  // Namespace do ingress controller (Traefik). SEMPRE liberado, senão o roteamento
-  // por domínio dá 502 (Traefik alcança a rota mas a NetworkPolicy bloqueia o pod).
-  const ingressNamespace = process.env.CAPIVA_INGRESS_NAMESPACE || "kube-system";
-  const from = [
-    { namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ingressNamespace } } },
-    // Origens do grafo de dependências (apps que dependem desta).
-    ...allowedFrom.map((src) => ({ podSelector: { matchLabels: { "app.kubernetes.io/name": src } } })),
-  ];
-  return {
-    apiVersion: "networking.k8s.io/v1",
-    kind: "NetworkPolicy",
-    metadata: { name: `${name}-allow`, namespace, labels: labels(name) },
-    spec: {
-      podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
-      policyTypes: ["Ingress"],
-      // Default-deny + ingress controller + dependências (regras OR-ed).
-      ingress: [{ from }],
-    },
-  };
-}
-
 export function cronJobManifest(name: string, namespace: string, schedule: string, image: string, profile: string): K8sManifest {
   const res = resolveResources(profile, null);
   return {

@@ -1,5 +1,6 @@
 import { Injectable } from "@di/index";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
+import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
 import { slugify } from "@functions/slug";
@@ -9,11 +10,22 @@ export interface CreateEnvironmentInput {
   name: string;
   kind: EnvironmentKind;
   clusterId?: string;
+  networkIsolation?: boolean;
+}
+
+export interface UpdateEnvironmentInput {
+  name?: string;
+  kind?: EnvironmentKind;
+  clusterId?: string | null;
+  networkIsolation?: boolean;
 }
 
 @Injectable()
 export class EnvironmentService {
-  constructor(private readonly environments: EnvironmentRepository) {}
+  constructor(
+    private readonly environments: EnvironmentRepository,
+    private readonly networkPolicies: NetworkPolicyService,
+  ) {}
 
   list(organizationId: string): Promise<Environment[]> {
     return withTransaction(() => this.environments.listByOrganization(organizationId), {
@@ -21,10 +33,10 @@ export class EnvironmentService {
     });
   }
 
-  create(organizationId: string, input: CreateEnvironmentInput): Promise<Environment> {
+  async create(organizationId: string, input: CreateEnvironmentInput): Promise<Environment> {
     // Namespace derivado do ambiente — escondido do usuário, usado pelos reconcilers.
     const namespace = `capiva-${slugify(input.name)}-${organizationId.slice(-6)}`;
-    return withTransaction(
+    const environment = await withTransaction(
       () =>
         this.environments.create({
           organizationId,
@@ -32,9 +44,12 @@ export class EnvironmentService {
           kind: input.kind,
           clusterId: input.clusterId,
           namespace,
+          networkIsolation: input.networkIsolation ?? true,
         }),
       { tenant: { organizationId } },
     );
+    await this.networkPolicies.syncEnvironmentQuietly(environment.id, { organizationId });
+    return environment;
   }
 
   async getById(organizationId: string, id: string): Promise<Environment> {
@@ -45,16 +60,20 @@ export class EnvironmentService {
     return env;
   }
 
-  async update(
-    organizationId: string,
-    id: string,
-    input: { name?: string; kind?: EnvironmentKind; clusterId?: string | null },
-  ): Promise<Environment> {
+  async update(organizationId: string, id: string, input: UpdateEnvironmentInput): Promise<Environment> {
     await this.getById(organizationId, id);
-    return withTransaction(
-      () => this.environments.update(id, { name: input.name, kind: input.kind, clusterId: input.clusterId }),
+    const environment = await withTransaction(
+      () =>
+        this.environments.update(id, {
+          name: input.name,
+          kind: input.kind,
+          clusterId: input.clusterId,
+          networkIsolation: input.networkIsolation,
+        }),
       { tenant: { organizationId } },
     );
+    await this.networkPolicies.syncEnvironmentQuietly(id, { organizationId });
+    return environment;
   }
 
   async remove(organizationId: string, id: string): Promise<void> {

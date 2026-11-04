@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { Injectable } from "@di/index";
 import { EnvironmentService } from "@service/EnvironmentService";
-import { createEnvironmentSchema } from "@schemas/resource.schema";
+import { createEnvironmentSchema, updateEnvironmentSchema } from "@schemas/resource.schema";
 import { tenantOf } from "@functions/tenant";
 
 @Injectable()
@@ -18,11 +18,8 @@ export class EnvironmentController {
   };
 
   update = async (req: Request, res: Response): Promise<void> => {
-    res.json(await this.environments.update(tenantOf(req).organizationId, String(req.params.id), {
-      name: req.body?.name,
-      kind: req.body?.kind,
-      clusterId: req.body?.clusterId,
-    }));
+    const dto = updateEnvironmentSchema.parse(req.body ?? {});
+    res.json(await this.environments.update(tenantOf(req).organizationId, String(req.params.id), dto));
   };
 
   remove = async (req: Request, res: Response): Promise<void> => {

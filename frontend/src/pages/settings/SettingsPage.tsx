@@ -81,8 +81,9 @@ function EnvironmentsTab() {
         <Row key={e.id}>
           <span className="font-medium">{e.name}</span>
           <div className="flex items-center gap-1">
+            {!e.networkIsolation && <Badge variant="warning">Rede aberta</Badge>}
             <span className="text-xs text-muted-foreground">{e.kind} · {e.namespace}</span>
-            <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: e.id, name: e.name, kind: e.kind, clusterId: e.clusterId }); setDrawer(true); }}><Pencil className="size-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => { setEditing({ id: e.id, name: e.name, kind: e.kind, clusterId: e.clusterId, networkIsolation: e.networkIsolation }); setDrawer(true); }}><Pencil className="size-4" /></Button>
             <Button variant="ghost" size="icon" onClick={async () => { await remove(e.id); refetch(); }}><Trash2 className="size-4" /></Button>
           </div>
         </Row>

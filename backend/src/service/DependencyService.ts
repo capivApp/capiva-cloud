@@ -4,6 +4,7 @@ import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { EnvironmentRepository } from "@repository/EnvironmentRepository";
 import { KubeContextResolver } from "@service/KubeContextResolver";
+import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
@@ -37,6 +38,7 @@ export class DependencyService {
     private readonly environments: EnvironmentRepository,
     private readonly kube: KubeContextResolver,
     private readonly k8s: KubernetesAdapter,
+    private readonly networkPolicies: NetworkPolicyService,
   ) {}
 
   listForApplication(applicationId: string, tenant: { organizationId: string }): Promise<ServiceDependency[]> {
@@ -84,7 +86,7 @@ export class DependencyService {
       }
     };
 
-    return withTransaction(async () => {
+    const dependency = await withTransaction(async () => {
       for (const m of effective) {
         await this.envVars.upsert({ applicationId: sourceId, key: m.key, value: valueFor(m.form), source: "INJECTED" });
       }
@@ -94,11 +96,17 @@ export class DependencyService {
         injectedKeys: effective as unknown as Prisma.InputJsonValue,
       });
     }, { tenant });
+    // A origem pode estar em outro namespace: libera o acesso no namespace do destino.
+    await this.networkPolicies.syncEnvironmentQuietly(target.environmentId, tenant);
+    return dependency;
   }
 
-  disconnect(id: string, tenant: { organizationId: string }): Promise<void> {
-    return withTransaction(async () => {
-      await this.deps.delete(id);
+  async disconnect(id: string, tenant: { organizationId: string }): Promise<void> {
+    const target = await withTransaction(async () => {
+      const removed = await this.deps.delete(id);
+      return this.apps.findById(removed.targetId);
     }, { tenant });
+    if (!target) return;
+    await this.networkPolicies.syncEnvironmentQuietly(target.environmentId, tenant);
   }
 }
