@@ -28,7 +28,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Control-plane datastore + object storage
 docker run -d --name capiva-postgres -e POSTGRES_USER=capiva -e POSTGRES_PASSWORD=capiva -e POSTGRES_DB=capiva -p 5433:5432 postgres:17-alpine
-docker run -d --name capiva-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -p 9000:9000 -p 9001:9001 minio/minio:latest server /data --console-address ":9001"
+docker run -d --name capiva-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -p 9000:9000 -p 9001:9001 pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data --console-address ":9001"
 
 # Real Kubernetes cluster (1 server + 2 agents) + addons
 k3d cluster create capiva --servers 1 --agents 2 --port "8880:80@loadbalancer" --port "8843:443@loadbalancer" --wait

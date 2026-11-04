@@ -132,12 +132,23 @@ To run the control plane on a server, use `docker-compose.deploy.yml`:
 
 ```bash
 cp .env.deploy.example .env      # set PUBLIC_HOST, ports and generate the secrets
-docker compose -f docker-compose.deploy.yml up -d --build
+docker compose -f docker-compose.deploy.yml pull   # ready-made images from Docker Hub
+docker compose -f docker-compose.deploy.yml up -d
 ```
+
+The images are published on Docker Hub as
+[`mateusseiboth/capiva-cloud-backend`](https://hub.docker.com/r/mateusseiboth/capiva-cloud-backend) and
+[`mateusseiboth/capiva-cloud-frontend`](https://hub.docker.com/r/mateusseiboth/capiva-cloud-frontend).
+Pin a version with `CAPIVA_VERSION` in `.env` (default `latest`). To build from source instead, run
+`docker compose -f docker-compose.deploy.yml up -d --build`. The frontend image has no host baked in:
+the panel calls `/api` and opens the terminal at `/terminal/` on its own origin, through nginx.
+
+MinIO stopped publishing official images, so the stack uses the community fork
+[`pgsty/minio`](https://hub.docker.com/r/pgsty/minio) (same binary and CLI), pinned to a release tag.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `PUBLIC_HOST` | — | Host/IP used to reach the panel (feeds the web terminal WebSocket URL) |
+| `PUBLIC_HOST` | — | Host/IP used to reach the panel (feeds `PUBLIC_URL`, used in links such as the commit status) |
 | `PANEL_PORT` | `8410` | Published port of the panel |
 | `API_PORT` | `8411` | Published port of the API (direct access and Scalar docs at `/docs`) |
 | `POSTGRES_PASSWORD` | — | Password of the dedicated control plane Postgres |

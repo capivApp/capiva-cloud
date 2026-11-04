@@ -2,6 +2,10 @@
 # Capiva Cloud — stack de deploy (Docker)
 #
 #   cp .env.deploy.example .env   # ajuste PUBLIC_HOST e os segredos
+#   docker compose -f docker-compose.deploy.yml pull     # imagens prontas do Docker Hub
+#   docker compose -f docker-compose.deploy.yml up -d
+#
+# Para construir as imagens a partir do código em vez de baixar:
 #   docker compose -f docker-compose.deploy.yml up -d --build
 #
 # Portas publicadas no host:
@@ -30,7 +34,9 @@ services:
       retries: 20
 
   minio:
-    image: minio/minio:latest
+    # O MinIO parou de publicar imagens oficiais (minio/minio e quay.io não respondem
+    # mais). pgsty/minio é o fork comunitário com o mesmo binário, a mesma CLI e o mc.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: capiva-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -46,6 +52,7 @@ services:
       retries: 12
 
   backend:
+    image: ${CAPIVA_IMAGE_NAMESPACE:-mateusseiboth}/capiva-cloud-backend:${CAPIVA_VERSION:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.deploy
@@ -83,14 +90,16 @@ services:
         condition: service_healthy
 
   frontend:
+    image: ${CAPIVA_IMAGE_NAMESPACE:-mateusseiboth}/capiva-cloud-frontend:${CAPIVA_VERSION:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile.deploy
       args:
-        # Vazio => o cliente usa caminhos relativos (/api) na mesma origem,
-        # evitando o whitelist de CORS fixo em localhost no backend.
+        # Vazios => o cliente usa a mesma origem do painel para a API (/api) e para o
+        # terminal (/terminal/, via nginx). Por isso a imagem publicada serve qualquer
+        # host, e o CORS fixo em localhost do backend não entra no caminho.
         VITE_API_URL: ""
-        VITE_TERMINAL_WS_URL: ws://${PUBLIC_HOST}:${PANEL_PORT:-8410}
+        VITE_TERMINAL_WS_URL: ""
     container_name: capiva-frontend
     restart: unless-stopped
     ports:

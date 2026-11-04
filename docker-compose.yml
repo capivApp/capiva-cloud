@@ -20,7 +20,9 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    # O MinIO parou de publicar imagens oficiais (minio/minio e quay.io não respondem
+    # mais). pgsty/minio é o fork comunitário com o mesmo binário, a mesma CLI e o mc.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
