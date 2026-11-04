@@ -3,6 +3,7 @@ import { container } from "@di/index";
 import { ApplicationController } from "@controller/ApplicationController";
 import { ObservabilityController } from "@controller/ObservabilityController";
 import { AlertRuleController } from "@controller/AlertRuleController";
+import { PreviewDeploymentController } from "@controller/PreviewDeploymentController";
 import { authMiddleware } from "@middleware/auth";
 import { requireRole } from "@middleware/rbac";
 
@@ -16,6 +17,7 @@ export const registry = (router: Router): void => {
   const ctrl = container.get(ApplicationController);
   const obs = container.get(ObservabilityController);
   const alerts = container.get(AlertRuleController);
+  const previews = container.get(PreviewDeploymentController);
   router.get("/", ctrl.list);
   router.post("/", dev, ctrl.create);
   router.get("/:id", ctrl.get);
@@ -62,5 +64,6 @@ export const registry = (router: Router): void => {
   router.post("/:id/alert-rules", dev, alerts.create);
   router.patch("/:id/alert-rules/:ruleId", dev, alerts.update);
   router.delete("/:id/alert-rules/:ruleId", dev, alerts.remove);
+  router.delete("/:id/previews/:previewId", dev, previews.destroy);
   router.delete("/:id", dev, ctrl.remove);
 };

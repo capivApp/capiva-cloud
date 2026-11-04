@@ -1,5 +1,5 @@
 import { Injectable } from "@di/index";
-import { ApplicationRepository } from "@repository/ApplicationRepository";
+import { ApplicationRepository, type ApplicationWithPreviews } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
 import { ServiceDependencyRepository } from "@repository/ServiceDependencyRepository";
 import { VolumeRepository } from "@repository/VolumeRepository";
@@ -40,7 +40,12 @@ export interface CreateApplicationInput {
   tlsCertificateId?: string;
   /** Registry privado (gera imagePullSecret). */
   registryId?: string;
+  /** Preview deployment: aplicação de origem e número do PR (ver PreviewDeploymentService). */
+  previewOf?: { applicationId: string; prNumber: number };
 }
+
+/** Preview roda com uma réplica; as demais aplicações, com duas. */
+const defaultReplicasOf = (app: Application): number => (app.previewOfId ? 1 : 2);
 
 /**
  * Regras de aplicação: cria a entidade (estado desejado), reconcilia para o
@@ -92,6 +97,8 @@ export class ApplicationService {
           tlsMode,
           tlsCertificateId: input.tlsCertificateId ?? null,
           registryId: input.registryId ?? null,
+          previewOfId: input.previewOf?.applicationId ?? null,
+          previewPrNumber: input.previewOf?.prNumber ?? null,
         });
         for (const e of input.env ?? []) {
           if (e.key.trim()) await this.envVars.upsert({ applicationId: created.id, key: e.key, value: e.value, source: "MANUAL" });
@@ -125,7 +132,7 @@ export class ApplicationService {
   }
 
   /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
-  async reconcile(app: Application, tenant: { organizationId: string }, replicas = 2, imageOverride?: string) {
+  async reconcile(app: Application, tenant: { organizationId: string }, replicas = defaultReplicasOf(app), imageOverride?: string) {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     const cfg = app.sourceConfig as Record<string, unknown>;
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
@@ -222,7 +229,8 @@ export class ApplicationService {
     await this.reconcile(app, tenant).catch((e) => console.error("[volume] reconcile:", (e as Error).message));
   }
 
-  async getById(id: string, tenant: { organizationId: string }): Promise<Application> {
+  /** Registro completo: inclui os previews por PR (e, no preview, a origem). */
+  async getById(id: string, tenant: { organizationId: string }): Promise<ApplicationWithPreviews> {
     const app = await withTransaction(() => this.apps.findById(id), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
     return app;
@@ -248,6 +256,7 @@ export class ApplicationService {
       compose?: string;
       autoDeploy?: boolean;
       watchPaths?: string[];
+      previewsEnabled?: boolean;
     },
     tenant: { organizationId: string },
   ): Promise<Application> {
@@ -269,6 +278,7 @@ export class ApplicationService {
     }
     if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
+    if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews as object) ?? {}), enabled: dto.previewsEnabled };
 
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;
@@ -365,6 +375,9 @@ export class ApplicationService {
    */
   async remove(id: string, tenant: { organizationId: string }): Promise<void> {
     const app = await this.getById(id, tenant);
+    // Previews primeiro: o cascade do banco apagaria as linhas e deixaria os
+    // recursos deles órfãos no cluster.
+    for (const preview of app.previews) await this.remove(preview.id, tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     const [domainRows, volumeRows] = await withTransaction(

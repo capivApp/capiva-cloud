@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useMetricsStream } from "@/hooks/useMetricsStream";
 import { StatusBadge } from "@/pages/applications/components/StatusBadge";
 import { ApplicationActions } from "@/pages/applications/components/ApplicationActions";
+import { PreviewBadge } from "@/pages/applications/components/PreviewBadge";
 import type { Application } from "@/pages/applications/hooks/useApplications";
 
 /**
@@ -36,6 +37,7 @@ export function ServiceCard({ app, onChange }: { app: Application; onChange?: ()
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <PreviewBadge app={app} />
           <span className="rounded bg-muted px-1.5 py-0.5">{app.rolloutStrategy}</span>
           {domain && (
             <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">

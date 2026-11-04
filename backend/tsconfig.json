@@ -28,6 +28,7 @@
       "@functions/*": ["./src/functions/*"],
       "@interface/*": ["./src/interfaces/*"],
       "@openapi/*": ["./src/openapi/*"],
+      "@bootstrap/*": ["./src/bootstrap/*"],
       "@prisma-generated/*": ["./src/prisma/generated/*"]
     }
   },
