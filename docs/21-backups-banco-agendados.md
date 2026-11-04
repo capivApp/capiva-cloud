@@ -30,11 +30,8 @@ dump usa `${BACKUP_STAMP:-$(date ...)}`. Assim o objeto no S3 é **conhecido** e
 
 ## Restore
 
-`POST /api/databases/:id/backups/:backupId/restore` (DEVELOPER+) →
-`DatabaseBackupService.restore`: valida que o backup está `completed` e tem objeto
-`.sql.gz`, monta um Secret com credenciais de origem (DB) + destino (S3) + `OBJECT_KEY`, e
-dispara um Job que faz `mc cat … | gunzip | psql/mysql`. **Operação destrutiva** (sobrescreve
-o banco). A UI confirma em dois cliques (sem alert nativo).
+Restore sobre o próprio banco ou como cópia, com andamento e auditoria: ver
+[38. Restore de backup](38-restore-de-backup.md).
 
 ## Retenção
 
