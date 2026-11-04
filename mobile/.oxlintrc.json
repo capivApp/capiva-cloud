@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Pastas geradas pelo Expo (`.expo`, `ios`, `android` do prebuild) e saída do export web.
+  "ignorePatterns": ["node_modules", ".expo", "dist", "web-build", "ios", "android"],
+  // Padrão de frontend do time (SIART-REFACTOR/frontend), adaptado ao React Native: substitui o
+  // `expo lint` (eslint-config-expo). `unicorn` e `oxc` ficam FORA de propósito, como no web.
+  // Regras da casa: `no-enum` — TypeScript não usa `enum` (cópia do plugin do bun-commons).
+  "jsPlugins": [{ "name": "quality", "specifier": "./lint/oxlint-quality.mjs" }],
+  "plugins": ["eslint", "typescript", "react"],
+  // O runtime do RN expõe as globais de navegador que o app usa (`fetch`, `WebSocket`,
+  // `setTimeout`, `AbortController`), mais `__DEV__` do Metro.
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "globals": {
+    "__DEV__": "readonly"
+  },
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "quality/no-enum": "error",
+    // ── React Hooks ──────────────────────────────────────────────────────────
+    "react/rules-of-hooks": "error",
+    "react/set-state-in-effect": "error",
+    "react/refs": "error",
+    "react/incompatible-library": "error",
+    "react/exhaustive-deps": "off",
+
+    // Fast Refresh do Metro tem a mesma restrição do Vite; o expo-router exporta constantes
+    // (`unstable_settings`) junto da rota, por isso `allowConstantExport`.
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+
+    // ── TypeScript ───────────────────────────────────────────────────────────
+    "typescript/no-explicit-any": "off",
+    "typescript/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_"
+      }
+    ],
+    "typescript/ban-types": "off",
+    "eslint/preserve-caught-error": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.d.ts"],
+      "rules": {
+        "typescript/no-unused-vars": "off"
+      }
+    },
+    {
+      // Babel, Metro e Tailwind carregam estes arquivos no Node (CommonJS).
+      "files": ["*.config.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      }
+    }
+  ]
+}
