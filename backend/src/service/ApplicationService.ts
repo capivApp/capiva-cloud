@@ -125,7 +125,7 @@ export class ApplicationService {
   }
 
   /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
-  async reconcile(app: Application, tenant: { organizationId: string }, replicas = 2, imageOverride?: string) {
+  async reconcile(app: Application, tenant: { organizationId: string }, replicas = desiredReplicasOf(app), imageOverride?: string) {
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     const cfg = app.sourceConfig as Record<string, unknown>;
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";
@@ -248,6 +248,9 @@ export class ApplicationService {
       compose?: string;
       autoDeploy?: boolean;
       watchPaths?: string[];
+      replicas?: number;
+      buildCommand?: string;
+      startCommand?: string;
     },
     tenant: { organizationId: string },
   ): Promise<Application> {
@@ -269,6 +272,10 @@ export class ApplicationService {
     }
     if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
+    // Réplicas e comandos de build/start (declarados pelo capiva.json ou pela tela).
+    for (const key of ["replicas", "buildCommand", "startCommand"] as const) {
+      if (dto[key] !== undefined) cfg[key] = dto[key];
+    }
 
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;
@@ -327,7 +334,7 @@ export class ApplicationService {
   /** Inicia a aplicação novamente. */
   async start(id: string, tenant: { organizationId: string }): Promise<Application> {
     const app = await this.getById(id, tenant);
-    await this.reconcile(app, tenant, 2);
+    await this.reconcile(app, tenant);
     return withTransaction(() => this.apps.update(id, { desiredStatus: "running" }), { tenant });
   }
 
@@ -341,6 +348,19 @@ export class ApplicationService {
       metadata: { name: app.name, namespace: ctx.namespace },
       spec: { template: { metadata: { annotations: { "capiva.cloud/restartedAt": new Date().toISOString() } } } },
     });
+  }
+
+  /**
+   * Marca os campos "definidos pelo capiva.json" (a tela os mostra somente leitura).
+   * `null` limpa a marca quando o arquivo some do repositório. Metadado: não reconcilia.
+   */
+  async saveCapivaMarker(id: string, marker: CapivaMarker | null, tenant: { organizationId: string }): Promise<Application> {
+    return withTransaction(async () => {
+      const app = await this.getById(id, tenant);
+      const { capivaJson: _previous, ...cfg } = (app.sourceConfig as Record<string, unknown>) ?? {};
+      const next = marker ? { ...cfg, capivaJson: marker } : cfg;
+      return this.apps.update(id, { sourceConfig: next as Prisma.InputJsonValue });
+    }, { tenant });
   }
 
   /** Build args (ARG do Dockerfile) armazenados no sourceConfig. */
@@ -391,4 +411,18 @@ function safeDecrypt(value: string): string {
   } catch {
     return value;
   }
+}
+
+/** Campos que o capiva.json declarou no último deploy (a tela os mostra somente leitura). */
+export interface CapivaMarker {
+  path: string;
+  ref: string;
+  fields: string[];
+  envKeys: string[];
+}
+
+/** Réplicas desejadas: as gravadas (tela ou capiva.json) ou o padrão de 2. */
+export function desiredReplicasOf(app: { sourceConfig: unknown }): number {
+  const replicas = (app.sourceConfig as Record<string, unknown> | null)?.replicas;
+  return typeof replicas === "number" ? replicas : 2;
 }

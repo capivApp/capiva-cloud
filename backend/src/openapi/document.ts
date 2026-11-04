@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
 import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { capivaConfigSchema } from "@schemas/capivaConfig.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -138,6 +139,16 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/git-connections/{id}/repos": {
         get: { tags: ["Git"], summary: "Listar repositórios", security: bearer, responses: { "200": { description: "OK" } } },
+      },
+      "/schemas/capiva.json": {
+        servers: [{ url: "/", description: "Raiz (rota pública)" }],
+        get: {
+          tags: ["Applications"],
+          summary: "JSON Schema do capiva.json",
+          description:
+            "Schema do arquivo `capiva.json` (infra como código da aplicação), gerado do schema Zod que valida o arquivo no deploy. Aponte o campo `$schema` do arquivo para esta URL para ter autocompletar no editor. Público, sem autenticação.",
+          responses: { "200": { description: "JSON Schema", content: { "application/schema+json": { schema: json(capivaConfigSchema) } } } },
+        },
       },
       "/databases": {
         get: { tags: ["Databases"], summary: "Listar bancos do projeto", security: bearer, responses: { "200": { description: "OK" } } },

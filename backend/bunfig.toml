@@ -20,4 +20,5 @@ timeout = 30000
 "@functions/*" = "./src/functions/*"
 "@interface/*" = "./src/interfaces/*"
 "@openapi/*" = "./src/openapi/*"
+"@http/*" = "./src/http/*"
 "@prisma-generated/*" = "./src/prisma/generated/*"

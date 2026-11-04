@@ -147,6 +147,11 @@ export const updateApplicationSchema = z
      * (monorepo). Vazio = qualquer alteração dispara.
      */
     watchPaths: z.array(z.string().trim().min(1).max(255)).max(50).optional(),
+    /** Réplicas desejadas (sem autoscaling) → sourceConfig.replicas. */
+    replicas: z.number().int().min(0).max(100).optional(),
+    /** Comandos de build e de start → sourceConfig.buildCommand / startCommand. */
+    buildCommand: z.string().max(1000).optional(),
+    startCommand: z.string().max(1000).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nada para atualizar." });
 

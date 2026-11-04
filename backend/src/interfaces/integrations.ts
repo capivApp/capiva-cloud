@@ -143,6 +143,8 @@ export interface IGitProvider {
   listBranches(repo: string): Promise<string[]>;
   detectStack(repo: string, branch: string): Promise<StackDetection>;
   verifyWebhook(signature: string | undefined, rawBody: Buffer | string): boolean;
+  /** capiva.json: conteúdo de um arquivo no commit/branch `ref`. null = arquivo ausente. */
+  readFile(repo: string, ref: string, path: string): Promise<string | null>;
 }
 
 // --------- Build (Strategy) ---------

@@ -10,6 +10,8 @@ import { NotificationService } from "@service/NotificationService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
+import { CapivaConfigService } from "@service/CapivaConfigService";
+import { CapivaConfigError } from "@schemas/capivaConfig.schema";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -35,6 +37,7 @@ export class DeploymentService {
     private readonly notifications: NotificationService,
     private readonly gitConnections: GitConnectionService,
     private readonly registries: DockerRegistryService,
+    private readonly capivaConfig: CapivaConfigService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -77,8 +80,9 @@ export class DeploymentService {
       { tenant },
     );
 
-    this.run(deployment.id, app, version, tenant).catch(async (error) => {
-      await this.fail(deployment.id, tenant);
+    this.run(deployment.id, app, version, tenant, commitId).catch(async (error) => {
+      // capiva.json inválido para antes de tocar no que está no ar: nada a reverter.
+      await this.fail(deployment.id, tenant, !(error instanceof CapivaConfigError));
       console.error("[deploy] falhou", error);
     });
 
@@ -99,8 +103,7 @@ export class DeploymentService {
     }
   }
 
-  private async run(deploymentId: string, app: Application, version: string, tenant: { organizationId: string }): Promise<void> {
-    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
+  private async run(deploymentId: string, declared: Application, version: string, tenant: { organizationId: string }, commitId?: string): Promise<void> {
 
     const step = (label: string, status: Deployment["status"], progress: number) =>
       withTransaction(async () => {
@@ -108,6 +111,10 @@ export class DeploymentService {
         await this.deployments.update(deploymentId, { status, progress });
         deploymentEvents.emit(deploymentId, { label, status, progress });
       }, { tenant });
+
+    // capiva.json no commit do deploy: aplicado pelos services da tela antes do build.
+    const app = await this.capivaConfig.applyForDeploy(declared, commitId, tenant, (label) => step(label, "QUEUED", 5));
+    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     await step("Build iniciado", "BUILDING", 10);
     // Destino do push: registry padrão da org (host real) ou fallback hospedado.
@@ -199,7 +206,7 @@ export class DeploymentService {
     return { ready: false, replicas: health.ready, podsTotal: health.total, issues: health.issues };
   }
 
-  private async fail(deploymentId: string, tenant: { organizationId: string }): Promise<void> {
+  private async fail(deploymentId: string, tenant: { organizationId: string }, rollback = true): Promise<void> {
     await withTransaction(async () => {
       await this.deployments.addEvent({ deploymentId, label: "Deploy falhou" });
       await this.deployments.update(deploymentId, { status: "FAILED", finishedAt: new Date() });
@@ -214,6 +221,7 @@ export class DeploymentService {
 
     // Smart rollback: se a app tem rollback automático e existe um deploy saudável
     // anterior, restaura automaticamente a versão estável.
+    if (!rollback) return;
     const failed = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
     if (!failed) return;
     const app = await withTransaction(() => this.apps.findById(failed.applicationId), { tenant });

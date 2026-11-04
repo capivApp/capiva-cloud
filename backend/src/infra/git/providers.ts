@@ -17,6 +17,19 @@ abstract class BaseGitProvider implements IGitProvider {
   abstract listBranches(repo: string): Promise<string[]>;
   abstract detectStack(repo: string, branch: string): Promise<StackDetection>;
 
+  // --- capiva.json: leitura de arquivo no commit ---
+  abstract readFile(repo: string, ref: string, path: string): Promise<string | null>;
+
+  /** Conteúdo base64 das contents/files APIs. 404 = arquivo ausente (null). */
+  protected async fetchBase64Content(path: string, headers: Record<string, string>): Promise<string | null> {
+    const res = await fetch(`${this.baseUrl}${path}`, { headers });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Git API ${res.status}: ${path}`);
+    const body = (await res.json()) as { content?: string };
+    return Buffer.from(body.content ?? "", "base64").toString("utf8");
+  }
+  // --- fim capiva.json ---
+
   protected async api<T>(path: string, headers: Record<string, string>): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, { headers });
     if (!res.ok) throw new Error(`Git API ${res.status}: ${path}`);
@@ -36,6 +49,10 @@ abstract class BaseGitProvider implements IGitProvider {
 }
 
 export class GitHubProvider extends BaseGitProvider {
+  // --- capiva.json ---
+  readFile(repo: string, ref: string, path: string): Promise<string | null> {
+    return this.fetchBase64Content(`/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, this.headers());
+  }
   private headers() {
     return { Authorization: `Bearer ${this.accessToken}`, Accept: "application/vnd.github+json", "User-Agent": "capiva-cloud" };
   }
@@ -54,6 +71,11 @@ export class GitHubProvider extends BaseGitProvider {
 }
 
 export class GitLabProvider extends BaseGitProvider {
+  // --- capiva.json ---
+  readFile(repo: string, ref: string, path: string): Promise<string | null> {
+    const file = `/api/v4/projects/${encodeURIComponent(repo)}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`;
+    return this.fetchBase64Content(file, this.headers());
+  }
   private headers() {
     return { "PRIVATE-TOKEN": this.accessToken };
   }
@@ -76,6 +98,10 @@ export class GitLabProvider extends BaseGitProvider {
 }
 
 export class GiteaProvider extends BaseGitProvider {
+  // --- capiva.json ---
+  readFile(repo: string, ref: string, path: string): Promise<string | null> {
+    return this.fetchBase64Content(`/api/v1/repos/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, this.headers());
+  }
   private headers() {
     return { Authorization: `token ${this.accessToken}` };
   }
