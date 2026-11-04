@@ -18,6 +18,7 @@ import { TerminalTab } from "@/pages/applications/detail/TerminalTab";
 import { DomainsTab } from "@/pages/applications/detail/DomainsTab";
 import { ScalingTab } from "@/pages/applications/detail/ScalingTab";
 import { SettingsTab } from "@/pages/applications/detail/SettingsTab";
+import { CapivaJsonNotice } from "@/pages/applications/components/CapivaJsonNotice";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 
 interface LogLine { ts: string; line: string }
@@ -143,18 +144,22 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="env" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["env", "buildArgs"]} />}
           {app && <EnvVarsTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="domains" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["domains"]} />}
           {app && <DomainsTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="scaling" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["scaling", "replicas"]} />}
           {app && <ScalingTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="volumes" className="pt-5">
+          {app && <CapivaJsonNotice sourceConfig={app.sourceConfig} fields={["volumes"]} />}
           {app && <VolumesTab applicationId={app.id} />}
         </TabsContent>
 
