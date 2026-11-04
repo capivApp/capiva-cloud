@@ -1,11 +1,13 @@
 node_modules/
 dist/
-build/
-!backend/src/infra/build/
+# Só as saídas de build na raiz de cada pacote (sem ancorar, `build/` ignorava backend/src/infra/build).
+/build/
+/*/build/
 .env
 .env.local
 *.log
-logs/
+/logs/
+/*/logs/
 coverage/
 .DS_Store
 .vscode/*
