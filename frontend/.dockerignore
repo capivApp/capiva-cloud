@@ -3,3 +3,7 @@ dist
 dev-dist
 .git
 *.log
+# O build grava o próprio .env a partir dos ARGs: o local nunca entra na imagem.
+.env
+.env.*
+!.env.example

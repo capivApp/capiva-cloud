@@ -5,19 +5,32 @@
 #     uma imagem silenciosamente quebrada;
 #   - aplica as migrations antes de subir a API;
 #   - roda como usuário sem privilégios.
-FROM oven/bun:1 AS base
+
+# Estágio de dependências: o better-sqlite3 (adapter do Prisma para SQLite) compila
+# código nativo no install e precisa de python3/make/g++. Essas ferramentas ficam só
+# aqui; a imagem final recebe o node_modules pronto.
+FROM oven/bun:1 AS deps
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl \
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json bunfig.toml tsconfig.json ./
 COPY prisma ./prisma
 RUN bun install
 
+FROM oven/bun:1 AS runtime
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN bunx prisma generate
+# O prisma.config.ts exige DATABASE_URL mesmo para gerar o client; o generate não
+# conecta no banco, então um endereço qualquer basta no build.
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" bunx prisma generate
 
 # A imagem oven/bun já traz o usuário `bun` (uid 1000). Rodar como root daria ao
 # processo — que executa comandos em clusters e nós via SSH — privilégio total

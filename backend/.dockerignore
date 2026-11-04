@@ -3,3 +3,9 @@ dist
 .git
 coverage
 *.log
+# Segredos e gerados locais nunca entram na imagem (ela é publicada no Docker Hub).
+.env
+.env.*
+!.env.example
+src/keys
+src/prisma/generated
