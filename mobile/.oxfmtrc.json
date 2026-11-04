@@ -1,0 +1,4 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [".expo/", "dist/", "web-build/", "build/", "coverage/", "ios/", "android/"]
+}
