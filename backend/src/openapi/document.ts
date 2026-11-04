@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
 import { createApplicationSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { createAlertRuleSchema, updateAlertRuleSchema } from "@schemas/alert.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -37,6 +38,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     description: "Organização ativa. O usuário precisa ser membro; caso contrário 403.",
   };
   const appId = { name: "id", in: "path", required: true, schema: { type: "string" } };
+  const ruleId = { name: "ruleId", in: "path", required: true, schema: { type: "string" } };
 
   return {
     openapi: "3.1.0",
@@ -159,6 +161,54 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/applications/{id}/metrics": {
         get: { tags: ["Observability"], summary: "Métricas simples (CPU/mem/req/lat/erros)", security: bearer, responses: { "200": { description: "OK" } } },
+      },
+      "/applications/{id}/alert-rules": {
+        get: {
+          tags: ["Observability"],
+          summary: "Listar regras de alerta por métrica",
+          description: "Cada regra traz o estado atual (`OK`/`FIRING`), o último valor medido e quando foi avaliada.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } },
+        },
+        post: {
+          tags: ["Observability"],
+          summary: "Criar regra de alerta",
+          description:
+            "Métricas: `CPU` (% de um núcleo), `MEMORY` (MiB), `ERROR_RATE_5XX` (% de respostas 5xx) e `LATENCY_P95` (ms). `operator` `GT`/`LT` compara com `threshold` na janela `windowMinutes` (1 a 60). CPU e memória vêm do Prometheus, com o metrics-server como reserva; 5xx e latência vêm do access log do Traefik no Loki e exigem domínio. A cada minuto o scheduler avalia a regra e dispara `alert.triggered`/`alert.resolved` só na transição de estado, pelos canais de notificação que escutam esses eventos.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(createAlertRuleSchema),
+          responses: { "201": { description: "Criado" }, "404": { description: "Aplicação fora da organização ativa" }, "422": { description: "Dados inválidos" } },
+        },
+      },
+      "/applications/{id}/alert-rules/{ruleId}": {
+        patch: {
+          tags: ["Observability"],
+          summary: "Alterar regra de alerta",
+          description: "Campos ausentes ficam como estão. Desligar a regra (`enabled: false`) volta o estado para `OK` sem notificar.",
+          security: bearer,
+          parameters: [appId, ruleId, orgHeader],
+          requestBody: body(updateAlertRuleSchema),
+          responses: { "200": { description: "Atualizado" }, "404": { description: "Regra não encontrada" }, "422": { description: "Dados inválidos" } },
+        },
+        delete: {
+          tags: ["Observability"],
+          summary: "Remover regra de alerta",
+          security: bearer,
+          parameters: [appId, ruleId, orgHeader],
+          responses: { "204": { description: "Removido" }, "404": { description: "Regra não encontrada" } },
+        },
+      },
+      "/notifications/events": {
+        get: {
+          tags: ["Observability"],
+          summary: "Eventos que um canal de notificação pode escutar",
+          description:
+            "`deploy.succeeded`, `deploy.failed`, `deploy.rollback` (manual, automático após falha ou abort do Argo), `downtime`/`recovery` (transição do uptime check) e `alert.triggered`/`alert.resolved` (transição de uma regra de alerta).",
+          security: bearer,
+          responses: { "200": { description: "Lista de eventos" } },
+        },
       },
       "/projects": {
         get: { tags: ["Projects"], summary: "Listar projetos", security: bearer, responses: { "200": { description: "OK" } } },

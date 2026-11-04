@@ -18,6 +18,7 @@ import { TerminalTab } from "@/pages/applications/detail/TerminalTab";
 import { DomainsTab } from "@/pages/applications/detail/DomainsTab";
 import { ScalingTab } from "@/pages/applications/detail/ScalingTab";
 import { SettingsTab } from "@/pages/applications/detail/SettingsTab";
+import { AlertsTab } from "@/pages/applications/detail/AlertsTab";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 
 interface LogLine { ts: string; line: string }
@@ -92,6 +93,7 @@ export function ApplicationDetailPage() {
           <TabsTrigger value="scaling">Autoscaling</TabsTrigger>
           <TabsTrigger value="volumes">Volumes</TabsTrigger>
           <TabsTrigger value="terminal">Terminal</TabsTrigger>
+          <TabsTrigger value="alerts">Alertas</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
@@ -160,6 +162,10 @@ export function ApplicationDetailPage() {
 
         <TabsContent value="terminal" className="pt-5">
           {app && <TerminalTab applicationId={app.id} />}
+        </TabsContent>
+
+        <TabsContent value="alerts" className="pt-5">
+          {app && <AlertsTab applicationId={app.id} />}
         </TabsContent>
 
         <TabsContent value="settings" className="pt-5">

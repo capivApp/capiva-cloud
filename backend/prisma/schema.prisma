@@ -340,6 +340,7 @@ model Application {
   depsAsTarget  ServiceDependency[] @relation("DepTarget")
   volumes       Volume[]
   uptimeChecks  UptimeCheck[]
+  alertRules    AlertRule[]
 
   @@map("applications")
 }
@@ -711,6 +712,46 @@ model UptimeResult {
 
   @@index([uptimeCheckId])
   @@map("uptime_results")
+}
+
+enum AlertMetric {
+  CPU
+  MEMORY
+  ERROR_RATE_5XX
+  LATENCY_P95
+}
+
+enum AlertOperator {
+  GT
+  LT
+}
+
+enum AlertState {
+  OK
+  FIRING
+}
+
+/// Regra de alerta por métrica de uma aplicação. O scheduler avalia a métrica
+/// na janela e guarda o estado atual: `alert.triggered`/`alert.resolved` saem só
+/// na TRANSIÇÃO de estado, pelos canais que escutam esses eventos.
+model AlertRule {
+  id               String        @id @default(cuid())
+  applicationId    String
+  metric           AlertMetric
+  operator         AlertOperator @default(GT)
+  threshold        Float
+  windowMinutes    Int           @default(5)
+  enabled          Boolean       @default(true)
+  state            AlertState    @default(OK)
+  lastValue        Float?
+  lastEvaluatedAt  DateTime?
+  lastTransitionAt DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  application      Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("alert_rules")
 }
 
 /// Lease de liderança do control plane. Com N réplicas do backend, tarefas

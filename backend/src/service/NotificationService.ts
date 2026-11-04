@@ -15,7 +15,15 @@ export interface CreateChannelInput {
 }
 
 /** Eventos que disparam notificações (cada canal escolhe quais escuta). */
-export const NOTIFICATION_EVENTS = ["deploy.succeeded", "deploy.failed", "deploy.rollback", "downtime", "recovery"] as const;
+export const NOTIFICATION_EVENTS = [
+  "deploy.succeeded",
+  "deploy.failed",
+  "deploy.rollback",
+  "downtime",
+  "recovery",
+  "alert.triggered",
+  "alert.resolved",
+] as const;
 
 /**
  * Notificações: N canais por organização (vários do mesmo tipo, cada um com

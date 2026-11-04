@@ -29,6 +29,27 @@ export class LokiAdapter {
     }
   }
 
+  /**
+   * Linhas reais da janela `[agora - windowMs, agora]`. Diferente de
+   * `queryBySelector`, NUNCA simula: devolve `null` sem Loki ou em erro, porque
+   * quem avalia alerta não pode disparar (nem resolver) com dado inventado.
+   */
+  async queryWindow(selector: string, windowMs: number, limit = 5000): Promise<LogLine[] | null> {
+    if (!this.baseUrl) return null;
+    const end = Date.now() * 1e6;
+    const start = (Date.now() - windowMs) * 1e6;
+    const url = `${this.baseUrl}/loki/api/v1/query_range?query=${encodeURIComponent(selector)}&limit=${limit}&start=${start}&end=${end}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = (await res.json()) as any;
+      const streams = data?.data?.result ?? [];
+      return streams.flatMap((s: any) => (s.values ?? []).map((v: [string, string]) => ({ ts: v[0], line: v[1] })));
+    } catch {
+      return null;
+    }
+  }
+
   private simulated(): LogLine[] {
     const now = new Date();
     return [

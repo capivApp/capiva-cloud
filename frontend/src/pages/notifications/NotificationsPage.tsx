@@ -30,6 +30,8 @@ const EVENT_LABELS: Record<string, string> = {
   "deploy.rollback": "Rollback",
   downtime: "Indisponibilidade",
   recovery: "Recuperação",
+  "alert.triggered": "Alerta disparado",
+  "alert.resolved": "Alerta resolvido",
 };
 
 /** Notificações: N canais por tipo, cada um com seus eventos. Pronto p/ push (Expo). */

@@ -24,7 +24,7 @@ describe("tenantScope", () => {
 
   it("recursos filhos da aplicação atravessam a cadeia completa", () => {
     const expected = { application: { project: { organizationId: ORG } } };
-    for (const model of ["volume", "domain", "envVar", "deployment", "uptimeCheck", "scalingPolicy"] as const) {
+    for (const model of ["volume", "domain", "envVar", "deployment", "uptimeCheck", "scalingPolicy", "alertRule"] as const) {
       expect(inTenant(ORG, () => tenantScope(model))).toEqual(expected);
     }
   });
