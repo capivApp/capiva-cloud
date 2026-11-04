@@ -187,6 +187,25 @@ describe("cópia da aplicação para o preview", () => {
     expect(semDominio.sourceConfig.domain).toBeUndefined();
   });
 
+  // A cota contou NANO com uma réplica: herdar as réplicas da origem furava a cota.
+  test("réplicas, marcador do capiva.json e gatilho de deploy da origem não vão para o preview", () => {
+    const origem = makeApp({
+      sourceConfig: {
+        repo: "acme/api",
+        replicas: 4,
+        capivaJson: { path: "capiva.json", ref: "main", fields: ["replicas"], envKeys: [] },
+        deployTrigger: "TAG",
+        tagPattern: "v*",
+      },
+    });
+    const cfg = buildPreviewInput(origem, makeEvent(), { domain: undefined, ttlDays: 7 }).sourceConfig;
+    expect(cfg.replicas).toBeUndefined();
+    expect(cfg.capivaJson).toBeUndefined();
+    expect(cfg.deployTrigger).toBeUndefined();
+    expect(cfg.tagPattern).toBeUndefined();
+    expect(cfg.repo).toBe("acme/api");
+  });
+
   test("domínio da origem não é copiado", () => {
     const comDominio = buildPreviewInput(makeApp({ sourceConfig: { repo: "acme/api", domain: "api.acme.com" } }), makeEvent(), { domain: undefined, ttlDays: 7 });
     expect(comDominio.sourceConfig.domain).toBeUndefined();
@@ -218,6 +237,7 @@ const makeOps = (existing: Application | null = null) => {
     deployPreview: mock(async () => undefined),
     destroyPreview: mock(async () => undefined),
     notify: mock(async () => undefined),
+    notifyFailure: mock(async () => undefined),
     previewUrlOf: mock(() => "https://pr-42-api.preview.capiva.cloud"),
   } satisfies PreviewOperations;
   return { ops, preview };
@@ -230,6 +250,17 @@ describe("strategy por ação do PR", () => {
     expect(ops.createPreview).toHaveBeenCalledTimes(1);
     expect(ops.deployPreview).toHaveBeenCalledWith(preview, expect.objectContaining({ number: 42 }));
     expect(ops.notify).toHaveBeenCalledWith(expect.objectContaining({ number: 42 }), "https://pr-42-api.preview.capiva.cloud");
+  });
+
+  // Preview recusado pela cota sumia em silêncio: o PR precisa saber por quê.
+  test("opened recusado na criação avisa o PR com o motivo e não faz deploy", async () => {
+    const { ops } = makeOps();
+    ops.createPreview.mockImplementation(async () => Promise.reject(new Error("A cota de CPU do ambiente foi excedida.")));
+    const erro = await createPreviewActionStrategy("opened")!.apply(makeApp(), makeEvent(), ops).catch((e: Error) => e);
+    expect(erro).toBeInstanceOf(Error);
+    expect(ops.notifyFailure).toHaveBeenCalledWith(expect.objectContaining({ number: 42 }), "A cota de CPU do ambiente foi excedida.");
+    expect(ops.deployPreview).not.toHaveBeenCalled();
+    expect(ops.notify).not.toHaveBeenCalled();
   });
 
   test("reopened se comporta como opened", async () => {

@@ -28,6 +28,26 @@ export const buildPreviewMeta = (event: PullRequestEvent) => ({
 });
 
 /**
+ * Campos do `sourceConfig` da origem que o preview NÃO herda: domínio e build
+ * args são remontados; réplicas furariam a cota (que contou NANO com uma);
+ * o marcador do capiva.json descreve o último deploy da ORIGEM; gatilho e
+ * padrão de tag não valem com o deploy por push desligado.
+ */
+const stripCamposDaOrigem = (sourceConfig: unknown): Record<string, unknown> => {
+  const {
+    domain: _domain,
+    previews: _previews,
+    buildArgs: _buildArgs,
+    replicas: _replicas,
+    capivaJson: _capivaJson,
+    deployTrigger: _deployTrigger,
+    tagPattern: _tagPattern,
+    ...cfg
+  } = (sourceConfig ?? {}) as Record<string, unknown>;
+  return cfg;
+};
+
+/**
  * Cópia da aplicação de origem para o PR. Mesmo projeto e ambiente (o nome
  * `pr-<n>-` evita colisão no namespace), branch do PR, perfil NANO, uma réplica
  * e sem HPA (a ScalingPolicy não é copiada). O deploy por push fica DESLIGADO:
@@ -39,7 +59,8 @@ export const buildPreviewInput = (
   event: PullRequestEvent,
   settings: PreviewSettings,
 ): CreateApplicationInput => {
-  const { domain: _domain, previews: _previews, buildArgs, ...cfg } = (origem.sourceConfig ?? {}) as Record<string, unknown>;
+  const cfg = stripCamposDaOrigem(origem.sourceConfig);
+  const { buildArgs } = (origem.sourceConfig ?? {}) as Record<string, unknown>;
   const name = buildPreviewName(event.number, origem.name);
   const host = buildPreviewHost(name, settings.domain);
   const tags = Array.isArray(origem.tags) ? origem.tags.map(String) : [];

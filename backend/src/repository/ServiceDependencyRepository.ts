@@ -36,6 +36,15 @@ export class ServiceDependencyRepository extends BaseRepository {
     return this.tx.serviceDependency.findMany({ where: { sourceId, ...this.edgeScope } });
   }
 
+  /** Ambientes (sem repetição) das apps de que a origem depende: onde a NetworkPolicy libera a origem. */
+  async listTargetEnvironmentIds(sourceId: string): Promise<string[]> {
+    const rows = await this.tx.serviceDependency.findMany({
+      where: { sourceId, ...this.edgeScope },
+      select: { target: { select: { environmentId: true } } },
+    });
+    return [...new Set(rows.map((row) => row.target.environmentId))];
+  }
+
   /** Arestas que chegam em apps do ambiente, com o namespace de onde a origem vem. */
   listIncomingForEnvironment(environmentId: string) {
     const application = this.scope("application");

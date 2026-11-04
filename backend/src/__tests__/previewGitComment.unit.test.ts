@@ -5,7 +5,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { PullRequestEvent } from "@infra/realtime/GitEventBus";
 import type { GitService } from "@service/GitService";
-import { GitCommentPreviewNotifier, buildPreviewComment } from "@service/preview/GitCommentPreviewNotifier";
+import { GitCommentPreviewNotifier, buildPreviewComment, buildPreviewFailureComment } from "@service/preview/GitCommentPreviewNotifier";
 
 const event: PullRequestEvent = {
   connectionId: "conn-1",
@@ -32,6 +32,15 @@ describe("buildPreviewComment", () => {
   });
 });
 
+describe("buildPreviewFailureComment", () => {
+  test("diz que o preview não foi criado e o motivo, com um ponto final só", () => {
+    expect(buildPreviewFailureComment(event, "A cota de CPU do ambiente foi excedida.")).toBe(
+      "Não foi possível criar o preview do PR #42: A cota de CPU do ambiente foi excedida.",
+    );
+    expect(buildPreviewFailureComment(event, "cota excedida")).toBe("Não foi possível criar o preview do PR #42: cota excedida.");
+  });
+});
+
 describe("GitCommentPreviewNotifier", () => {
   test("comenta no PR da conexão e da organização do evento", async () => {
     const commentOnPullRequest = mock(async () => undefined);
@@ -40,6 +49,17 @@ describe("GitCommentPreviewNotifier", () => {
     await notifier.notify(event, "https://pr-42-api.preview.local");
 
     expect(commentOnPullRequest).toHaveBeenCalledWith("conn-1", "acme/api", 42, "Preview do PR #42 no ar: https://pr-42-api.preview.local", {
+      organizationId: "org-1",
+    });
+  });
+
+  test("falha na criação vira comentário no PR", async () => {
+    const commentOnPullRequest = mock(async () => undefined);
+    const notifier = new GitCommentPreviewNotifier({ commentOnPullRequest } as unknown as GitService);
+
+    await notifier.notifyFailure(event, "cota excedida");
+
+    expect(commentOnPullRequest).toHaveBeenCalledWith("conn-1", "acme/api", 42, "Não foi possível criar o preview do PR #42: cota excedida.", {
       organizationId: "org-1",
     });
   });

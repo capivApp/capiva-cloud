@@ -23,9 +23,9 @@ bootstrap/previewDeployments.ts ── gitEvents.onPullRequest
 
 | Ação                     | Strategy   | O que faz |
 |--------------------------|------------|-----------|
-| `opened`, `reopened`     | Create     | Cria o preview (ou reaproveita, em webhook reentregue), dispara o deploy com o sha do head e avisa o PR com a URL. |
+| `opened`, `reopened`     | Create     | Cria o preview (ou reaproveita, em webhook reentregue), dispara o deploy com o sha do head e avisa o PR com a URL. Criação recusada (ex.: cota do ambiente, 422) avisa o PR com o motivo (`notifyFailure`) e o erro segue para o log; não há deploy. |
 | `synchronized`           | Redeploy   | Regrava os metadados do PR (sha) e dispara o deploy. Sem preview (previews ligados com o PR já aberto), cai no Create. Não avisa de novo. |
-| `closed`, `merged`       | Destroy    | `ApplicationService.remove` (cluster + banco) e avisa o PR com `null`. |
+| `closed`, `merged`       | Destroy    | `ApplicationService.remove` (cluster + banco), ressincroniza a NetworkPolicy dos ambientes de que o preview dependia e avisa o PR com `null`. |
 
 ## Elegibilidade (`@service/preview/previewEligibility`)
 
@@ -50,13 +50,25 @@ bootstrap/previewDeployments.ts ── gitEvents.onPullRequest
 - Perfil `NANO`, rollout `ROLLING`, **1 réplica** (`ApplicationService.reconcile` usa 1
   réplica por padrão quando `previewOfId` está preenchido), sem HPA (a `ScalingPolicy`
   não é copiada).
-- Variáveis copiadas linha a linha, preservando `secret` (valor continua cifrado) e a
-  origem (`MANUAL`/`INJECTED`). Build args copiados. Tags da origem + `preview`.
+- Campos do `sourceConfig` da origem que **não** vão para o preview: `domain`, `previews`,
+  `buildArgs` (remontados), `replicas` (a cota contou NANO com 1 réplica; herdar as
+  réplicas furava a cota), `capivaJson` (marcador do último deploy da ORIGEM),
+  `deployTrigger` e `tagPattern` (sem efeito com o deploy por push desligado).
+- Variáveis copiadas linha a linha, preservando `secret` (valor continua cifrado), a
+  origem (`MANUAL`/`INJECTED`/`EXTERNAL`) e, nas `EXTERNAL`, o cofre (`secretStoreId`) e
+  a `remoteProperty`: sem o cofre o `containerEnv` descartaria a variável e o preview
+  subiria sem o segredo. Build args copiados. Tags da origem + `preview`.
+- Dependências (`ServiceDependency`) em que a origem é a ponta de origem são copiadas
+  para o preview (mesmo destino, mesmas `injectedKeys`), e a NetworkPolicy de cada
+  ambiente de destino é ressincronizada: com isolamento de rede, dependência em outro
+  ambiente só liberava o nome da origem. Na remoção (PR fechado, tela ou TTL) o cascade
+  apaga as arestas e a NetworkPolicy desses ambientes é ressincronizada.
+- O deploy leva `origin: { commitSha: headSha }`, então reporta o status do commit no PR.
 - Domínio `pr-<n>-<app>.<CAPIVA_PREVIEW_DOMAIN>`. TLS segue a origem; certificado
   enviado (`UPLOADED`) cobre o domínio da origem, não o do preview, então vira
   Let's Encrypt. Origem sem TLS continua sem TLS.
-- Volumes, dependências (`ServiceDependency`), uptime checks e domínios da origem **não**
-  são copiados.
+- Volumes, uptime checks, domínios da origem e dependências em que a origem é o
+  DESTINO **não** são copiados.
 - Metadados do PR em `sourceConfig.preview` (`number`, `title`, `sourceBranch`,
   `targetBranch`, `headSha`, `author`, `url`).
 
@@ -122,8 +134,9 @@ primeiro PR. Falha no aviso é logada e não interrompe o preview.
   bancos da aplicação original. Migration rodando no boot do preview altera o banco da
   origem. Até existir o clone, ligue previews só em aplicações cujo banco aceite isso
   (homologação), ou sobrescreva as variáveis no preview.
-- As NetworkPolicies do banco liberam as aplicações dependentes pelo nome; o preview não
-  é dependente cadastrado e pode ter o acesso ao banco bloqueado.
+- Remover a ORIGEM remove os previews por `ApplicationService.remove`, que não
+  ressincroniza a NetworkPolicy dos ambientes de destino das dependências do preview:
+  a liberação pelo nome do preview fica até o próximo sync daquele ambiente.
 - Destruir por TTL não avisa o PR (o scheduler não tem o evento).
 - Barramento em memória: com várias réplicas, segue valendo porque o webhook chega a uma
   só. Trocar por Redis pub/sub mantém a interface.

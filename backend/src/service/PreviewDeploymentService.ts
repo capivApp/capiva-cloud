@@ -1,8 +1,10 @@
 import { Injectable } from "@di/index";
 import { ApplicationRepository } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
+import { ServiceDependencyRepository } from "@repository/ServiceDependencyRepository";
 import { ApplicationService } from "@service/ApplicationService";
 import { DeploymentService } from "@service/DeploymentService";
+import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { PreviewNotifier } from "@service/preview/PreviewNotifier";
 import { createPreviewActionStrategy, type PreviewOperations } from "@service/preview/previewAction.strategy";
 import { buildPreviewInput, buildPreviewMeta } from "@service/preview/previewInput";
@@ -32,6 +34,8 @@ export class PreviewDeploymentService {
   constructor(
     private readonly apps: ApplicationRepository,
     private readonly envVars: EnvVarRepository,
+    private readonly deps: ServiceDependencyRepository,
+    private readonly networkPolicies: NetworkPolicyService,
     private readonly appService: ApplicationService,
     private readonly deployments: DeploymentService,
     private readonly notifier: PreviewNotifier,
@@ -55,7 +59,7 @@ export class PreviewDeploymentService {
   async destroyPreview(applicationId: string, previewId: string, tenant: Tenant): Promise<void> {
     const preview = await this.appService.getById(previewId, tenant);
     if (preview.previewOfId !== applicationId) throw HttpError.notFound("Preview não encontrado.");
-    await this.appService.remove(previewId, tenant);
+    await this.removePreview(previewId, tenant);
   }
 
   /** Limpeza por TTL: destrói previews sem atividade há mais de `CAPIVA_PREVIEW_TTL_DAYS`. */
@@ -65,7 +69,7 @@ export class PreviewDeploymentService {
     const expirados = previews.filter((preview) => isPreviewExpirado(preview, now, ttlDays));
 
     for (const preview of expirados) {
-      await this.appService.remove(preview.id, { organizationId: preview.project.organizationId }).catch(logError(`ttl ${preview.name}`));
+      await this.removePreview(preview.id, { organizationId: preview.project.organizationId }).catch(logError(`ttl ${preview.name}`));
     }
     return expirados.length;
   }
@@ -78,10 +82,12 @@ export class PreviewDeploymentService {
       deployPreview: async (preview, event) => {
         // A versão vira a tag da imagem: sem sha no evento, uma tag única do PR.
         const version = event.headSha.slice(0, 7) || `pr-${event.number}-${Date.now()}`;
-        await this.deployments.trigger(preview.id, version, tenant);
+        // A origem do commit é o que faz o deploy reportar o status no PR.
+        await this.deployments.trigger(preview.id, version, tenant, undefined, { commitSha: event.headSha || undefined });
       },
-      destroyPreview: (preview) => this.appService.remove(preview.id, tenant),
+      destroyPreview: (preview) => this.removePreview(preview.id, tenant),
       notify: (event, previewUrl) => this.notifier.notify(event, previewUrl).catch(logError("aviso no PR")),
+      notifyFailure: (event, message) => this.notifier.notifyFailure(event, message).catch(logError("aviso no PR")),
       previewUrlOf: (preview) => buildPreviewUrl(buildPreviewHost(preview.name, readPreviewSettings().domain)),
     };
   }
@@ -89,7 +95,42 @@ export class PreviewDeploymentService {
   private async createPreview(origem: Application, event: PullRequestEvent, tenant: Tenant): Promise<Application> {
     const preview = await this.appService.create(buildPreviewInput(origem, event, readPreviewSettings()), tenant);
     await this.copyEnvVars(origem.id, preview.id, tenant);
+    await this.copyDependencies(origem.id, preview.id, tenant);
     return preview;
+  }
+
+  /**
+   * As variáveis INJECTED já vieram com as env vars; falta a aresta. Sem ela,
+   * com isolamento de rede, a NetworkPolicy do destino em outro ambiente só
+   * libera o nome da origem e o preview não conecta.
+   */
+  private async copyDependencies(origemId: string, previewId: string, tenant: Tenant): Promise<void> {
+    const ambientes = await withTransaction(async () => {
+      const deps = await this.deps.listBySource(origemId);
+      for (const dep of deps) {
+        await this.deps.create({
+          sourceId: previewId,
+          targetId: dep.targetId,
+          injectedKeys: dep.injectedKeys ?? undefined,
+        });
+      }
+      return this.deps.listTargetEnvironmentIds(previewId);
+    }, { tenant });
+    await this.syncNetworkPolicies(ambientes, tenant);
+  }
+
+  /**
+   * O cascade do banco apaga as arestas do preview, mas a NetworkPolicy dos
+   * ambientes de destino continuaria liberando o nome dele até o próximo sync.
+   */
+  private async removePreview(previewId: string, tenant: Tenant): Promise<void> {
+    const ambientes = await withTransaction(() => this.deps.listTargetEnvironmentIds(previewId), { tenant });
+    await this.appService.remove(previewId, tenant);
+    await this.syncNetworkPolicies(ambientes, tenant);
+  }
+
+  private async syncNetworkPolicies(environmentIds: string[], tenant: Tenant): Promise<void> {
+    for (const environmentId of environmentIds) await this.networkPolicies.syncEnvironmentQuietly(environmentId, tenant);
   }
 
   /**
@@ -101,7 +142,16 @@ export class PreviewDeploymentService {
     return withTransaction(async () => {
       const vars = await this.envVars.listByApplication(origemId);
       for (const v of vars) {
-        await this.envVars.upsert({ applicationId: previewId, key: v.key, value: v.value, secret: v.secret, source: v.source });
+        await this.envVars.upsert({
+          applicationId: previewId,
+          key: v.key,
+          value: v.value,
+          secret: v.secret,
+          source: v.source,
+          // Sem o cofre, a variável EXTERNAL sai do container (containerEnv) e o preview sobe sem o segredo.
+          secretStoreId: v.secretStoreId,
+          remoteProperty: v.remoteProperty,
+        });
       }
     }, { tenant });
   }

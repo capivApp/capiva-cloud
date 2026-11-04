@@ -14,6 +14,7 @@ export interface PreviewOperations {
   deployPreview(preview: Application, event: PullRequestEvent): Promise<void>;
   destroyPreview(preview: Application): Promise<void>;
   notify(event: PullRequestEvent, previewUrl: string | null): Promise<void>;
+  notifyFailure(event: PullRequestEvent, message: string): Promise<void>;
   previewUrlOf(preview: Application): string | null;
 }
 
@@ -23,15 +24,25 @@ export interface PreviewActionStrategy {
   apply(origem: Application, event: PullRequestEvent, ops: PreviewOperations): Promise<void>;
 }
 
+/**
+ * Criação recusada (cota do ambiente, nome em uso): o PR recebe o motivo e o
+ * erro segue para o log, senão o preview sumiria em silêncio.
+ */
+const createOrNotifyFailure = (origem: Application, event: PullRequestEvent, ops: PreviewOperations): Promise<Application> =>
+  ops.createPreview(origem, event).catch(async (error: Error) => {
+    await ops.notifyFailure(event, error.message);
+    throw error;
+  });
+
 /** opened/reopened: cria (ou reaproveita, em webhook reentregue), faz o deploy e avisa o PR. */
 class CreatePreviewStrategy implements PreviewActionStrategy {
   isOrigemElegivel = isOrigemElegivelParaPreview;
 
   async apply(origem: Application, event: PullRequestEvent, ops: PreviewOperations): Promise<void> {
     const existing = await ops.findPreview(origem, event);
-    const preview = existing ?? (await ops.createPreview(origem, event));
+    if (existing) return ops.deployPreview(existing, event);
+    const preview = await createOrNotifyFailure(origem, event, ops);
     await ops.deployPreview(preview, event);
-    if (existing) return;
     await ops.notify(event, ops.previewUrlOf(preview));
   }
 }
