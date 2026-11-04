@@ -31,8 +31,16 @@ The documentation is intended to serve as the primary source of technical knowle
 | 32  | [Production Hardening](./32-hardening-producao.md)                              | Production-readiness sweep: tenant isolation, secrets, HA primitives and operator actions    |
 | 33  | [Build Configuration](./33-configuracao-de-build.md)                            | Custom Dockerfile path, monorepo build context, auto-deploy toggle and watch paths           |
 | 34  | [Build Strategies](./34-build-strategies.md)                                    | One build Job per source: Kaniko, Nixpacks, Railpack (BuildKit), Buildpacks, Static, Compose |
+| 35  | [Alerts & Notification Events](./35-alertas-e-eventos.md)                       | Downtime/recovery/rollback events and metric alert rules (CPU, memory, 5xx, p95 latency)    |
+| 36  | [Git Events & Commit Status](./36-eventos-git-e-status.md)                      | PR/MR, tag and release webhooks, tag-based deploys and commit status on the Git provider    |
+| 37  | [Preview Deployments](./37-preview-deployments.md)                              | Ephemeral app per pull request, PR comment with the URL and TTL cleanup                     |
+| 38  | [Backup Restore](./38-restore-de-backup.md)                                     | One-click restore of database (in place or as a copy) and volume backups                    |
 | 39  | [Log Search](./39-busca-de-logs.md)                                              | LogQL builder, level/pod/time filters, log download (.txt/.ndjson) and shareable filter URLs |
+| 40  | [Image Scan (Trivy)](./40-scan-de-imagem-trivy.md)                              | Vulnerability scan after build, per-app blocking policy and CVE summary per deploy          |
 | 41  | [NetworkPolicy & External Secrets](./41-network-policy-e-external-secrets.md)   | Default per-namespace NetworkPolicy and env vars from an external vault (ESO)               |
+| 42  | [Quotas & Costs](./42-quotas-e-custos.md)                                       | Per-environment ResourceQuota/LimitRange, early quota checks and estimated monthly cost     |
+| 43  | [Mobile Actions](./43-mobile-acoes.md)                                          | Redeploy, rollback, scaling and restart from the app, push deep links                       |
+| 44  | [capiva.json & CLI](./44-capiva-json-e-cli.md)                                  | Infrastructure as code per repository and the `capiva` command-line tool                    |
 
 ## Documentation Principles
 

@@ -56,7 +56,7 @@ Then:
 ```bash
 cd backend
 bun run prisma:generate
-bun run prisma:db-push      # creates all tables (Phase 3 models included)
+bun run prisma:migrate      # applies the migrations (never db push)
 bun src/index.ts            # API on :3000  (Scalar docs at /docs)
 ```
 

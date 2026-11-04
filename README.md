@@ -76,6 +76,16 @@ Focus on building software. Let the platform handle the infrastructure.
 - Organizations, teams and environments.
 - Multi-cluster architecture.
 - Secure by default.
+- Real builds for every source: Dockerfile (Kaniko), Nixpacks, Railpack, Cloud Native Buildpacks, static sites and Docker Compose services.
+- Preview deployments per pull request, with the URL commented on the PR and automatic cleanup.
+- Deploys triggered by branch push, tag or release, with commit status reported back to GitHub, GitLab and Gitea.
+- Vulnerability scan of every image with Trivy, with an optional policy that blocks critical or high CVEs.
+- Metric alerts (CPU, memory, 5xx rate, p95 latency) plus downtime, recovery and rollback notifications.
+- Log search with text, regex, level, pod and time filters, shareable links and download.
+- One-click restore of database and volume backups, in place or as a copy.
+- Default NetworkPolicy isolation per environment and env vars from external vaults (External Secrets).
+- Per-environment quotas and estimated monthly cost per app, project and organization.
+- Infrastructure as code with `capiva.json` and the `capiva` CLI.
 
 ### Distributed Storage
 
@@ -90,6 +100,7 @@ capiva-cloud/
 ├── backend/    # Bun + Express + @mateusseiboth/ts-decorators + Prisma 7
 ├── frontend/   # React + TanStack Query + Zustand + React Hook Form + Zod
 ├── mobile/     # Expo (Expo Go) + NativeWind + React Native Reusables
+├── cli/        # `capiva` command-line tool (Bun, compiled to a single binary)
 └── docs/       # Architecture, workflows and technical documentation
 ```
 
@@ -136,6 +147,10 @@ docker compose -f docker-compose.deploy.yml up -d --build
 | `ORIGIN_WHITELIST` | empty in prod | Extra CORS origins, comma-separated |
 | `CAPIVA_K8S_INSECURE_TLS` | `false` | Accept self-signed certs **only** on Kubernetes API server calls |
 
+Optional settings for previews (`CAPIVA_PREVIEW_DOMAIN`, `CAPIVA_PREVIEW_TTL_DAYS`), commit status links
+(`PUBLIC_URL`), cost estimates (`CAPIVA_PRICE_*`) and the build, scan and restore images are listed in
+[docs/20 — Environment variables](./docs/20-variaveis-de-ambiente.md) and in each feature's doc (34 to 44).
+
 > ⚠️ **Before running in production**, read [docs/32 — Hardening](./docs/32-hardening-producao.md).
 > Two steps are mandatory: rotate the JWT key pair (the previous private key was committed
 > to this repository's history) and replace the example `ENCRYPTION_KEY` — the backend
@@ -155,6 +170,37 @@ Two details matter when deploying:
 
 `backend/Dockerfile.deploy` runs `prisma migrate deploy` before starting the API, so the schema is applied
 on every rollout.
+
+## 🛠️ Development tooling
+
+All packages use TypeScript 7, **oxlint** for linting and **oxfmt** for formatting (no ESLint or
+Prettier). From the repository root:
+
+```bash
+bun run typecheck      # backend, frontend and cli
+bun run lint           # oxlint in backend (type-aware), frontend and mobile
+bun run format:check   # oxfmt --check in every package (bun run format to fix)
+bun run test           # backend, cli, frontend and mobile tests
+```
+
+Database changes always go through Prisma migrations (`bun run prisma:migrate`), never `db push`.
+See [docs/18 — Dev environment](./docs/18-dev-environment.md).
+
+## ⌨️ CLI and `capiva.json`
+
+Declare an application's build, resources, scaling, env vars, volumes and domains in a
+`capiva.json` at the repository root. It is read at the deployed commit and wins over the panel for
+the fields it declares. Drive the platform from the terminal with an API key (`cap_...`):
+
+```bash
+bun run build:cli                  # compiles cli/ into a single binary
+capiva login                       # stores the API URL and key in ~/.config/capiva/config.json
+capiva deploy my-app --wait        # follows the deploy progress
+capiva logs my-app -f
+capiva init                        # writes a capiva.json from an existing app
+```
+
+Details and examples in [docs/44 — capiva.json & CLI](./docs/44-capiva-json-e-cli.md).
 
 ## 📱 Mobile app (Expo Go)
 
