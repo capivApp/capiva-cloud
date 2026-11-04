@@ -74,11 +74,9 @@ export function allowPlatformManifest(namespace: string, platform: NetworkPolicy
   const namespaces = [
     ...new Set([...platform.ingressNamespaces, ...platform.monitoringNamespaces, ...platform.operatorNamespaces]),
   ];
-  return networkPolicy("capiva-allow-platform", namespace, {
-    podSelector: ALL_PODS,
-    policyTypes: ["Ingress"],
-    ingress: [{ from: namespaces.map(namespaceSelector) }],
-  });
+  // `from: []` numa regra libera QUALQUER origem: sem namespace, nenhuma regra.
+  const rules = namespaces.length ? [{ from: namespaces.map(namespaceSelector) }] : [];
+  return networkPolicy("capiva-allow-platform", namespace, { podSelector: ALL_PODS, policyTypes: ["Ingress"], ingress: rules });
 }
 
 export function allowEgressManifest(namespace: string): K8sManifest {

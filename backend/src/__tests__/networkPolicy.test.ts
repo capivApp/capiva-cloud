@@ -57,6 +57,11 @@ describe("allowPlatformManifest", () => {
     ]);
   });
 
+  it("sem namespace de plataforma não gera regra (from vazio liberaria qualquer origem)", () => {
+    const m = allowPlatformManifest("ns", { ingressNamespaces: [], monitoringNamespaces: [], operatorNamespaces: [] });
+    expect(spec(m).ingress).toEqual([]);
+  });
+
   it("não repete namespace citado em mais de uma categoria", () => {
     const m = allowPlatformManifest("ns", { ...PLATFORM, monitoringNamespaces: ["kube-system"] });
     expect(spec(m).ingress[0].from).toHaveLength(2);
