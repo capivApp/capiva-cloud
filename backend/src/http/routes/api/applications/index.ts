@@ -56,6 +56,7 @@ export const registry = (router: Router): void => {
   router.get("/:id/volumes/:volId/backups", ctrl.listVolumeBackups);
   router.post("/:id/volumes/:volId/backups", dev, ctrl.createVolumeBackup);
   router.post("/:id/volumes/:volId/backups/:backupId/restore", dev, ctrl.restoreVolumeBackup);
+  router.get("/:id/volumes/:volId/restores", ctrl.listVolumeRestores);
   router.delete("/:id/volumes/:volId", dev, ctrl.removeVolume);
   router.get("/:id/uptime-checks", ctrl.listUptimeChecks);
   router.post("/:id/uptime-checks", dev, ctrl.createUptimeCheck);

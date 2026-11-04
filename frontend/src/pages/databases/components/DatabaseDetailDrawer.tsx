@@ -7,7 +7,10 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDatabases, type DatabaseDetail } from "@/hooks/useDatabases";
-import { useDatabaseBackups } from "@/hooks/useDatabaseBackups";
+import { useDatabaseBackups, type DatabaseBackup } from "@/hooks/useDatabaseBackups";
+import { useDatabaseRestores } from "@/hooks/useBackupRestores";
+import { RestoreStatusList } from "@/components/backups/RestoreStatusList";
+import { RestoreBackupDrawer } from "@/pages/databases/components/RestoreBackupDrawer";
 import { useStorageProviders } from "@/hooks/useStorageProviders";
 import { useEventSource } from "@/hooks/useEventSource";
 import { cn } from "@/lib/utils";
@@ -22,8 +25,10 @@ interface DbLiveStatus {
 const bkVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
 
 /** Painel de backups manuais (dump → S3) de um banco PostgreSQL/MySQL. */
-function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: string }) {
-  const { backups, isLoading, run, isRunning, restore, isRestoring } = useDatabaseBackups(databaseId);
+function DatabaseBackupsPanel({ databaseId, databaseName, kind }: { databaseId: string; databaseName: string; kind: string }) {
+  const { backups, isLoading, run, isRunning } = useDatabaseBackups(databaseId);
+  const { restores, restore, isRestoring } = useDatabaseRestores(databaseId);
+  const [restoreTarget, setRestoreTarget] = useState<DatabaseBackup | null>(null);
   const { providers } = useStorageProviders();
   const [scope, setScope] = useState<"single" | "all">("single");
   const [mode, setMode] = useState<"full" | "incremental">("full");
@@ -32,24 +37,10 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
 
   if (!supported) return null;
 
-  // Confirmação inline (sem alert nativo): primeiro clique arma, segundo confirma.
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-
   const trigger = () =>
     run({ scope, mode, storageProviderId: storageProviderId || undefined })
       .then(() => toast.success("Backup disparado"))
       .catch((e) => toast.error((e as Error).message));
-
-  const runRestore = (backupId: string) => {
-    if (confirmId !== backupId) {
-      setConfirmId(backupId);
-      return;
-    }
-    setConfirmId(null);
-    restore(backupId)
-      .then(() => toast.success("Restauração iniciada"))
-      .catch((e) => toast.error((e as Error).message));
-  };
 
   // Restore só faz sentido para objetos exatos (escopo single → destino .sql.gz).
   const restorable = (b: { status: string; destination: string | null }) => b.status === "completed" && Boolean(b.destination?.endsWith(".sql.gz"));
@@ -89,14 +80,23 @@ function DatabaseBackupsPanel({ databaseId, kind }: { databaseId: string; kind: 
             <div className="flex items-center gap-2">
               <Badge variant={bkVariant(b.status)}>{b.status}</Badge>
               {restorable(b) && (
-                <Button variant={confirmId === b.id ? "destructive" : "ghost"} size="sm" onClick={() => runRestore(b.id)} disabled={isRestoring}>
-                  <RotateCcw className="size-3" /> {confirmId === b.id ? "Confirmar?" : "Restaurar"}
+                <Button variant="ghost" size="sm" onClick={() => setRestoreTarget(b)}>
+                  <RotateCcw className="size-3" /> Restaurar
                 </Button>
               )}
             </div>
           </div>
         ))}
       </div>
+      <RestoreStatusList restores={restores} />
+      <RestoreBackupDrawer
+        open={Boolean(restoreTarget)}
+        onClose={() => setRestoreTarget(null)}
+        databaseName={databaseName}
+        backupLabel={restoreTarget ? new Date(restoreTarget.startedAt).toLocaleString() : ""}
+        onSubmit={(input) => restore({ backupId: restoreTarget?.id ?? "", input })}
+        isSubmitting={isRestoring}
+      />
     </div>
   );
 }
@@ -243,7 +243,7 @@ export function DatabaseDetailDrawer({ open, onClose, id }: { open: boolean; onC
             <p className="text-xs text-muted-foreground">O agendamento é executado pela plataforma (cron). Configure os destinos S3 em Organização → Storage.</p>
           </div>
 
-          {id && <DatabaseBackupsPanel databaseId={id} kind={detail.kind} />}
+          {id && <DatabaseBackupsPanel databaseId={id} databaseName={detail.name} kind={detail.kind} />}
         </div>
       )}
     </Drawer>

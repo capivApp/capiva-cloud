@@ -7,13 +7,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VolumeEditor } from "@/pages/applications/components/VolumeEditor";
 import type { VolumeSpec } from "@/pages/applications/hooks/useApplications";
 import { useVolumes, type Volume } from "@/pages/applications/hooks/useVolumes";
-import { useVolumeBackups } from "@/pages/applications/hooks/useVolumeBackups";
+import { useVolumeBackups, type VolumeBackup } from "@/pages/applications/hooks/useVolumeBackups";
+import { useVolumeRestores } from "@/hooks/useBackupRestores";
+import { RestoreStatusList } from "@/components/backups/RestoreStatusList";
+import { RestoreVolumeDrawer } from "@/pages/applications/components/RestoreVolumeDrawer";
 
 const backupVariant = (s: string) => (s === "completed" ? "success" : s === "failed" ? "danger" : "warning");
 
 /** Painel de backups de um volume: criar snapshot→S3, listar e restaurar. */
 function VolumeBackups({ applicationId, volume }: { applicationId: string; volume: Volume }) {
-  const { backups, isLoading, create, isCreating, restore } = useVolumeBackups(applicationId, volume.id);
+  const { backups, isLoading, create, isCreating } = useVolumeBackups(applicationId, volume.id);
+  const { restores, restore, isRestoring } = useVolumeRestores(applicationId, volume.id);
+  const [restoreTarget, setRestoreTarget] = useState<VolumeBackup | null>(null);
   const run = (fn: () => Promise<unknown>, ok: string) => () => fn().then(() => toast.success(ok)).catch((e) => toast.error((e as Error).message));
 
   return (
@@ -32,11 +37,20 @@ function VolumeBackups({ applicationId, volume }: { applicationId: string; volum
           <div className="flex items-center gap-2">
             <Badge variant={backupVariant(b.status)}>{b.status}</Badge>
             {b.status === "completed" && (
-              <Button variant="ghost" size="sm" onClick={run(() => restore(b.id), "Restauração iniciada")}><RotateCcw className="size-3" /> Restaurar</Button>
+              <Button variant="ghost" size="sm" onClick={() => setRestoreTarget(b)}><RotateCcw className="size-3" /> Restaurar</Button>
             )}
           </div>
         </div>
       ))}
+      <RestoreStatusList restores={restores} showMode={false} />
+      <RestoreVolumeDrawer
+        open={Boolean(restoreTarget)}
+        onClose={() => setRestoreTarget(null)}
+        volumeName={volume.name}
+        backupLabel={restoreTarget ? new Date(restoreTarget.startedAt).toLocaleString() : ""}
+        onConfirm={() => restore(restoreTarget?.id ?? "")}
+        isSubmitting={isRestoring}
+      />
     </div>
   );
 }

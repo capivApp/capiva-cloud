@@ -18,7 +18,7 @@ export interface RunBackupInput {
   storageProviderId?: string;
 }
 
-/** Hook de backups de um banco gerenciado: listar e disparar (dump → S3). */
+/** Hook de backups de um banco gerenciado: listar e disparar (dump → S3). Restore: `useDatabaseRestores`. */
 export function useDatabaseBackups(databaseId: string | null) {
   const queryClient = useQueryClient();
   const key = ["database-backups", databaseId];
@@ -34,17 +34,10 @@ export function useDatabaseBackups(databaseId: string | null) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 
-  const restoreMut = useMutation({
-    mutationFn: (backupId: string) => api.post<DatabaseBackup>(`/databases/${databaseId}/backups/${backupId}/restore`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
-  });
-
   return {
     backups: list.data ?? [],
     isLoading: list.isLoading,
     run: runMut.mutateAsync,
     isRunning: runMut.isPending,
-    restore: restoreMut.mutateAsync,
-    isRestoring: restoreMut.isPending,
   };
 }

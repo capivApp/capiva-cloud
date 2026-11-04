@@ -42,20 +42,6 @@ export function databaseBackupCommand(kind: DbBackupKind, scope: DbBackupScope, 
 }
 
 /**
- * Comando de restore: baixa o dump (.sql.gz) do S3 (objeto em `$OBJECT_KEY`),
- * descomprime e reaplica no banco de destino (psql/mysql). Operação destrutiva
- * — sobrescreve o estado atual do banco.
- */
-export function databaseRestoreCommand(kind: DbBackupKind): string {
-  const setup = `set -e; mc alias set s3 "$S3_ENDPOINT" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" >/dev/null`;
-  const fetch = `mc cat "s3/$S3_BUCKET/$OBJECT_KEY" | gunzip`;
-  if (kind === "POSTGRESQL") {
-    return `${setup}; ${fetch} | psql "$SRC_URL"`;
-  }
-  return `${setup}; ${fetch} | mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME"`;
-}
-
-/**
  * Comando de retenção: remove do S3 os backups do prefixo mais antigos que
  * `retentionDays` dias (best-effort; não falha o Job se não houver o quê apagar).
  */

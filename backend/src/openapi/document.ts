@@ -9,6 +9,7 @@ import {
   createEnvironmentSchema,
   createGitConnectionSchema,
 } from "@schemas/resource.schema";
+import { buildRestorePaths } from "@openapi/restorePaths";
 
 /**
  * Documento OpenAPI 3.1 gerado a partir dos schemas Zod (fonte da verdade dos
@@ -263,6 +264,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         get: { tags: ["Databases"], summary: "Listar bancos do projeto", security: bearer, responses: { "200": { description: "OK" } } },
         post: { tags: ["Databases"], summary: "Criar banco gerenciado", security: bearer, requestBody: body(createDatabaseSchema), responses: { "201": { description: "Criado" } } },
       },
+      ...buildRestorePaths(bearer, orgHeader),
     },
   };
 }
