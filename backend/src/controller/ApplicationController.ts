@@ -5,7 +5,7 @@ import { EnvVarService } from "@service/EnvVarService";
 import { DomainService } from "@service/DomainService";
 import { ScalingService } from "@service/ScalingService";
 import { DeploymentService } from "@service/DeploymentService";
-import { DependencyService } from "@service/DependencyService";
+import { DependencyService, type EnvMapping } from "@service/DependencyService";
 import { RolloutService } from "@service/RolloutService";
 import { VolumeBackupService } from "@service/VolumeBackupService";
 import { VolumeRestoreService } from "@service/VolumeRestoreService";
@@ -101,8 +101,8 @@ export class ApplicationController {
   connectDependency = async (req: Request, res: Response): Promise<void> => {
     const targetId = req.body?.targetId as string;
     if (!targetId) throw HttpError.badRequest("targetId é obrigatório.");
-    const mappings = req.body?.mappings as { key: string; form: string }[] | undefined;
-    res.status(201).json(await this.dependencies.connect(String(req.params.id), targetId, mappings as any, org(req)));
+    const mappings = req.body?.mappings as EnvMapping[] | undefined;
+    res.status(201).json(await this.dependencies.connect(String(req.params.id), targetId, mappings, org(req)));
   };
 
   disconnectDependency = async (req: Request, res: Response): Promise<void> => {

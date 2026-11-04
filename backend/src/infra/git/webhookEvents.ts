@@ -45,8 +45,8 @@ export interface PullRequestWebhookEvent {
 
 export type GitWebhookEvent = PushWebhookEvent | TagWebhookEvent | ReleaseWebhookEvent | PullRequestWebhookEvent;
 
-// Payload de terceiro: o formato é conferido campo a campo nos parsers.
-type Payload = Record<string, any>;
+// Payload de terceiro: nada é confiado, cada campo é lido por `at` e estreitado na folha.
+type Payload = Record<string, unknown>;
 type EventParser = (body: Payload) => GitWebhookEvent | null;
 
 interface ProviderWebhookStrategy {
@@ -66,14 +66,19 @@ export function readGitEventName(headers: Record<string, string | string[] | und
 
 const isZeroSha = (sha: string): boolean => /^0+$/.test(sha);
 const asString = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
+const isPayload = (body: unknown): body is Payload => typeof body === "object" && body !== null && !Array.isArray(body);
+const objectOf = (value: unknown): Payload | undefined => (isPayload(value) ? value : undefined);
+const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+/** Desce pelo caminho de chaves; qualquer degrau que não seja objeto encerra em `undefined`. */
+const at = (value: unknown, ...path: string[]): unknown => path.reduce<unknown>((current, key) => objectOf(current)?.[key], value);
 
 /**
  * Arquivos tocados pelo push. GitHub, GitLab e Gitea usam o mesmo formato de
  * commit (`added`/`modified`/`removed`), então uma leitura só cobre os três.
  */
 function changedPathsOf(body: Payload): string[] {
-  const commits: Payload[] = Array.isArray(body.commits) ? body.commits : [];
-  const files = commits.flatMap((c) => [...(c?.added ?? []), ...(c?.modified ?? []), ...(c?.removed ?? [])]);
+  const files = listOf(body.commits).flatMap((c) => [...listOf(at(c, "added")), ...listOf(at(c, "modified")), ...listOf(at(c, "removed"))]);
   return [...new Set(files.filter((f): f is string => typeof f === "string"))];
 }
 
@@ -97,14 +102,14 @@ function parseRefEvent(body: Payload, sha: string | undefined, repo: string | un
 // ----------------------------- GitHub / Gitea -----------------------------
 
 const parseGitHubStylePush: EventParser = (body) =>
-  parseRefEvent(body, asString(body.after) ?? asString(body.head_commit?.id), asString(body.repository?.full_name));
+  parseRefEvent(body, asString(body.after) ?? asString(at(body, "head_commit", "id")), asString(at(body, "repository", "full_name")));
 
 /** Só `published` gera versão nova; rascunho, edição e remoção não. */
 const parseGitHubStyleRelease: EventParser = (body) => {
-  const release: Payload | undefined = body.release;
+  const release = objectOf(body.release);
   const tag = asString(release?.tag_name);
   if (body.action !== "published" || !tag || release?.draft === true) return null;
-  return { kind: "release", tag, name: asString(release?.name), repo: asString(body.repository?.full_name) };
+  return { kind: "release", tag, name: asString(release?.name), repo: asString(at(body, "repository", "full_name")) };
 };
 
 /** Ações de PR que mudam o código ou o ciclo de vida; o resto (labeled, assigned…) é ignorado. */
@@ -117,18 +122,18 @@ const GITHUB_STYLE_PR_ACTIONS: Record<string, (pr: Payload) => PullRequestAction
 };
 
 const parseGitHubStylePullRequest: EventParser = (body) => {
-  const pr: Payload | undefined = body.pull_request;
+  const pr = objectOf(body.pull_request);
   const toAction = strategyFor(GITHUB_STYLE_PR_ACTIONS, body.action);
   if (!pr || !toAction) return null;
   return buildPullRequest({
     action: toAction(pr),
     number: Number(body.number ?? pr.number),
     title: asString(pr.title) ?? "",
-    repo: asString(body.repository?.full_name) ?? asString(pr.base?.repo?.full_name),
-    sourceBranch: asString(pr.head?.ref),
-    targetBranch: asString(pr.base?.ref),
-    headSha: asString(pr.head?.sha),
-    author: asString(pr.user?.login),
+    repo: asString(at(body, "repository", "full_name")) ?? asString(at(pr, "base", "repo", "full_name")),
+    sourceBranch: asString(at(pr, "head", "ref")),
+    targetBranch: asString(at(pr, "base", "ref")),
+    headSha: asString(at(pr, "head", "sha")),
+    author: asString(at(pr, "user", "login")),
     url: asString(pr.html_url),
   });
 };
@@ -151,7 +156,7 @@ const GITHUB_STYLE_PARSERS: Record<string, EventParser> = {
 // ----------------------------- GitLab -----------------------------
 
 const parseGitLabRefEvent: EventParser = (body) =>
-  parseRefEvent(body, asString(body.checkout_sha) ?? asString(body.after), asString(body.project?.path_with_namespace));
+  parseRefEvent(body, asString(body.checkout_sha) ?? asString(body.after), asString(at(body, "project", "path_with_namespace")));
 
 const parseGitLabRelease: EventParser = (body) => {
   const tag = asString(body.tag);
@@ -160,8 +165,8 @@ const parseGitLabRelease: EventParser = (body) => {
     kind: "release",
     tag,
     name: asString(body.name),
-    sha: asString(body.commit?.id),
-    repo: asString(body.project?.path_with_namespace),
+    sha: asString(at(body, "commit", "id")),
+    repo: asString(at(body, "project", "path_with_namespace")),
   };
 };
 
@@ -175,18 +180,18 @@ const GITLAB_MR_ACTIONS: Record<string, (attrs: Payload) => PullRequestAction | 
 };
 
 const parseGitLabMergeRequest: EventParser = (body) => {
-  const attrs: Payload | undefined = body.object_attributes;
+  const attrs = objectOf(body.object_attributes);
   const action = strategyFor(GITLAB_MR_ACTIONS, attrs?.action)?.(attrs!);
   if (!attrs || !action) return null;
   return buildPullRequest({
     action,
     number: Number(attrs.iid),
     title: asString(attrs.title) ?? "",
-    repo: asString(body.project?.path_with_namespace),
+    repo: asString(at(body, "project", "path_with_namespace")),
     sourceBranch: asString(attrs.source_branch),
     targetBranch: asString(attrs.target_branch),
-    headSha: asString(attrs.last_commit?.id),
-    author: asString(body.user?.username),
+    headSha: asString(at(attrs, "last_commit", "id")),
+    author: asString(at(body, "user", "username")),
     url: asString(attrs.url),
   });
 };
@@ -228,8 +233,6 @@ const WEBHOOK_STRATEGIES: Record<GitProvider, ProviderWebhookStrategy> = {
     inferEvent: (body) => strategyFor(GITLAB_EVENT_BY_KIND, body.object_kind),
   },
 };
-
-const isPayload = (body: unknown): body is Payload => typeof body === "object" && body !== null && !Array.isArray(body);
 
 /** Normaliza um webhook do provedor. Evento desconhecido ou irrelevante devolve `null`. */
 export function parseGitWebhook(provider: GitProvider, eventName: string | undefined, body: unknown): GitWebhookEvent | null {

@@ -27,7 +27,9 @@
         "vars": "all",
         "varsIgnorePattern": "^_",
         "args": "after-used",
-        "argsIgnorePattern": "^_"
+        "argsIgnorePattern": "^_",
+        // `const { segredo, ...publico } = registro` é o jeito de NÃO devolver o campo cifrado.
+        "ignoreRestSiblings": true
       }
     ],
     "typescript/no-redundant-type-constituents": "off",

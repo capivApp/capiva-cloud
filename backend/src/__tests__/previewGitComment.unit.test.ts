@@ -48,6 +48,6 @@ describe("GitCommentPreviewNotifier", () => {
     const commentOnPullRequest = mock(async () => Promise.reject(new Error("token sem permissão")));
     const notifier = new GitCommentPreviewNotifier({ commentOnPullRequest } as unknown as GitService);
 
-    await expect(notifier.notify(event, null)).resolves.toBeUndefined();
+    expect(notifier.notify(event, null)).resolves.toBeUndefined();
   });
 });

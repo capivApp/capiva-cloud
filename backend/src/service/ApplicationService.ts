@@ -363,7 +363,7 @@ export class ApplicationService {
     input: { tlsMode: TlsModeManifest; tlsCertificateId?: string },
     tenant: { organizationId: string },
   ): Promise<Application> {
-    const app = await this.getById(id, tenant);
+    await this.getById(id, tenant);
     if (input.tlsMode === "UPLOADED" && !input.tlsCertificateId) {
       throw HttpError.badRequest("Selecione um certificado para o modo 'uploaded'.");
     }

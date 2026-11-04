@@ -15,6 +15,7 @@ import {
 } from "@infra/kubernetes/restoreManifests";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
+import { textOf } from "@functions/textOf";
 import type { KubeContext, ObservedStatus } from "@interface/integrations";
 import type { Application, Backup, BackupRestore } from "@prisma-generated/client";
 
@@ -25,7 +26,7 @@ const longhornContext = (ctx: KubeContext): KubeContext => ({ ...ctx, namespace:
 
 /** URL do backup no backupTarget. Em dry-run (sem cluster) não há Longhorn para perguntar. */
 const backupUrlOf = (observed: ObservedStatus, backupName: string): string =>
-  observed.message === "dry-run" ? `dry-run://${backupName}` : String(observed.raw?.url ?? "");
+  observed.message === "dry-run" ? `dry-run://${backupName}` : textOf(observed.raw?.url);
 
 const requireRestorableBackup = (backup: Backup | null, volumeId: string): Backup => {
   if (!backup || backup.volumeId !== volumeId) throw HttpError.notFound("Backup não encontrado.");

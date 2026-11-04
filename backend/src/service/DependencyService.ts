@@ -53,13 +53,13 @@ export class DependencyService {
   ): Promise<ServiceDependency> {
     if (sourceId === targetId) throw HttpError.badRequest("Uma aplicação não pode depender de si mesma.");
 
-    const { source, target, namespace } = await withTransaction(async () => {
+    const { target, namespace } = await withTransaction(async () => {
       const source = await this.apps.findById(sourceId);
       const target = await this.apps.findById(targetId);
       if (!source || !target) throw HttpError.notFound("Aplicação de origem ou destino não encontrada.");
       if (await this.deps.find(sourceId, targetId)) throw HttpError.conflict("Dependência já existe.");
       const env = await this.environments.findById(target.environmentId);
-      return { source, target, namespace: env?.namespace ?? "default" };
+      return { target, namespace: env?.namespace ?? "default" };
     }, { tenant });
 
     const effective: EnvMapping[] = mappings?.length

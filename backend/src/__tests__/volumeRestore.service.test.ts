@@ -4,9 +4,8 @@
  */
 import { beforeAll, describe, expect, it, mock } from "bun:test";
 
-mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
+await mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
 
-type Service = import("@service/VolumeRestoreService").VolumeRestoreService;
 let VolumeRestoreService: typeof import("@service/VolumeRestoreService").VolumeRestoreService;
 
 beforeAll(async () => {
@@ -70,8 +69,8 @@ describe("VolumeRestoreService", () => {
   });
 
   it("recusa backup de outro volume e backup não concluído", async () => {
-    await expect(makeService({ backup: { volumeId: "vol_9" } }).service.requestRestore("app_1", "vol_1", "bkp_000001", tenant)).rejects.toMatchObject({ status: 404 });
-    await expect(makeService({ backup: { status: "failed" } }).service.requestRestore("app_1", "vol_1", "bkp_000001", tenant)).rejects.toMatchObject({ status: 400 });
+    expect(makeService({ backup: { volumeId: "vol_9" } }).service.requestRestore("app_1", "vol_1", "bkp_000001", tenant)).rejects.toMatchObject({ status: 404 });
+    expect(makeService({ backup: { status: "failed" } }).service.requestRestore("app_1", "vol_1", "bkp_000001", tenant)).rejects.toMatchObject({ status: 400 });
   });
 
   it("lista com o andamento lido do Volume restaurado", async () => {

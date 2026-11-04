@@ -8,8 +8,10 @@ import { notificationAdapterFor } from "@infra/notifications/adapters";
 const originalFetch = globalThis.fetch;
 let fetchMock: ReturnType<typeof mock>;
 
-const sentBody = (): { to: string; data: Record<string, string> }[] =>
-  JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+const sentBody = (): { to: string; data: Record<string, string> }[] => {
+  const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+  return JSON.parse(init?.body as string);
+};
 
 describe("adapter PUSH", () => {
   beforeEach(() => {

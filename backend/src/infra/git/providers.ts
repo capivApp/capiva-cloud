@@ -7,6 +7,34 @@ interface PullRequestComment {
   body?: string;
 }
 
+/** Repositório como GitHub e Gitea devolvem (mesmo formato; só o que a listagem usa). */
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  default_branch: string;
+  private: boolean;
+  clone_url: string;
+}
+
+/** Projeto do GitLab (só o que a listagem usa). */
+interface GitLabProject {
+  id: number;
+  name: string;
+  path_with_namespace: string;
+  default_branch: string;
+  visibility: string;
+  http_url_to_repo: string;
+}
+
+interface GitBranch {
+  name: string;
+}
+
+interface GitTreeEntry {
+  path: string;
+}
+
 /** GitHub e Gitea aceitam os quatro estados como estão. */
 const commitStatusBody = (status: CommitStatusInput) => ({
   state: status.state,
@@ -106,15 +134,15 @@ export class GitHubProvider extends BaseGitProvider {
     return { Authorization: `Bearer ${this.accessToken}`, Accept: "application/vnd.github+json", "User-Agent": "capiva-cloud" };
   }
   async listRepos(): Promise<GitRepo[]> {
-    const repos = await this.api<any[]>("/user/repos?per_page=100&sort=updated", this.headers());
+    const repos = await this.api<GitHubRepo[]>("/user/repos?per_page=100&sort=updated", this.headers());
     return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
   }
   async listBranches(repo: string): Promise<string[]> {
-    const branches = await this.api<any[]>(`/repos/${repo}/branches?per_page=100`, this.headers());
+    const branches = await this.api<GitBranch[]>(`/repos/${repo}/branches?per_page=100`, this.headers());
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<{ tree: { path: string }[] }>(`/repos/${repo}/git/trees/${branch}?recursive=0`, this.headers());
+    const tree = await this.api<{ tree: GitTreeEntry[] }>(`/repos/${repo}/git/trees/${branch}?recursive=0`, this.headers());
     return detectFromPaths(tree.tree.map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {
@@ -142,15 +170,15 @@ export class GitLabProvider extends BaseGitProvider {
     return { "PRIVATE-TOKEN": this.accessToken };
   }
   async listRepos(): Promise<GitRepo[]> {
-    const repos = await this.api<any[]>("/api/v4/projects?membership=true&per_page=100", this.headers());
+    const repos = await this.api<GitLabProject[]>("/api/v4/projects?membership=true&per_page=100", this.headers());
     return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.path_with_namespace, defaultBranch: r.default_branch, private: r.visibility !== "public", cloneUrl: r.http_url_to_repo }));
   }
   async listBranches(repo: string): Promise<string[]> {
-    const branches = await this.api<any[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/branches`, this.headers());
+    const branches = await this.api<GitBranch[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/branches`, this.headers());
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<any[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/tree?ref=${branch}&per_page=100`, this.headers());
+    const tree = await this.api<GitTreeEntry[]>(`/api/v4/projects/${encodeURIComponent(repo)}/repository/tree?ref=${branch}&per_page=100`, this.headers());
     return detectFromPaths(tree.map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {
@@ -188,15 +216,15 @@ export class GiteaProvider extends BaseGitProvider {
     return { Authorization: `token ${this.accessToken}` };
   }
   async listRepos(): Promise<GitRepo[]> {
-    const repos = await this.api<any[]>("/api/v1/user/repos?limit=100", this.headers());
+    const repos = await this.api<GitHubRepo[]>("/api/v1/user/repos?limit=100", this.headers());
     return repos.map((r) => ({ id: String(r.id), name: r.name, fullName: r.full_name, defaultBranch: r.default_branch, private: r.private, cloneUrl: r.clone_url }));
   }
   async listBranches(repo: string): Promise<string[]> {
-    const branches = await this.api<any[]>(`/api/v1/repos/${repo}/branches`, this.headers());
+    const branches = await this.api<GitBranch[]>(`/api/v1/repos/${repo}/branches`, this.headers());
     return branches.map((b) => b.name);
   }
   async detectStack(repo: string, branch: string): Promise<StackDetection> {
-    const tree = await this.api<{ tree: { path: string }[] }>(`/api/v1/repos/${repo}/git/trees/${branch}?recursive=false`, this.headers());
+    const tree = await this.api<{ tree: GitTreeEntry[] }>(`/api/v1/repos/${repo}/git/trees/${branch}?recursive=false`, this.headers());
     return detectFromPaths((tree.tree ?? []).map((t) => t.path));
   }
   setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void> {

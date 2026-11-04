@@ -1,6 +1,6 @@
 import { Injectable } from "@di/index";
 import type { LogLine, LogRangeRequest, LogSource } from "@interface/logs";
-import { createLogSource, SimulatedLogSource } from "@infra/observability/logSources";
+import { createLogSource, SimulatedLogSource, type LokiQueryResponse } from "@infra/observability/logSources";
 
 export type { LogLine } from "@interface/logs";
 
@@ -30,9 +30,9 @@ export class LokiAdapter implements LogSource {
     const url = `${this.baseUrl}/loki/api/v1/query_range?query=${encodeURIComponent(selector)}&limit=${limit}&start=${start}&end=${end}`;
     try {
       const res = await fetch(url);
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as LokiQueryResponse | null;
       const streams = data?.data?.result ?? [];
-      return streams.flatMap((s: any) => (s.values ?? []).map((v: [string, string]) => ({ ts: v[0], line: v[1] }))).slice(-limit);
+      return streams.flatMap((s) => (s.values ?? []).map((v) => ({ ts: v[0], line: v[1] }))).slice(-limit);
     } catch {
       return this.simulated();
     }
@@ -51,9 +51,9 @@ export class LokiAdapter implements LogSource {
     try {
       const res = await fetch(url);
       if (!res.ok) return null;
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as LokiQueryResponse | null;
       const streams = data?.data?.result ?? [];
-      return streams.flatMap((s: any) => (s.values ?? []).map((v: [string, string]) => ({ ts: v[0], line: v[1] })));
+      return streams.flatMap((s) => (s.values ?? []).map((v) => ({ ts: v[0], line: v[1] })));
     } catch {
       return null;
     }

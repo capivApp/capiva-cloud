@@ -54,7 +54,7 @@ const GLOB_TOKENS: Record<string, string> = { "*": ".*", "?": "." };
 export function matchesTagPattern(pattern: unknown, tag: string): boolean {
   const glob = typeof pattern === "string" ? pattern.trim() : "";
   if (!glob) return true;
-  const source = [...glob].map((char) => strategyFor(GLOB_TOKENS, char) ??char.replace(/[.+^${}()|[\]\\/]/g, "\\$&")).join("");
+  const source = glob.replace(/[*?.+^${}()|[\]\\/]/g, (char) => strategyFor(GLOB_TOKENS, char) ?? `\\${char}`);
   return new RegExp(`^${source}$`).test(tag);
 }
 

@@ -7,6 +7,11 @@ interface LokiStream {
   values?: Array<[string, string]>;
 }
 
+/** Corpo do `query_range` do Loki (só o que as leituras usam). */
+export interface LokiQueryResponse {
+  data?: { result?: LokiStream[] };
+}
+
 /**
  * Linhas de exemplo para a UI funcionar sem a stack de observabilidade. São as
  * mesmas de antes da busca existir; os filtros valem sobre elas.
@@ -49,12 +54,12 @@ export class LokiLogSource implements LogSource {
       end: request.end,
       direction: request.direction,
     });
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/query_range?${params}`).catch(() => null);
+    const res = await fetch(`${this.baseUrl}/loki/api/v1/query_range?${params.toString()}`).catch(() => null);
     if (!res) return this.fallback.range(request);
     if (res.status >= 400 && res.status < 500) {
       throw HttpError.badRequest("Não foi possível aplicar o filtro. Revise a busca e a expressão regular.", "LOG_FILTER");
     }
-    const data = (await res.json().catch(() => null)) as { data?: { result?: LokiStream[] } } | null;
+    const data = (await res.json().catch(() => null)) as LokiQueryResponse | null;
     if (!res.ok || !data) return this.fallback.range(request);
     return (data.data?.result ?? []).flatMap((s) =>
       (s.values ?? []).map(([ts, line]) => ({ ts, line, pod: s.stream?.pod })),
@@ -63,7 +68,7 @@ export class LokiLogSource implements LogSource {
 
   async labelValues(label: string, request: LogRangeRequest): Promise<string[]> {
     const params = new URLSearchParams({ query: request.query, start: request.start, end: request.end });
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/label/${encodeURIComponent(label)}/values?${params}`).catch(() => null);
+    const res = await fetch(`${this.baseUrl}/loki/api/v1/label/${encodeURIComponent(label)}/values?${params.toString()}`).catch(() => null);
     if (!res?.ok) return [];
     const data = (await res.json().catch(() => null)) as { data?: string[] } | null;
     return data?.data ?? [];

@@ -19,7 +19,10 @@ const mockFetch = (status: number, body: unknown) => {
   return fn;
 };
 
-const urlOf = (fn: ReturnType<typeof mockFetch>) => String(fn.mock.calls[0]?.[0]);
+const urlOf = (fn: ReturnType<typeof mockFetch>): string | undefined => {
+  const input = fn.mock.calls[0]?.[0];
+  return input instanceof Request ? input.url : input?.toString();
+};
 
 describe("readFile", () => {
   it("GitHub usa a contents API com ref e decodifica base64", async () => {

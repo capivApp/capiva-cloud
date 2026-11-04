@@ -12,7 +12,7 @@ import { readPreviewSettings } from "@service/preview/previewSettings";
 import type { PullRequestEvent } from "@infra/realtime/GitEventBus";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
-import type { Application, Prisma } from "@prisma-generated/client";
+import type { Application } from "@prisma-generated/client";
 
 type Tenant = { organizationId: string };
 

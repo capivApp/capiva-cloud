@@ -56,13 +56,14 @@ export function installBunKubeFetchShim(): void {
   if (typeof (globalThis as { Bun?: unknown }).Bun === "undefined") return;
   installed = true;
 
-  IsomorphicFetchHttpLibrary.prototype.send = function send(request: any) {
+  IsomorphicFetchHttpLibrary.prototype.send = function send(request: Parameters<IsomorphicFetchHttpLibrary["send"]>[0]) {
     const init: RequestInit & { tls?: Record<string, unknown> } = {
       method: request.getHttpMethod().toString(),
       body: request.getBody(),
       headers: request.getHeaders(),
       signal: request.getSignal(),
-      tls: buildTls(request.getAgent()),
+      // O tipo declara `http.Agent | https.Agent`; só o https traz `options` com o TLS do kubeconfig.
+      tls: buildTls(request.getAgent() as AgentLike | undefined),
     };
 
     const resultPromise = fetch(request.getUrl(), init).then((resp) => {

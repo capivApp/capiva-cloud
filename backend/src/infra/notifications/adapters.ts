@@ -2,6 +2,8 @@
  * Adapters de notificação (Strategy por tipo de canal). Cada adapter recebe a
  * config decifrada e a mensagem, e dispara via webhook/API. Tudo best-effort.
  */
+import { textOf } from "@functions/textOf";
+
 export interface NotificationMessage {
   event: string;
   title: string;
@@ -29,17 +31,17 @@ const webhook: NotificationAdapter = { send: (c, m) => post(String(c.webhookUrl)
 
 /** Telegram Bot API: botToken + chatId. */
 const telegram: NotificationAdapter = {
-  send: (c, m) => post(`https://api.telegram.org/bot${c.botToken}/sendMessage`, { chat_id: c.chatId, text: text(m), parse_mode: "Markdown" }),
+  send: (c, m) => post(`https://api.telegram.org/bot${textOf(c.botToken)}/sendMessage`, { chat_id: c.chatId, text: text(m), parse_mode: "Markdown" }),
 };
 
 /** Resend (email transacional): apiKey + from + to. */
 const resend: NotificationAdapter = {
-  send: (c, m) => post("https://api.resend.com/emails", { from: c.from, to: c.to, subject: m.title, text: m.body }, { Authorization: `Bearer ${c.apiKey}` }),
+  send: (c, m) => post("https://api.resend.com/emails", { from: c.from, to: c.to, subject: m.title, text: m.body }, { Authorization: `Bearer ${textOf(c.apiKey)}` }),
 };
 
 /** Email simples: reaproveita o webhook de um gateway SMTP→HTTP (config.webhookUrl). */
 const email: NotificationAdapter = {
-  send: (c, m) => post(String(c.webhookUrl ?? "http://localhost"), { to: c.to, subject: m.title, text: m.body }),
+  send: (c, m) => post(textOf(c.webhookUrl, "http://localhost"), { to: c.to, subject: m.title, text: m.body }),
 };
 
 /** Expo push (app mobile): tokens[] → exp.host. Pronto para o app Expo. */

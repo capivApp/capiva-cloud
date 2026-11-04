@@ -5,9 +5,8 @@
  */
 import { beforeAll, describe, expect, it, mock } from "bun:test";
 
-mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
+await mock.module("@database/withTransaction", () => ({ withTransaction: (fn: () => unknown) => fn() }));
 
-type Service = import("@service/DatabaseRestoreService").DatabaseRestoreService;
 let DatabaseRestoreService: typeof import("@service/DatabaseRestoreService").DatabaseRestoreService;
 
 beforeAll(async () => {
@@ -118,22 +117,22 @@ describe("DatabaseRestoreService.requestRestore", () => {
 
   it("recusa nome de cópia já usado no ambiente", async () => {
     const { service } = makeService({ existingByName: { id: "db_9" } });
-    await expect(service.requestRestore("db_1", "bkp_000001", { mode: "AS_COPY", newName: "orders-copia" }, tenant)).rejects.toMatchObject({ status: 409 });
+    expect(service.requestRestore("db_1", "bkp_000001", { mode: "AS_COPY", newName: "orders-copia" }, tenant)).rejects.toMatchObject({ status: 409 });
   });
 
   it("recusa confirmação errada, backup não concluído e backup sem objeto único", async () => {
-    await expect(makeService().service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "x" }, tenant)).rejects.toMatchObject({ status: 400 });
-    await expect(
+    expect(makeService().service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "x" }, tenant)).rejects.toMatchObject({ status: 400 });
+    expect(
       makeService({ backup: { status: "running" } }).service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "orders-db" }, tenant),
     ).rejects.toMatchObject({ status: 400 });
-    await expect(
+    expect(
       makeService({ backup: { destination: "orders-db/all" } }).service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "orders-db" }, tenant),
     ).rejects.toMatchObject({ status: 400 });
   });
 
   it("tipo sem suporte responde erro claro", async () => {
     const { service } = makeService({ db: { kind: "REDIS" } });
-    await expect(service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "orders-db" }, tenant)).rejects.toMatchObject({
+    expect(service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "orders-db" }, tenant)).rejects.toMatchObject({
       status: 400,
     });
   });
@@ -167,6 +166,6 @@ describe("DatabaseRestoreService.getById", () => {
   it("restore de outro banco não é servido", async () => {
     const { service } = makeService();
     const started = await service.requestRestore("db_1", "bkp_000001", { mode: "IN_PLACE", confirmName: "orders-db" }, tenant);
-    await expect(service.getById("db_2", started.id, tenant)).rejects.toMatchObject({ status: 404 });
+    expect(service.getById("db_2", started.id, tenant)).rejects.toMatchObject({ status: 404 });
   });
 });

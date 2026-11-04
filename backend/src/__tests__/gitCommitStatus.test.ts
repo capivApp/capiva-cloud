@@ -79,7 +79,7 @@ describe("setCommitStatus", () => {
 
   it("falha HTTP vira erro (quem chama decide se engole)", async () => {
     globalThis.fetch = mock(async () => new Response("nope", { status: 403 })) as unknown as typeof fetch;
-    await expect(new GitHubProvider("tok", "sec", "https://api.github.com").setCommitStatus("acme/api", SHA, STATUS)).rejects.toThrow("403");
+    expect(new GitHubProvider("tok", "sec", "https://api.github.com").setCommitStatus("acme/api", SHA, STATUS)).rejects.toThrow("403");
   });
 });
 
@@ -163,16 +163,16 @@ describe("CommitStatusService", () => {
   const tenant = { organizationId: "org1" };
 
   /** Troca só a resolução do provedor (que lê o banco) por um provedor falso. */
-  const makeService = (provider: Partial<IGitProvider> | null) => {
-    const setCommitStatus = mock(async () => {});
-    const fake = { setCommitStatus, ...provider } as unknown as IGitProvider;
+  const makeService = (provider: { setCommitStatus?: ReturnType<typeof mock> } | null) => {
+    const setCommitStatus = provider?.setCommitStatus ?? mock(async () => {});
+    const fake = { setCommitStatus } as unknown as IGitProvider;
     class TestableCommitStatusService extends CommitStatusService {
       protected override async resolveProvider(): Promise<IGitProvider | null> {
         return provider === null ? null : fake;
       }
     }
     const service = new TestableCommitStatusService({} as never, {} as never);
-    return { service, setCommitStatus: (fake.setCommitStatus ?? setCommitStatus) as ReturnType<typeof mock> };
+    return { service, setCommitStatus };
   };
 
   it("reporta no repositório da app com o sha completo", async () => {
@@ -203,12 +203,12 @@ describe("CommitStatusService", () => {
       throw new Error("Git API 401");
     });
     const { service } = makeService({ setCommitStatus: failing });
-    await expect(service.report(app, { sha: SHA, deploymentId: "dep1" }, "failed", tenant)).resolves.toBeUndefined();
+    expect(service.report(app, { sha: SHA, deploymentId: "dep1" }, "failed", tenant)).resolves.toBeUndefined();
     expect(failing).toHaveBeenCalled();
   });
 
   it("conexão não encontrada também é ignorada", async () => {
     const { service } = makeService(null);
-    await expect(service.report(app, { sha: SHA, deploymentId: "dep1" }, "failed", tenant)).resolves.toBeUndefined();
+    expect(service.report(app, { sha: SHA, deploymentId: "dep1" }, "failed", tenant)).resolves.toBeUndefined();
   });
 });

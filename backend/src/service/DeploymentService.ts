@@ -16,7 +16,6 @@ import { CapivaConfigService } from "@service/CapivaConfigService";
 import { CapivaConfigError } from "@schemas/capivaConfig.schema";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
-import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
 import { isRolloutAborted } from "@functions/rolloutStatus";
 import type { Application, Deployment } from "@prisma-generated/client";
@@ -318,13 +317,5 @@ export class DeploymentService {
     });
 
     return rollback;
-  }
-}
-
-function safeDecrypt(value: string): string {
-  try {
-    return decrypt(value);
-  } catch {
-    return value;
   }
 }

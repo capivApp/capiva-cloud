@@ -26,6 +26,31 @@ import type {
   PodMetricUsage,
 } from "@interface/integrations";
 
+/** Métrica do HPA autoscaling/v2: no spec o alvo, no status o valor atual. */
+interface HpaMetricSpec {
+  type?: string;
+  pods?: { metric?: { name?: string }; target?: { averageValue?: string } };
+  resource?: { name?: string; target?: { averageUtilization?: number } };
+}
+
+interface HpaMetricStatus {
+  type?: string;
+  pods?: { current?: { averageValue?: string } };
+  resource?: { current?: { averageUtilization?: number } };
+}
+
+/** Só os campos do HorizontalPodAutoscaler que o status ao vivo lê. */
+interface HpaResource {
+  spec?: { minReplicas?: number; maxReplicas?: number; metrics?: HpaMetricSpec[] };
+  status?: {
+    currentReplicas?: number;
+    desiredReplicas?: number;
+    lastScaleTime?: string;
+    currentMetrics?: HpaMetricStatus[];
+    conditions?: NonNullable<HpaLiveStatus["conditions"]>;
+  };
+}
+
 /**
  * Encapsula o acesso ao cluster via @kubernetes/client-node.
  *
@@ -349,7 +374,7 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         apiVersion: "autoscaling/v2",
         kind: "HorizontalPodAutoscaler",
         metadata: { name, namespace: ctx.namespace },
-      })) as { spec?: Record<string, any>; status?: Record<string, any> };
+      })) as HpaResource;
       const spec = hpa.spec ?? {};
       const status = hpa.status ?? {};
 
@@ -380,7 +405,7 @@ export class KubernetesAdapter implements IKubernetesAdapter {
         metric: metricName,
         currentMetricValue: currentValue,
         targetMetricValue: targetValue,
-        conditions: (status.conditions ?? []).map((c: any) => ({ type: c.type, status: c.status, reason: c.reason, message: c.message })),
+        conditions: (status.conditions ?? []).map((c) => ({ type: c.type, status: c.status, reason: c.reason, message: c.message })),
       };
     } catch {
       return { exists: false };

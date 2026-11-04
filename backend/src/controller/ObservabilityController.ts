@@ -32,7 +32,7 @@ async function streamLogPages(req: Request, res: Response, pages: AsyncGenerator
   try {
     for await (const page of pages) {
       if (closed) break;
-      res.write(page.map(format.serialize).join(""));
+      res.write(page.map((line) => format.serialize(line)).join(""));
     }
   } catch (error) {
     if (!res.headersSent) throw error;

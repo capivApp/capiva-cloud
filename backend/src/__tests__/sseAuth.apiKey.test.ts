@@ -3,7 +3,7 @@
  * --wait`, `logs -f`). ApiKeyService mockado via container, sem banco.
  */
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { container } from "@di/index";
 import { ApiKeyService } from "@service/ApiKeyService";
 import { sseAuthMiddleware } from "@middleware/auth";

@@ -131,24 +131,24 @@ describe("TrivyScanner", () => {
 
   it("Job com falha rejeita (e ainda remove o Secret)", async () => {
     const { scanner, removed } = makeScanner({ observe: async () => ({ ready: false, raw: { failed: 1 } }) });
-    await expect(scanner.scan({ ...request, auth: { username: "ci", password: "x" } })).rejects.toThrow("scan-dep1");
+    expect(scanner.scan({ ...request, auth: { username: "ci", password: "x" } })).rejects.toThrow("scan-dep1");
     expect(removed).toContain("Secret/scan-dep1-auth");
   });
 
   it("Job que não termina no prazo rejeita por timeout", async () => {
     const { scanner } = makeScanner({ observe: async () => ({ ready: false, raw: {} }) });
     scanner.timeoutMs = 5;
-    await expect(scanner.scan(request)).rejects.toThrow("expirou");
+    expect(scanner.scan(request)).rejects.toThrow("expirou");
   });
 
   it("log sem o relatório rejeita", async () => {
     const { scanner } = makeScanner({ podLogsByLabel: async () => "FATAL image scan error" });
-    await expect(scanner.scan(request)).rejects.toThrow("Relatório");
+    expect(scanner.scan(request)).rejects.toThrow("Relatório");
   });
 
   it("cluster sem kubeconfig (simulação) rejeita sem aplicar nada", async () => {
     const { scanner, applied } = makeScanner();
-    await expect(scanner.scan({ ...request, ctx: { kubeconfig: "", namespace: "prod" } })).rejects.toThrow();
+    expect(scanner.scan({ ...request, ctx: { kubeconfig: "", namespace: "prod" } })).rejects.toThrow();
     expect(applied).toEqual([]);
   });
 });

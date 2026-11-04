@@ -94,7 +94,7 @@ describe("BuildJobRunner via strategies", () => {
   it("repositório sem URL falha antes de criar qualquer recurso", async () => {
     const { k8s, applied } = makeK8s();
     const strategy = new NixpacksBuildStrategy(new BuildJobRunner(k8s));
-    await expect(strategy.build({ ...baseRequest, config: {} })).rejects.toBeInstanceOf(BuildConfigError);
+    expect(strategy.build({ ...baseRequest, config: {} })).rejects.toBeInstanceOf(BuildConfigError);
     expect(applied).toHaveLength(0);
   });
 
@@ -109,7 +109,7 @@ describe("BuildJobRunner via strategies", () => {
   it("não retenta quando a falha não é de clone", async () => {
     const { k8s, applied } = makeK8s(["failed", "succeeded"], "npm ERR! missing script: build");
     const strategy = new NixpacksBuildStrategy(new BuildJobRunner(k8s));
-    await expect(strategy.build(baseRequest)).rejects.toThrow();
+    expect(strategy.build(baseRequest)).rejects.toThrow();
     expect(jobs(applied)).toHaveLength(1);
   });
 
@@ -142,7 +142,7 @@ describe("BuildJobRunner via strategies", () => {
   it("remove os secrets mesmo quando o build falha", async () => {
     const { k8s, removed } = makeK8s(["failed"]);
     const strategy = new StaticBuildStrategy(new BuildJobRunner(k8s));
-    await expect(strategy.build({ ...baseRequest, source: "STATIC", gitAuth: { username: "bot", password: "tok" } })).rejects.toThrow();
+    expect(strategy.build({ ...baseRequest, source: "STATIC", gitAuth: { username: "bot", password: "tok" } })).rejects.toThrow();
     expect(removed).toHaveLength(1);
   });
 
@@ -157,7 +157,7 @@ describe("BuildJobRunner via strategies", () => {
   it("Buildpacks exige registry de destino", async () => {
     const { k8s, applied } = makeK8s();
     const strategy = new BuildpacksBuildStrategy(new BuildJobRunner(k8s));
-    await expect(strategy.build({ ...baseRequest, source: "BUILDPACKS", push: undefined })).rejects.toBeInstanceOf(BuildConfigError);
+    expect(strategy.build({ ...baseRequest, source: "BUILDPACKS", push: undefined })).rejects.toBeInstanceOf(BuildConfigError);
     expect(applied).toHaveLength(0);
   });
 });
