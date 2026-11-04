@@ -8,6 +8,16 @@ import type { K8sManifest } from "@interface/integrations";
  */
 const labels = (name: string) => ({ "app.kubernetes.io/name": name, "app.kubernetes.io/part-of": "capiva" });
 
+/** Variável do container: valor literal ou referência a um Secret (cofre externo). */
+export interface ContainerEnvVar {
+  key: string;
+  value: string;
+  secretRef?: { name: string; key: string };
+}
+
+const containerEnv = (e: ContainerEnvVar) =>
+  e.secretRef ? { name: e.key, valueFrom: { secretKeyRef: e.secretRef } } : { name: e.key, value: e.value };
+
 export interface AppManifestInput {
   name: string;
   namespace: string;
@@ -17,7 +27,7 @@ export interface AppManifestInput {
   customResources?: Record<string, unknown> | null;
   /** Caminho do health check (readiness). Default "/". */
   healthPath?: string;
-  envVars?: { key: string; value: string }[];
+  envVars?: ContainerEnvVar[];
   /** volumes montados: claimName = <app>-<volName>. RWX → mesma pasta em todos os pods. */
   volumes?: { name: string; mountPath: string }[];
   /** registry privado → imagePullSecrets */
@@ -245,7 +255,7 @@ function podContainer(input: AppManifestInput) {
     image: input.image,
     ports: [{ containerPort: input.port }],
     resources: { requests: res, limits: res },
-    env: (input.envVars ?? []).map((e) => ({ name: e.key, value: e.value })),
+    env: (input.envVars ?? []).map(containerEnv),
     volumeMounts: volumeBits(input).volumeMounts,
     readinessProbe: readinessProbe(input),
     livenessProbe: livenessProbe(input),

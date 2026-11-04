@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Hammer, KeyRound, Link2, Plus, Save, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Hammer, KeyRound, Link2, Plus, Save, Trash2, Vault } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useBuildArgs, type BuildArg } from "@/pages/applications/hooks/useBuildArgs";
-import { useEnvVars, type EnvVar } from "@/pages/applications/hooks/useEnvVars";
+import { useEnvVars, type EnvVar, type ExternalEnvRef } from "@/pages/applications/hooks/useEnvVars";
+import { useSecretStores, type SecretStore } from "@/hooks/useSecretStores";
 
 interface Row {
   key: string;
@@ -15,7 +16,14 @@ interface Row {
   /** Segredo existente cujo valor vem mascarado (vazio = manter atual). */
   masked: boolean;
   reveal: boolean;
+  /** Valor lido do cofre externo (referência chave + propriedade). */
+  external: ExternalEnvRef | null;
 }
+
+const EDITOR_SOURCES = new Set<EnvVar["source"]>(["MANUAL", "EXTERNAL"]);
+
+const toExternal = (v: EnvVar): ExternalEnvRef | null =>
+  v.source === "EXTERNAL" ? { secretStoreId: v.secretStoreId ?? "", remoteKey: v.value, remoteProperty: v.remoteProperty ?? "" } : null;
 
 /** Converte um bloco `.env` colado em linhas de variáveis (ignora comentários). */
 function parseDotenv(text: string): { key: string; value: string }[] {
@@ -38,16 +46,35 @@ function parseDotenv(text: string): { key: string; value: string }[] {
 
 const toRows = (vars: EnvVar[]): Row[] =>
   vars
-    .filter((v) => v.source === "MANUAL")
-    .map((v) => ({ key: v.key, value: v.value, secret: v.secret, masked: v.secret && v.hasValue, reveal: false }));
+    .filter((v) => EDITOR_SOURCES.has(v.source))
+    .map((v) => ({ key: v.key, value: v.value, secret: v.secret, masked: v.secret && v.hasValue, reveal: false, external: toExternal(v) }));
+
+/** Campos da variável que vem do cofre externo: cofre, chave e propriedade. */
+function ExternalFields({ value, stores, onChange }: { value: ExternalEnvRef; stores: SecretStore[]; onChange: (patch: Partial<ExternalEnvRef>) => void }) {
+  return (
+    <div className="flex flex-1 items-center gap-2">
+      <select
+        className="h-9 w-1/3 rounded-md border border-input bg-background px-2 text-xs"
+        value={value.secretStoreId}
+        onChange={(e) => onChange({ secretStoreId: e.target.value })}
+      >
+        <option value="">Cofre</option>
+        {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      <Input value={value.remoteKey} onChange={(e) => onChange({ remoteKey: e.target.value })} placeholder="chave no cofre" className="flex-1 font-mono text-xs" />
+      <Input value={value.remoteProperty ?? ""} onChange={(e) => onChange({ remoteProperty: e.target.value })} placeholder="propriedade" className="w-1/4 font-mono text-xs" />
+    </div>
+  );
+}
 
 /**
- * Aba "Variáveis" do detalhe da aplicação. Edita em lote as variáveis MANUAL
+ * Aba "Variáveis" do detalhe da aplicação. Edita em lote as variáveis MANUAL e as do cofre externo
  * (adicionar/colar .env/marcar secret/mostrar-ocultar) e salva reconciliando o
  * Deployment. Variáveis INJECTED (de dependências) aparecem somente leitura.
  */
 export function EnvVarsTab({ applicationId }: { applicationId: string }) {
   const { vars, isLoading, save, isSaving, remove } = useEnvVars(applicationId);
+  const { stores } = useSecretStores();
   const injected = useMemo(() => vars.filter((v) => v.source === "INJECTED"), [vars]);
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -59,7 +86,11 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
   useEffect(() => setRows(toRows(vars)), [serverKey]);
 
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
-  const addRow = () => setRows((r) => [...r, { key: "", value: "", secret: false, masked: false, reveal: false }]);
+  const addRow = () => setRows((r) => [...r, { key: "", value: "", secret: false, masked: false, reveal: false, external: null }]);
+  const toggleExternal = (i: number, row: Row) =>
+    update(i, { external: row.external ? null : { secretStoreId: stores[0]?.id ?? "", remoteKey: "", remoteProperty: "" } });
+  const updateExternal = (i: number, row: Row, patch: Partial<ExternalEnvRef>) =>
+    update(i, { external: { ...(row.external as ExternalEnvRef), ...patch } });
   const removeRow = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
 
   const applyPaste = () => {
@@ -67,7 +98,7 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
     if (parsed.length === 0) return toast.error("Nada para importar.");
     setRows((r) => {
       const byKey = new Map(r.map((row) => [row.key, row] as const));
-      for (const p of parsed) byKey.set(p.key, { key: p.key, value: p.value, secret: byKey.get(p.key)?.secret ?? false, masked: false, reveal: false });
+      for (const p of parsed) byKey.set(p.key, { key: p.key, value: p.value, secret: byKey.get(p.key)?.secret ?? false, masked: false, reveal: false, external: null });
       return [...byKey.values()];
     });
     setPaste("");
@@ -79,9 +110,12 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
     const ready = rows.filter((r) => r.key.trim());
     const keys = ready.map((r) => r.key.trim());
     if (new Set(keys).size !== keys.length) return toast.error("Há chaves duplicadas.");
+    if (ready.some((r) => r.external && (!r.external.secretStoreId || !r.external.remoteKey.trim()))) {
+      return toast.error("Escolha o cofre e informe a chave das variáveis do cofre externo.");
+    }
     try {
       // Segredo mascarado e em branco → envia "" para manter o valor atual.
-      await save(ready.map((r) => ({ key: r.key.trim(), value: r.value, secret: r.secret })));
+      await save(ready.map((r) => ({ key: r.key.trim(), value: r.value, secret: r.secret, external: r.external })));
       toast.success("Variáveis salvas. Reconciliando…");
     } catch (e) {
       toast.error((e as Error).message);
@@ -136,22 +170,37 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
                 placeholder="CHAVE"
                 className="w-2/5 font-mono text-xs"
               />
-              <Input
-                value={row.value}
-                onChange={(e) => update(i, { value: e.target.value, masked: false })}
-                placeholder={row.masked ? "•••••• (mantém atual)" : "valor"}
-                type={row.secret && !row.reveal ? "password" : "text"}
-                className="flex-1 font-mono text-xs"
-              />
-              <Button
-                variant={row.secret ? "default" : "ghost"}
-                size="icon"
-                title={row.secret ? "Secreta (cifrada)" : "Marcar como secreta"}
-                onClick={() => update(i, { secret: !row.secret })}
-              >
-                <KeyRound className="size-4" />
-              </Button>
-              {row.secret && (
+              {row.external && <ExternalFields value={row.external} stores={stores} onChange={(patch) => updateExternal(i, row, patch)} />}
+              {!row.external && (
+                <Input
+                  value={row.value}
+                  onChange={(e) => update(i, { value: e.target.value, masked: false })}
+                  placeholder={row.masked ? "•••••• (mantém atual)" : "valor"}
+                  type={row.secret && !row.reveal ? "password" : "text"}
+                  className="flex-1 font-mono text-xs"
+                />
+              )}
+              {stores.length > 0 && (
+                <Button
+                  variant={row.external ? "default" : "ghost"}
+                  size="icon"
+                  title={row.external ? "Do cofre externo" : "Ler do cofre externo"}
+                  onClick={() => toggleExternal(i, row)}
+                >
+                  <Vault className="size-4" />
+                </Button>
+              )}
+              {!row.external && (
+                <Button
+                  variant={row.secret ? "default" : "ghost"}
+                  size="icon"
+                  title={row.secret ? "Secreta (cifrada)" : "Marcar como secreta"}
+                  onClick={() => update(i, { secret: !row.secret })}
+                >
+                  <KeyRound className="size-4" />
+                </Button>
+              )}
+              {!row.external && row.secret && (
                 <Button variant="ghost" size="icon" title={row.reveal ? "Ocultar" : "Mostrar"} onClick={() => update(i, { reveal: !row.reveal })}>
                   {row.reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>

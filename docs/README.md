@@ -30,6 +30,7 @@ The documentation is intended to serve as the primary source of technical knowle
 | 31  | [HA & Failover Demo](./31-ha-failover-demo.md)                                  | Reproducible test: surviving node loss for apps, control plane and database (k3d)            |
 | 32  | [Production Hardening](./32-hardening-producao.md)                              | Production-readiness sweep: tenant isolation, secrets, HA primitives and operator actions    |
 | 33  | [Build Configuration](./33-configuracao-de-build.md)                            | Custom Dockerfile path, monorepo build context, auto-deploy toggle and watch paths           |
+| 41  | [NetworkPolicy & External Secrets](./41-network-policy-e-external-secrets.md)   | Default per-namespace NetworkPolicy and env vars from an external vault (ESO)               |
 
 ## Documentation Principles
 

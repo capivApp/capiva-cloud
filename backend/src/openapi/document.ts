@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
-import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { createApplicationSchema, replaceEnvVarsSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { createSecretStoreSchema } from "@schemas/secretStore.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -63,6 +64,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: "Applications", description: "Aplicações, deploys e dependências" },
       { name: "Databases", description: "Bancos gerenciados (HA, backups)" },
       { name: "Observability", description: "Logs (SSE) e métricas" },
+      { name: "SecretStores", description: "Cofres externos (External Secrets Operator)" },
     ],
     paths: {
       "/auth/register": {
@@ -113,6 +115,35 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/applications/{id}/deploy": {
         post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },
+      },
+      "/applications/{id}/env": {
+        put: {
+          tags: ["Applications"],
+          summary: "Substituir variáveis de ambiente do editor",
+          description:
+            "Substitui as variáveis MANUAL e EXTERNAL. Item com `external` lê o valor do cofre (`secretStoreId` + `remoteKey` + `remoteProperty` opcional): a plataforma grava só a referência e gera um ExternalSecret sincronizado num Secret lido pelo Deployment.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(replaceEnvVarsSchema),
+          responses: { "200": { description: "Variáveis atualizadas" }, "400": { description: "Cofre de outra organização ou chave inválida" } },
+        },
+      },
+      "/secret-stores": {
+        get: { tags: ["SecretStores"], summary: "Listar cofres externos (sem credenciais)", security: bearer, parameters: [orgHeader], responses: { "200": { description: "OK" } } },
+        post: {
+          tags: ["SecretStores"],
+          summary: "Cadastrar cofre externo",
+          description:
+            "Provedores: `AWS_SECRETS_MANAGER` (region + access keys), `VAULT` (server, path, version + token) e `GCP_SECRET_MANAGER` (projectId + JSON da service account). Credenciais cifradas em repouso e nunca devolvidas. Exige ADMIN.",
+          security: bearer,
+          parameters: [orgHeader],
+          requestBody: body(createSecretStoreSchema),
+          responses: { "201": { description: "Criado" }, "409": { description: "Nome já usado na organização" } },
+        },
+      },
+      "/secret-stores/{id}": {
+        get: { tags: ["SecretStores"], summary: "Detalhe do cofre (sem credenciais)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" }, "404": { description: "Fora da organização ativa" } } },
+        delete: { tags: ["SecretStores"], summary: "Remover cofre (e os SecretStore materializados)", security: bearer, parameters: [appId, orgHeader], responses: { "204": { description: "Removido" } } },
       },
       "/applications/{id}/dependencies": {
         get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },

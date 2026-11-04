@@ -34,6 +34,7 @@ const SCOPES = {
   invitation: byOrganization,
   apiKey: byOrganization,
   notificationChannel: byOrganization,
+  secretStore: byOrganization,
 
   // Ligação por cluster.
   clusterNode: byCluster,

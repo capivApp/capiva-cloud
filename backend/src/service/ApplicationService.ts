@@ -10,6 +10,8 @@ import { KubeContextResolver } from "@service/KubeContextResolver";
 import { TlsCertificateService } from "@service/TlsCertificateService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { NetworkPolicyService } from "@service/NetworkPolicyService";
+import { SecretStoreService } from "@service/SecretStoreService";
+import { buildContainerEnvVars } from "@functions/containerEnv";
 import { dockerConfigSecretManifest, type TlsModeManifest } from "@infra/kubernetes/manifests";
 import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
@@ -61,6 +63,7 @@ export class ApplicationService {
     private readonly tlsCerts: TlsCertificateService,
     private readonly registries: DockerRegistryService,
     private readonly networkPolicies: NetworkPolicyService,
+    private readonly secretStores: SecretStoreService,
   ) {}
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<Application[]> {
@@ -141,11 +144,15 @@ export class ApplicationService {
         ] as const,
       { tenant },
     );
-    const resolvedEnv = envVars.map((e) => ({ key: e.key, value: e.secret ? safeDecrypt(e.value) : e.value }));
+    const resolvedEnv = buildContainerEnvVars(app.name, envVars, safeDecrypt);
     const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" }));
 
     // NetworkPolicy padrão do namespace (deny-all + liberações + dependências).
     await this.networkPolicies.syncEnvironmentQuietly(app.environmentId, tenant);
+    // Cofre externo: SecretStore + ExternalSecret antes do workload que lê o Secret.
+    await this.secretStores.syncApplication(app.name, envVars, ctx, tenant).catch((e) => {
+      console.error("[app] cofre externo não sincronizado:", (e as Error).message);
+    });
 
     // TLS por domínio: se UPLOADED, decifra o certificado da org para virar Secret.
     const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT") as TlsModeManifest;

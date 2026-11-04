@@ -11,8 +11,10 @@ import {
   rolloutManifest,
   serviceManifest,
   tlsSecretManifest,
+  type ContainerEnvVar,
   type TlsModeManifest,
 } from "@infra/kubernetes/manifests";
+import { externalSecretName } from "@infra/kubernetes/externalSecretManifests";
 import type { IResourceReconciler, KubeContext, ObservedStatus } from "@interface/integrations";
 import type { Application } from "@prisma-generated/client";
 
@@ -27,7 +29,7 @@ export interface AppReconcileInput {
   app: Application;
   image: string;
   replicas?: number;
-  envVars?: { key: string; value: string }[];
+  envVars?: ContainerEnvVar[];
   /** Domínio custom → Ingress (Traefik) + TLS. */
   domain?: string;
   /** Modo TLS do Ingress: lets_encrypt | uploaded | none. */
@@ -167,5 +169,7 @@ export class ApplicationReconciler implements IResourceReconciler<AppReconcileIn
 
     await drop("networking.k8s.io/v1", "NetworkPolicy", `${app.name}-allow`);
     await drop("networking.k8s.io/v1", "NetworkPolicy", `capiva-deps-${app.name}`);
+    // O Secret sincronizado é `Owner`: sai junto com o ExternalSecret.
+    await drop("external-secrets.io/v1", "ExternalSecret", externalSecretName(app.name));
   }
 }
