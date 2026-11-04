@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm, type UseFormSetError } from "react-hook-form";
+import { useForm, useWatch, type UseFormSetError } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -91,7 +91,7 @@ export function RestoreBackupDrawer({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     reset,
@@ -100,7 +100,7 @@ export function RestoreBackupDrawer({
     resolver: zodResolver(buildSchema(databaseName)),
     defaultValues: { mode: "AS_COPY", confirmName: "", newName: `${databaseName}-copia` },
   });
-  const mode = watch("mode");
+  const mode = useWatch({ control, name: "mode" });
 
   useEffect(() => {
     if (open) reset({ mode: "AS_COPY", confirmName: "", newName: `${databaseName}-copia` });

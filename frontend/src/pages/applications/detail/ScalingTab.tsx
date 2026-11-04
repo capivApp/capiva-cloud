@@ -1,5 +1,4 @@
 import { Activity, Gauge, Minus, Plus, Power, Save } from "lucide-react";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEventSource } from "@/hooks/useEventSource";
-import { useScaling, type ScalingMetric, type ScalingStatus } from "@/pages/applications/hooks/useScaling";
+import { useSyncedDraft } from "@/hooks/useSyncedDraft";
+import { useScaling, type ScalingMetric, type ScalingPolicy, type ScalingStatus, type SetScalingInput } from "@/pages/applications/hooks/useScaling";
 
 const metricLabel: Record<ScalingMetric, string> = { CPU: "CPU (%)", MEMORY: "Memória (%)", REQUESTS: "Requests/s" };
+
+const DEFAULT_FORM: SetScalingInput = { minReplicas: 2, maxReplicas: 10, metric: "CPU", target: 70 };
+
+const buildForm = ({ minReplicas, maxReplicas, metric, target }: ScalingPolicy): SetScalingInput => ({ minReplicas, maxReplicas, metric, target });
 
 /**
  * Aba "Autoscaling" do detalhe da app. Mostra o estado vivo do HPA (réplicas
@@ -20,19 +24,10 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
   const { policy, isLoading, setPolicy, isSaving, disable, scale, isScaling } = useScaling(applicationId);
   const status = useEventSource<ScalingStatus>(`/streams/applications/${applicationId}/scaling`, "scaling");
 
-  const [min, setMin] = useState(2);
-  const [max, setMax] = useState(10);
-  const [metric, setMetric] = useState<ScalingMetric>("CPU");
-  const [target, setTarget] = useState(70);
-
-  useEffect(() => {
-    if (policy) {
-      setMin(policy.minReplicas);
-      setMax(policy.maxReplicas);
-      setMetric(policy.metric);
-      setTarget(policy.target);
-    }
-  }, [policy]);
+  // Recarregar a política reescreve o formulário; desativar (política nula) mantém o último valor.
+  const [form, setForm] = useSyncedDraft<SetScalingInput>(policy, (prev) => (policy ? buildForm(policy) : (prev ?? DEFAULT_FORM)));
+  const { minReplicas: min, maxReplicas: max, metric, target } = form;
+  const patchForm = (patch: Partial<SetScalingInput>) => setForm((f) => ({ ...f, ...patch }));
 
   const active = status?.autoscalerActive ?? Boolean(policy);
   const current = status?.currentReplicas ?? 0;
@@ -117,15 +112,15 @@ export function ScalingTab({ applicationId }: { applicationId: string }) {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="space-y-1.5"><Label className="text-xs">Mín. réplicas</Label><Input type="number" min={1} value={min} onChange={(e) => setMin(+e.target.value)} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Máx. réplicas</Label><Input type="number" min={1} value={max} onChange={(e) => setMax(+e.target.value)} /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Mín. réplicas</Label><Input type="number" min={1} value={min} onChange={(e) => patchForm({ minReplicas: +e.target.value })} /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Máx. réplicas</Label><Input type="number" min={1} value={max} onChange={(e) => patchForm({ maxReplicas: +e.target.value })} /></div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Métrica</Label>
-                  <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={metric} onChange={(e) => setMetric(e.target.value as ScalingMetric)}>
+                  <select className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" value={metric} onChange={(e) => patchForm({ metric: e.target.value as ScalingMetric })}>
                     {(Object.keys(metricLabel) as ScalingMetric[]).map((m) => <option key={m} value={m}>{metricLabel[m]}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1.5"><Label className="text-xs">Alvo</Label><Input type="number" min={1} value={target} onChange={(e) => setTarget(+e.target.value)} /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Alvo</Label><Input type="number" min={1} value={target} onChange={(e) => patchForm({ target: +e.target.value })} /></div>
               </div>
               <p className="text-xs text-muted-foreground">Disponível para estratégia ROLLING. REQUESTS requer prometheus-adapter no cluster.</p>
               <Button variant="gradient" size="sm" onClick={save} disabled={isSaving}><Save className="size-4" /> Salvar e aplicar HPA</Button>

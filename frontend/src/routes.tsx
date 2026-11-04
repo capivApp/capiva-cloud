@@ -1,7 +1,5 @@
-import { Activity, HardDrive, KeyRound, ScrollText, Users } from "lucide-react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
 import { ApiKeysPage } from "@/pages/apikeys/ApiKeysPage";
 import { AuditLogsPage } from "@/pages/audit/AuditLogsPage";
 import { ApplicationsPage } from "@/pages/applications/ApplicationsPage";

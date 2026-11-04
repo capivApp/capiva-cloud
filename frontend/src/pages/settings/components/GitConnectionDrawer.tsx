@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -13,14 +13,18 @@ export interface GitEditing {
   baseUrl?: string | null;
 }
 
-export function GitConnectionDrawer({ open, onClose, editing, onSaved }: { open: boolean; onClose: () => void; editing?: GitEditing | null; onSaved: () => void }) {
-  const { create, update, isCreating } = useGitConnections();
-  const [f, setF] = useState({ provider: "GITHUB", accessToken: "", accountLogin: "", baseUrl: "" });
-  const selfHosted = f.provider === "GITLAB" || f.provider === "GITEA";
+type GitConnectionFormProps = { onClose: () => void; editing?: GitEditing | null; onSaved: () => void };
 
-  useEffect(() => {
-    if (open) setF({ provider: editing?.provider ?? "GITHUB", accessToken: "", accountLogin: editing?.accountLogin ?? "", baseUrl: editing?.baseUrl ?? "" });
-  }, [open, editing]);
+/** Montado só com o drawer aberto: cada abertura começa com o formulário do registro em edição. */
+export function GitConnectionDrawer({ open, ...props }: { open: boolean } & GitConnectionFormProps) {
+  if (!open) return null;
+  return <GitConnectionForm key={props.editing?.id ?? "new"} {...props} />;
+}
+
+function GitConnectionForm({ onClose, editing, onSaved }: GitConnectionFormProps) {
+  const { create, update, isCreating } = useGitConnections();
+  const [f, setF] = useState(() => ({ provider: editing?.provider ?? "GITHUB", accessToken: "", accountLogin: editing?.accountLogin ?? "", baseUrl: editing?.baseUrl ?? "" }));
+  const selfHosted = f.provider === "GITLAB" || f.provider === "GITEA";
 
   async function submit() {
     if (!editing && !f.accessToken) return toast.error("Informe o token de acesso.");
@@ -35,7 +39,7 @@ export function GitConnectionDrawer({ open, onClose, editing, onSaved }: { open:
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={editing ? "Editar conexão Git" : "Conectar provedor Git"} footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Conectar"}</Button></div>}>
+    <Drawer open onClose={onClose} title={editing ? "Editar conexão Git" : "Conectar provedor Git"} footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Conectar"}</Button></div>}>
       <div className="space-y-3">
         <div className="space-y-1.5"><Label>Provedor</Label><select disabled={Boolean(editing)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60" value={f.provider} onChange={(e) => setF({ ...f, provider: e.target.value })}><option>GITHUB</option><option>GITLAB</option><option>GITEA</option></select></div>
         {selfHosted && (

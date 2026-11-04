@@ -1,9 +1,10 @@
 import { Download, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useSyncedDraft } from "@/hooks/useSyncedDraft";
 import { cn } from "@/lib/utils";
 import type { LogDownloadFormat } from "@/pages/applications/hooks/useLogs";
 import {
@@ -28,10 +29,9 @@ interface DebouncedInputProps {
 
 /** Campo de texto que só grava na URL depois de uma pausa na digitação. */
 function DebouncedInput({ value, onCommit, placeholder, className, invalid, icon }: DebouncedInputProps) {
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useSyncedDraft(value, () => value);
   const debounced = useDebouncedValue(draft);
 
-  useEffect(() => setDraft(value), [value]);
   useEffect(() => {
     if (debounced !== value) onCommit(debounced);
   }, [debounced]);

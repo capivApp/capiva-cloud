@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Hammer, KeyRound, Link2, Plus, Save, Trash2, Vault } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useBuildArgs, type BuildArg } from "@/pages/applications/hooks/useBuildArgs";
 import { useEnvVars, type EnvVar, type ExternalEnvRef } from "@/pages/applications/hooks/useEnvVars";
 import { useSecretStores, type SecretStore } from "@/hooks/useSecretStores";
+import { useSyncedDraft } from "@/hooks/useSyncedDraft";
 
 interface Row {
   key: string;
@@ -77,13 +78,11 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
   const { stores } = useSecretStores();
   const injected = useMemo(() => vars.filter((v) => v.source === "INJECTED"), [vars]);
 
-  const [rows, setRows] = useState<Row[]>([]);
-  const [pasteOpen, setPasteOpen] = useState(false);
-  const [paste, setPaste] = useState("");
-
   // Reseta o rascunho quando o servidor muda (ex.: após salvar/reconciliar).
   const serverKey = useMemo(() => JSON.stringify(toRows(vars)), [vars]);
-  useEffect(() => setRows(toRows(vars)), [serverKey]);
+  const [rows, setRows] = useSyncedDraft<Row[]>(serverKey, () => toRows(vars));
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [paste, setPaste] = useState("");
 
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const addRow = () => setRows((r) => [...r, { key: "", value: "", secret: false, masked: false, reveal: false, external: null }]);
@@ -244,10 +243,8 @@ export function EnvVarsTab({ applicationId }: { applicationId: string }) {
  */
 function BuildArgsCard({ applicationId }: { applicationId: string }) {
   const { buildArgs, isLoading, save, isSaving } = useBuildArgs(applicationId);
-  const [rows, setRows] = useState<BuildArg[]>([]);
-
   const serverKey = useMemo(() => JSON.stringify(buildArgs), [buildArgs]);
-  useEffect(() => setRows(buildArgs.map((b) => ({ ...b }))), [serverKey]);
+  const [rows, setRows] = useSyncedDraft<BuildArg[]>(serverKey, () => buildArgs.map((b) => ({ ...b })));
 
   const update = (i: number, patch: Partial<BuildArg>) => setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const addRow = () => setRows((r) => [...r, { key: "", value: "" }]);

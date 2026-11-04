@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BellRing, Plus, Power, Trash2 } from "lucide-react";
-import { useForm, type FieldPath } from "react-hook-form";
+import { useForm, useWatch, type FieldPath } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -100,11 +100,11 @@ export function AlertsTab({ applicationId }: { applicationId: string }) {
     handleSubmit,
     reset,
     setError,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULTS });
 
-  const metric = watch("metric");
+  const metric = useWatch({ control, name: "metric" });
   const info = METRIC_INFO[metric];
 
   const onSubmit = async (data: FormData) => {

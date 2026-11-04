@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -15,21 +15,23 @@ export interface EnvEditing {
   networkIsolation: boolean;
 }
 
-export function EnvironmentDrawer({ open, onClose, editing, onSaved }: { open: boolean; onClose: () => void; editing?: EnvEditing | null; onSaved: () => void }) {
+type EnvironmentFormProps = { onClose: () => void; editing?: EnvEditing | null; onSaved: () => void };
+
+/** Montado só com o drawer aberto: cada abertura começa com o formulário do registro em edição. */
+export function EnvironmentDrawer({ open, ...props }: { open: boolean } & EnvironmentFormProps) {
+  if (!open) return null;
+  return <EnvironmentForm key={props.editing?.id ?? "new"} {...props} />;
+}
+
+function EnvironmentForm({ onClose, editing, onSaved }: EnvironmentFormProps) {
   const { create, update, isCreating } = useEnvironments();
   const { clusters } = useClusters();
-  const [f, setF] = useState({ name: "", kind: "PRODUCTION", clusterId: "", networkIsolation: true });
-
-  useEffect(() => {
-    if (open) {
-      setF({
-        name: editing?.name ?? "",
-        kind: editing?.kind ?? "PRODUCTION",
-        clusterId: editing?.clusterId ?? "",
-        networkIsolation: editing?.networkIsolation ?? true,
-      });
-    }
-  }, [open, editing]);
+  const [f, setF] = useState(() => ({
+    name: editing?.name ?? "",
+    kind: editing?.kind ?? "PRODUCTION",
+    clusterId: editing?.clusterId ?? "",
+    networkIsolation: editing?.networkIsolation ?? true,
+  }));
 
   async function submit() {
     if (!f.name) return toast.error("Informe um nome.");
@@ -44,7 +46,7 @@ export function EnvironmentDrawer({ open, onClose, editing, onSaved }: { open: b
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={editing ? "Editar ambiente" : "Novo ambiente"} footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Criar"}</Button></div>}>
+    <Drawer open onClose={onClose} title={editing ? "Editar ambiente" : "Novo ambiente"} footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Criar"}</Button></div>}>
       <div className="space-y-3">
         <div className="space-y-1.5"><Label>Nome</Label><Input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Produção" /></div>
         <div className="space-y-1.5"><Label>Tipo</Label><select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="DEVELOPMENT">Dev</option><option value="STAGING">Homolog</option><option value="PRODUCTION">Produção</option></select></div>

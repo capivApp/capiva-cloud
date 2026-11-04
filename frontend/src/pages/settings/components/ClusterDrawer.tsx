@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -13,14 +13,18 @@ export interface ClusterEditing {
 }
 
 /** Drawer de criar/editar cluster — SEM YAML (URL + token + CA). */
-export function ClusterDrawer({ open, onClose, editing, onSaved }: { open: boolean; onClose: () => void; editing?: ClusterEditing | null; onSaved: () => void }) {
-  const { create, update, isCreating } = useClusters();
-  const [f, setF] = useState({ name: "", region: "", apiUrl: "", token: "", caCert: "" });
-  const set = (p: Partial<typeof f>) => setF((s) => ({ ...s, ...p }));
+type ClusterFormProps = { onClose: () => void; editing?: ClusterEditing | null; onSaved: () => void };
 
-  useEffect(() => {
-    if (open) setF({ name: editing?.name ?? "", region: editing?.region ?? "", apiUrl: "", token: "", caCert: "" });
-  }, [open, editing]);
+/** Montado só com o drawer aberto: cada abertura começa com o formulário do registro em edição. */
+export function ClusterDrawer({ open, ...props }: { open: boolean } & ClusterFormProps) {
+  if (!open) return null;
+  return <ClusterForm key={props.editing?.id ?? "new"} {...props} />;
+}
+
+function ClusterForm({ onClose, editing, onSaved }: ClusterFormProps) {
+  const { create, update, isCreating } = useClusters();
+  const [f, setF] = useState(() => ({ name: editing?.name ?? "", region: editing?.region ?? "", apiUrl: "", token: "", caCert: "" }));
+  const set = (p: Partial<typeof f>) => setF((s) => ({ ...s, ...p }));
 
   async function submit() {
     if (!f.name) return toast.error("Informe o nome.");
@@ -35,7 +39,7 @@ export function ClusterDrawer({ open, onClose, editing, onSaved }: { open: boole
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={editing ? "Editar cluster" : "Conectar cluster"} description="Sem YAML: informe o endereço do cluster e um token de acesso." width="max-w-lg" footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Conectar"}</Button></div>}>
+    <Drawer open onClose={onClose} title={editing ? "Editar cluster" : "Conectar cluster"} description="Sem YAML: informe o endereço do cluster e um token de acesso." width="max-w-lg" footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>{editing ? "Salvar" : "Conectar"}</Button></div>}>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>Nome</Label><Input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="prod-eu" /></div>

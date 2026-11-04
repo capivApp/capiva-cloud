@@ -1,5 +1,5 @@
 import { Activity, Play, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,9 @@ import { useWorkspaceStore } from "@/stores/useWorkspaceStore";
 export function ReportsPage() {
   const { projectId } = useWorkspaceStore();
   const { applications } = useApplications(projectId);
-  const [appId, setAppId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!appId && applications.length > 0) setAppId(applications[0].id);
-  }, [applications, appId]);
+  const [chosenAppId, setAppId] = useState<string | null>(null);
+  // Sem escolha do usuário, a tela abre na primeira aplicação.
+  const appId = chosenAppId ?? applications[0]?.id ?? null;
 
   const { checks, reports, create, isCreating, run, remove } = useReports(appId);
   const [url, setUrl] = useState("");

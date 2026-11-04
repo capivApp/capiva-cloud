@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -58,14 +58,25 @@ export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: (
   const { create, isCreating } = useSecretStores();
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<SecretStoreProvider>("AWS_SECRETS_MANAGER");
-  const [config, setConfig] = useState<Record<string, string>>({});
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [config, setConfig] = useState(() => initialValues(PROVIDER_FIELDS[provider].config));
+  const [credentials, setCredentials] = useState(() => initialValues(PROVIDER_FIELDS[provider].credentials));
   const fields = PROVIDER_FIELDS[provider];
 
-  useEffect(() => {
-    setConfig(initialValues(fields.config));
-    setCredentials(initialValues(fields.credentials));
-  }, [provider, open]);
+  // Config e credenciais recomeçam a cada troca de provedor e a cada abertura; nome e provedor ficam.
+  const resetFields = (next: SecretStoreProvider) => {
+    setConfig(initialValues(PROVIDER_FIELDS[next].config));
+    setCredentials(initialValues(PROVIDER_FIELDS[next].credentials));
+  };
+
+  const selectProvider = (next: SecretStoreProvider) => {
+    setProvider(next);
+    resetFields(next);
+  };
+
+  const close = () => {
+    resetFields(provider);
+    onClose();
+  };
 
   async function submit() {
     if (!name.trim()) return toast.error("Informe um nome.");
@@ -73,7 +84,7 @@ export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: (
       await create({ name: name.trim(), provider, config, credentials });
       toast.success("Cofre cadastrado.");
       setName("");
-      onClose();
+      close();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -82,15 +93,15 @@ export function SecretStoreDrawer({ open, onClose }: { open: boolean; onClose: (
   return (
     <Drawer
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Novo cofre externo"
-      footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>Cadastrar</Button></div>}
+      footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={close}>Cancelar</Button><Button variant="gradient" onClick={submit} disabled={isCreating}>Cadastrar</Button></div>}
     >
       <div className="space-y-3">
         <div className="space-y-1.5"><Label>Nome</Label><Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Cofre de produção" /></div>
         <div className="space-y-1.5">
           <Label>Provedor</Label>
-          <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={provider} onChange={(e) => setProvider(e.target.value as SecretStoreProvider)}>
+          <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={provider} onChange={(e) => selectProvider(e.target.value as SecretStoreProvider)}>
             {Object.entries(SECRET_STORE_PROVIDERS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>

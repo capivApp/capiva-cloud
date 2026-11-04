@@ -1,5 +1,5 @@
 import { Save, ShieldCheck } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,8 +17,8 @@ const BLOCK_OPTIONS: { value: BlockOnSeverity; label: string }[] = [
 /** Política de scan de vulnerabilidades (Trivy) da aplicação, na aba Configurações. */
 export function ScanPolicyCard({ app }: { app: Application }) {
   const { save, isSaving } = useScanPolicy(app.id);
-  const { register, handleSubmit, watch } = useForm<ScanPolicy>({ values: readScanPolicy(app.sourceConfig) });
-  const scanEnabled = watch("scanEnabled");
+  const { register, handleSubmit, control } = useForm<ScanPolicy>({ values: readScanPolicy(app.sourceConfig) });
+  const scanEnabled = useWatch({ control, name: "scanEnabled" });
 
   const onSubmit = handleSubmit(async (policy) => {
     try {

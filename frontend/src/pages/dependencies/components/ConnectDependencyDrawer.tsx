@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -18,32 +18,33 @@ const FORMS = [
 
 interface Mapping { key: string; form: string }
 
-/**
- * Drawer de conexão entre serviços: define QUAIS variáveis injetar na ORIGEM e
- * O QUE cada uma é (URL, DNS, DNS+porta, IP, IP+porta).
- */
-export function ConnectDependencyDrawer({
-  open,
-  onClose,
-  sourceId,
-  target,
-  onConnected,
-}: {
-  open: boolean;
+interface ConnectDependencyFormProps {
   onClose: () => void;
   sourceId: string | null;
   target: { id: string; name: string } | null;
   onConnected: () => void;
-}) {
-  const [mappings, setMappings] = useState<Mapping[]>([]);
-  const [busy, setBusy] = useState(false);
+}
 
-  useEffect(() => {
-    if (open && target) {
-      const base = target.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-      setMappings([{ key: `${base}_URL`, form: "URL" }]);
-    }
-  }, [open, target]);
+/** Nome sugerido da primeira variável, a partir do nome do serviço de destino. */
+const buildInitialMappings = (target: ConnectDependencyFormProps["target"]): Mapping[] => {
+  if (!target) return [];
+  const base = target.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return [{ key: `${base}_URL`, form: "URL" }];
+};
+
+/**
+ * Drawer de conexão entre serviços: define QUAIS variáveis injetar na ORIGEM e
+ * O QUE cada uma é (URL, DNS, DNS+porta, IP, IP+porta).
+ */
+export function ConnectDependencyDrawer({ open, ...props }: { open: boolean } & ConnectDependencyFormProps) {
+  if (!open) return null;
+  return <ConnectDependencyForm key={`${props.sourceId}:${props.target?.id}`} {...props} />;
+}
+
+/** Montado só com o drawer aberto: cada conexão começa com a variável sugerida para o destino. */
+function ConnectDependencyForm({ onClose, sourceId, target, onConnected }: ConnectDependencyFormProps) {
+  const [mappings, setMappings] = useState(() => buildInitialMappings(target));
+  const [busy, setBusy] = useState(false);
 
   function update(i: number, patch: Partial<Mapping>) {
     setMappings((m) => m.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
@@ -68,7 +69,7 @@ export function ConnectDependencyDrawer({
 
   return (
     <Drawer
-      open={open}
+      open
       onClose={onClose}
       title="Conectar serviços"
       description={target ? `Variáveis injetadas na origem apontando para ${target.name}.` : undefined}

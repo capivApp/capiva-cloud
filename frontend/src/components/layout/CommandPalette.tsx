@@ -56,17 +56,16 @@ export function CommandPalette() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        // Abrir sempre parte da busca vazia; ao fechar, o reset não aparece.
         setOpen((o) => !o);
+        setQuery("");
+        setActive(0);
       }
       if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  useEffect(() => {
-    if (open) { setQuery(""); setActive(0); }
-  }, [open]);
 
   const commands = useMemo<Command[]>(() => {
     const go = (to: string) => () => { navigate(to); setOpen(false); };

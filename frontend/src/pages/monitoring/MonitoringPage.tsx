@@ -1,5 +1,5 @@
 import { AlertTriangle, Cpu, Database, MemoryStick, Server } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -78,10 +78,9 @@ function NodeCard({ node }: { node: NodeMetric }) {
 /** Monitoring: uso de CPU/memória por nó e pods por nó (metrics-server). */
 export function MonitoringPage() {
   const { clusters } = useClusters();
-  const [clusterId, setClusterId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!clusterId && clusters.length > 0) setClusterId(clusters[0].id);
-  }, [clusters, clusterId]);
+  const [chosenClusterId, setClusterId] = useState<string | null>(null);
+  // Sem escolha do usuário, a tela abre no primeiro cluster.
+  const clusterId = chosenClusterId ?? clusters[0]?.id ?? null;
 
   const { data, isLoading } = useMonitoring(clusterId);
   const { pods, databases } = useClusterResources(clusterId);

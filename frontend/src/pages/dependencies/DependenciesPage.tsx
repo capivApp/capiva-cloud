@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link2, Network } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";

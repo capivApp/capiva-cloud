@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { resizeFrame, stripAnsi, terminalWsUrl } from "@/lib/terminal";
+import { type TerminalConnection, type TerminalStatus, buildConnectionKey, resolveTerminalStatus } from "@/lib/terminalStatus";
 import { cn } from "@/lib/utils";
 
 const MAX_BUFFER = 100_000;
 const FONT_SIZE = 11;
 const CHAR_WIDTH = FONT_SIZE * 0.602;
-
-type TerminalStatus = "connecting" | "open" | "closed";
 
 const STATUS_LABEL: Record<TerminalStatus, string> = {
   connecting: "Conectando…",
@@ -60,33 +59,39 @@ export function TerminalView({ wsPath }: { wsPath: string }) {
   const { width } = useWindowDimensions();
   const wsRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const [status, setStatus] = useState<TerminalStatus>("connecting");
   const [output, setOutput] = useState("");
   const [input, setInput] = useState("");
   const [session, setSession] = useState(0);
+  const connectionKey = buildConnectionKey(wsPath, session, width);
+  const [connection, setConnection] = useState<TerminalConnection>({ key: connectionKey, status: "connecting" });
+  const status = resolveTerminalStatus(connection, connectionKey);
 
   useEffect(() => {
-    setStatus("connecting");
     const ws = new WebSocket(terminalWsUrl(wsPath));
     wsRef.current = ws;
 
     const cols = Math.max(40, Math.floor((width - 40) / CHAR_WIDTH));
+    // Socket já descartado (reconexão, rotação) não pode sobrescrever o status do novo.
+    const markStatus = (next: TerminalStatus) => {
+      if (wsRef.current !== ws) return;
+      setConnection({ key: connectionKey, status: next });
+    };
     ws.onopen = () => {
-      setStatus("open");
+      markStatus("open");
       ws.send(resizeFrame(cols, 30));
     };
     ws.onmessage = (event) => {
       if (typeof event.data !== "string") return;
       setOutput((prev) => appendChunk(prev, event.data));
     };
-    ws.onclose = () => setStatus("closed");
-    ws.onerror = () => setStatus("closed");
+    ws.onclose = () => markStatus("closed");
+    ws.onerror = () => markStatus("closed");
 
     return () => {
       wsRef.current = null;
       ws.close();
     };
-  }, [wsPath, session, width]);
+  }, [wsPath, session, width, connectionKey]);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: false });
