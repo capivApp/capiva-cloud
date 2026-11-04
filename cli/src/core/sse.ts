@@ -14,7 +14,11 @@ const parseData = (raw: string): unknown => {
 /** Um bloco `event:/data:` separado por linha em branco. Sem `data` = keep-alive. */
 const parseBlock = (block: string): SseEvent | null => {
   const lines = block.split("\n");
-  const event = lines.find((l) => l.startsWith("event:"))?.slice(6).trim() ?? "message";
+  const event =
+    lines
+      .find((l) => l.startsWith("event:"))
+      ?.slice(6)
+      .trim() ?? "message";
   const data = lines.filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trimStart());
   if (!data.length) return null;
   return { event, data: parseData(data.join("\n")) };

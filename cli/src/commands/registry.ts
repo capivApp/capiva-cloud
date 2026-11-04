@@ -20,4 +20,3 @@ export const COMMANDS: Record<string, CommandStrategy> = {
   rollback: rollbackCommand,
   init: initCommand,
 };
-

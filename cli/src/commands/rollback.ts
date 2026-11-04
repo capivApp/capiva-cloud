@@ -17,8 +17,15 @@ export const rollbackCommand: CommandStrategy = {
   async run(ctx) {
     const api = await ctx.api();
     const app = await findApplication(api, requireAppArg(ctx, this.usage));
-    const deploymentId = ctx.args[1] ?? pickRollbackTarget(await api.get<Deployment[]>(`/applications/${app.id}/deployments`)).id;
-    const rollback = await api.post<Deployment>(`/applications/${app.id}/rollback`, { deploymentId });
-    ctx.out.result(rollback, () => `Rollback de ${app.name} para o deploy ${deploymentId} iniciado (${rollback.id}).`);
+    const deploymentId =
+      ctx.args[1] ??
+      pickRollbackTarget(await api.get<Deployment[]>(`/applications/${app.id}/deployments`)).id;
+    const rollback = await api.post<Deployment>(`/applications/${app.id}/rollback`, {
+      deploymentId,
+    });
+    ctx.out.result(
+      rollback,
+      () => `Rollback de ${app.name} para o deploy ${deploymentId} iniciado (${rollback.id}).`,
+    );
   },
 };

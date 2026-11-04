@@ -29,16 +29,30 @@ const parsePair = (pair: string): EnvVarInput => {
  * atuais: segredo vai com valor vazio (o backend mantém o cifrado) e INJECTED
  * (dependências) fica de fora. Com `--secret`, as chaves informadas viram segredo.
  */
-export function mergeEnvVars(current: EnvVarView[], updates: EnvVarInput[], secret: boolean): EnvVarInput[] {
+export function mergeEnvVars(
+  current: EnvVarView[],
+  updates: EnvVarInput[],
+  secret: boolean,
+): EnvVarInput[] {
   const byKey = new Map(updates.map((u) => [u.key, { ...u, secret }]));
   const kept = current
     .filter((v) => v.source === "MANUAL")
-    .map((v) => byKey.get(v.key) ?? { key: v.key, value: v.secret ? "" : v.value, secret: v.secret });
-  const added = [...byKey.values()].filter((u) => !current.some((v) => v.source === "MANUAL" && v.key === u.key));
+    .map(
+      (v) => byKey.get(v.key) ?? { key: v.key, value: v.secret ? "" : v.value, secret: v.secret },
+    );
+  const added = [...byKey.values()].filter(
+    (u) => !current.some((v) => v.source === "MANUAL" && v.key === u.key),
+  );
   return [...kept, ...added];
 }
 
-const formatEnv = (vars: EnvVarView[]): string => vars.map((v) => `${v.key}=${v.secret ? "******" : v.value}${v.source === "INJECTED" ? "  (dependência)" : ""}`).join("\n");
+const formatEnv = (vars: EnvVarView[]): string =>
+  vars
+    .map(
+      (v) =>
+        `${v.key}=${v.secret ? "******" : v.value}${v.source === "INJECTED" ? "  (dependência)" : ""}`,
+    )
+    .join("\n");
 
 const appOf = async (ctx: CommandContext, usage: string) => {
   const api = await ctx.api();
@@ -60,11 +74,17 @@ export const envSetCommand: CommandStrategy = {
   summary: "Cria ou altera variáveis",
   async run(ctx) {
     const updates = ctx.args.slice(1).map(parsePair);
-    if (!updates.length) throw new CliError(`Informe ao menos um KEY=VALUE. Uso: capiva ${this.usage}`, 2);
+    if (!updates.length)
+      throw new CliError(`Informe ao menos um KEY=VALUE. Uso: capiva ${this.usage}`, 2);
     const { api, app } = await appOf(ctx, this.usage);
     const current = await api.get<EnvVarView[]>(`/applications/${app.id}/env`);
-    const vars = await api.put<EnvVarView[]>(`/applications/${app.id}/env`, { vars: mergeEnvVars(current, updates, Boolean(ctx.flags.secret)) });
-    ctx.out.result(vars, () => `Variáveis atualizadas em ${app.name}: ${updates.map((u) => u.key).join(", ")}.`);
+    const vars = await api.put<EnvVarView[]>(`/applications/${app.id}/env`, {
+      vars: mergeEnvVars(current, updates, Boolean(ctx.flags.secret)),
+    });
+    ctx.out.result(
+      vars,
+      () => `Variáveis atualizadas em ${app.name}: ${updates.map((u) => u.key).join(", ")}.`,
+    );
   },
 };
 

@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "CLI do Capiva Cloud (capiva): deploy, logs, variáveis e capiva.json pelo terminal.",
-  "type": "module",
   "bin": {
     "capiva": "src/index.ts"
   },
+  "type": "module",
   "scripts": {
     "start": "bun src/index.ts",
     "test": "bun test",

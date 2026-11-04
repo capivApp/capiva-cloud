@@ -34,16 +34,25 @@ export interface ApplicationWithProject extends Application {
 export async function listApplications(api: ApiClient): Promise<ApplicationWithProject[]> {
   const projects = await api.get<Project[]>("/projects");
   const perProject = await Promise.all(
-    projects.map(async (p) => (await api.get<Application[]>(`/applications?projectId=${encodeURIComponent(p.id)}`)).map((a) => ({ ...a, project: p.name }))),
+    projects.map(async (p) =>
+      (await api.get<Application[]>(`/applications?projectId=${encodeURIComponent(p.id)}`)).map(
+        (a) => ({ ...a, project: p.name }),
+      ),
+    ),
   );
   return perProject.flat();
 }
 
 /** Resolve `<app>` por id ou por nome. Nome repetido em projetos diferentes pede o id. */
-export async function findApplication(api: ApiClient, ref: string): Promise<ApplicationWithProject> {
+export async function findApplication(
+  api: ApiClient,
+  ref: string,
+): Promise<ApplicationWithProject> {
   const matches = (await listApplications(api)).filter((a) => a.id === ref || a.name === ref);
   if (matches.length > 1) {
-    throw new CliError(`Mais de uma aplicação se chama ${ref}. Use o id: ${matches.map((a) => `${a.id} (${a.project})`).join(", ")}.`);
+    throw new CliError(
+      `Mais de uma aplicação se chama ${ref}. Use o id: ${matches.map((a) => `${a.id} (${a.project})`).join(", ")}.`,
+    );
   }
   const [app] = matches;
   if (!app) throw new CliError(`Aplicação não encontrada: ${ref}`);
@@ -62,7 +71,11 @@ export const TERMINAL_STATUS = new Set(["HEALTHY", "FAILED", "ROLLED_BACK"]);
 /** Tabela simples alinhada por coluna. */
 export function formatTable(headers: string[], rows: string[][]): string {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
-  const format = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
+  const format = (cells: string[]) =>
+    cells
+      .map((c, i) => c.padEnd(widths[i] ?? 0))
+      .join("  ")
+      .trimEnd();
   return [format(headers), ...rows.map(format)].join("\n");
 }
 

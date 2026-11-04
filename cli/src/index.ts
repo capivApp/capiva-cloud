@@ -13,10 +13,11 @@ const deps: CliDeps = {
   prompt: (question) => globalThis.prompt(question),
   configStore: createConfigStore(process.env),
   files: {
-    exists: (path) => access(path).then(
-      () => true,
-      () => false,
-    ),
+    exists: (path) =>
+      access(path).then(
+        () => true,
+        () => false,
+      ),
     write: (path, content) => writeFile(path, content),
   },
 };

@@ -26,7 +26,9 @@ export const logsCommand: CommandStrategy = {
     const app = await findApplication(api, requireAppArg(ctx, this.usage));
     const abort = new AbortController();
     let seen = new Set<string>();
-    for await (const event of readSse(await api.stream(`/streams/applications/${app.id}/logs`, abort.signal))) {
+    for await (const event of readSse(
+      await api.stream(`/streams/applications/${app.id}/logs`, abort.signal),
+    )) {
       const batch = Array.isArray(event.data) ? (event.data as LogLine[]) : [];
       batch.filter((l) => !seen.has(keyOf(l))).forEach((l) => printLine(ctx, l));
       seen = new Set(batch.map(keyOf));

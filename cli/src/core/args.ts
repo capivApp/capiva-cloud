@@ -30,7 +30,8 @@ const parseLong: TokenParser = (token, next, state) => {
     return;
   }
   const value = next();
-  if (value === undefined || value.startsWith("-")) throw new CliError(`--${rawName} precisa de um valor.`);
+  if (value === undefined || value.startsWith("-"))
+    throw new CliError(`--${rawName} precisa de um valor.`);
   state.flags[rawName] = value;
 };
 

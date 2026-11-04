@@ -19,7 +19,8 @@ export type CliEnv = Record<string, string | undefined>;
 export const normalizeApiUrl = (url: string): string => url.trim().replace(/\/+$/, "");
 
 /** `~/.config/capiva/config.json`, respeitando `XDG_CONFIG_HOME`. */
-export const configPathOf = (env: CliEnv): string => join(env.XDG_CONFIG_HOME || join(env.HOME || homedir(), ".config"), "capiva", "config.json");
+export const configPathOf = (env: CliEnv): string =>
+  join(env.XDG_CONFIG_HOME || join(env.HOME || homedir(), ".config"), "capiva", "config.json");
 
 const readJson = async (path: string): Promise<StoredCredentials | null> => {
   try {
@@ -44,9 +45,15 @@ export function createConfigStore(env: CliEnv): ConfigStore {
 }
 
 /** `CAPIVA_TOKEN`/`CAPIVA_API_URL` vencem o arquivo (CI, containers). */
-export function resolveCredentials(env: CliEnv, stored: StoredCredentials | null): StoredCredentials {
+export function resolveCredentials(
+  env: CliEnv,
+  stored: StoredCredentials | null,
+): StoredCredentials {
   const token = env.CAPIVA_TOKEN || stored?.token;
   const apiUrl = env.CAPIVA_API_URL || stored?.apiUrl;
-  if (!token || !apiUrl) throw new CliError("Sem credenciais. Rode capiva login ou defina CAPIVA_TOKEN e CAPIVA_API_URL.");
+  if (!token || !apiUrl)
+    throw new CliError(
+      "Sem credenciais. Rode capiva login ou defina CAPIVA_TOKEN e CAPIVA_API_URL.",
+    );
   return { token, apiUrl: normalizeApiUrl(apiUrl) };
 }

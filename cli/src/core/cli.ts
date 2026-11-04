@@ -3,7 +3,12 @@ import { createApiClient, type ApiClient } from "@core/api";
 import { parseArgs } from "@core/args";
 import { resolveCredentials } from "@core/config";
 import { CliError } from "@core/errors";
-import { createOutput, type CliDeps, type CommandContext, type CommandStrategy } from "@core/context";
+import {
+  createOutput,
+  type CliDeps,
+  type CommandContext,
+  type CommandStrategy,
+} from "@core/context";
 
 interface Resolved {
   name: string;
@@ -13,7 +18,9 @@ interface Resolved {
 
 /** Tenta "apps list" antes de "apps": o comando de duas palavras vence. */
 const resolveCommand = (positionals: string[]): Resolved | null => {
-  const candidates = [positionals.slice(0, 2), positionals.slice(0, 1)].filter((words) => words.length);
+  const candidates = [positionals.slice(0, 2), positionals.slice(0, 1)].filter(
+    (words) => words.length,
+  );
   for (const words of candidates) {
     const name = words.join(" ");
     const command = COMMANDS[name];
@@ -37,7 +44,11 @@ export const buildHelp = (): string => {
   ].join("\n");
 };
 
-const buildContext = (deps: CliDeps, resolved: Resolved, flags: CommandContext["flags"]): CommandContext => {
+const buildContext = (
+  deps: CliDeps,
+  resolved: Resolved,
+  flags: CommandContext["flags"],
+): CommandContext => {
   let client: ApiClient | undefined;
   return {
     args: resolved.args,
@@ -45,7 +56,10 @@ const buildContext = (deps: CliDeps, resolved: Resolved, flags: CommandContext["
     deps,
     out: createOutput(deps, Boolean(flags.json)),
     async api() {
-      client ??= createApiClient(resolveCredentials(deps.env, await deps.configStore.load()), deps.fetch);
+      client ??= createApiClient(
+        resolveCredentials(deps.env, await deps.configStore.load()),
+        deps.fetch,
+      );
       return client;
     },
   };
@@ -58,7 +72,8 @@ const execute = async (argv: string[], deps: CliDeps): Promise<number> => {
     return 0;
   }
   const resolved = resolveCommand(positionals);
-  if (!resolved) throw new CliError(`Comando desconhecido: ${positionals.join(" ")}. Veja capiva --help.`, 2);
+  if (!resolved)
+    throw new CliError(`Comando desconhecido: ${positionals.join(" ")}. Veja capiva --help.`, 2);
   const code = await resolved.command.run(buildContext(deps, resolved, flags));
   return typeof code === "number" ? code : 0;
 };

@@ -14,11 +14,17 @@ import { readSse } from "@core/sse";
 
 describe("parseArgs", () => {
   it("separa posicionais de flags booleanas", () => {
-    expect(parseArgs(["deploy", "api", "--wait", "--json"])).toEqual({ positionals: ["deploy", "api"], flags: { wait: true, json: true } });
+    expect(parseArgs(["deploy", "api", "--wait", "--json"])).toEqual({
+      positionals: ["deploy", "api"],
+      flags: { wait: true, json: true },
+    });
   });
 
   it("aceita valor com = e com espaço nas flags de valor", () => {
-    expect(parseArgs(["login", "--token=cap_x", "--api-url", "https://c.io"]).flags).toEqual({ token: "cap_x", "api-url": "https://c.io" });
+    expect(parseArgs(["login", "--token=cap_x", "--api-url", "https://c.io"]).flags).toEqual({
+      token: "cap_x",
+      "api-url": "https://c.io",
+    });
   });
 
   it("traduz atalho curto", () => {
@@ -26,7 +32,12 @@ describe("parseArgs", () => {
   });
 
   it("depois de -- tudo é posicional", () => {
-    expect(parseArgs(["env", "set", "api", "--", "--X=1"]).positionals).toEqual(["env", "set", "api", "--X=1"]);
+    expect(parseArgs(["env", "set", "api", "--", "--X=1"]).positionals).toEqual([
+      "env",
+      "set",
+      "api",
+      "--X=1",
+    ]);
   });
 
   it("flag de valor sem valor é erro", () => {
@@ -36,12 +47,18 @@ describe("parseArgs", () => {
 
 describe("resolveCredentials", () => {
   it("variável de ambiente vence o arquivo", () => {
-    const resolved = resolveCredentials({ CAPIVA_TOKEN: "cap_env", CAPIVA_API_URL: "https://env.io/" }, { token: "cap_file", apiUrl: "https://file.io" });
+    const resolved = resolveCredentials(
+      { CAPIVA_TOKEN: "cap_env", CAPIVA_API_URL: "https://env.io/" },
+      { token: "cap_file", apiUrl: "https://file.io" },
+    );
     expect(resolved).toEqual({ token: "cap_env", apiUrl: "https://env.io" });
   });
 
   it("sem env, usa o arquivo", () => {
-    expect(resolveCredentials({}, { token: "cap_file", apiUrl: "https://file.io" })).toEqual({ token: "cap_file", apiUrl: "https://file.io" });
+    expect(resolveCredentials({}, { token: "cap_file", apiUrl: "https://file.io" })).toEqual({
+      token: "cap_file",
+      apiUrl: "https://file.io",
+    });
   });
 
   it("sem nada, pede login", () => {
@@ -70,8 +87,13 @@ describe("createConfigStore", () => {
 
 describe("createApiClient", () => {
   it("envia a chave no Authorization e prefixa /api", async () => {
-    const fetchFn = mock(async (_url: string, _init?: RequestInit) => Response.json([{ id: "p1" }]));
-    const api = createApiClient({ apiUrl: "https://c.io", token: "cap_a" }, fetchFn as unknown as typeof fetch);
+    const fetchFn = mock(async (_url: string, _init?: RequestInit) =>
+      Response.json([{ id: "p1" }]),
+    );
+    const api = createApiClient(
+      { apiUrl: "https://c.io", token: "cap_a" },
+      fetchFn as unknown as typeof fetch,
+    );
     expect(await api.get<{ id: string }[]>("/projects")).toEqual([{ id: "p1" }]);
     expect(fetchFn.mock.calls[0]?.[0]).toBe("https://c.io/api/projects");
     const headers = (fetchFn.mock.calls[0]?.[1]?.headers ?? {}) as Record<string, string>;
@@ -79,21 +101,33 @@ describe("createApiClient", () => {
   });
 
   it("erro da API vira CliError com a mensagem do servidor", async () => {
-    const fetchFn = mock(async () => Response.json({ error: "NOT_FOUND", message: "Aplicação não encontrada." }, { status: 404 }));
-    const api = createApiClient({ apiUrl: "https://c.io", token: "cap_a" }, fetchFn as unknown as typeof fetch);
+    const fetchFn = mock(async () =>
+      Response.json({ error: "NOT_FOUND", message: "Aplicação não encontrada." }, { status: 404 }),
+    );
+    const api = createApiClient(
+      { apiUrl: "https://c.io", token: "cap_a" },
+      fetchFn as unknown as typeof fetch,
+    );
     expect(api.get("/applications/x")).rejects.toThrow("Aplicação não encontrada.");
   });
 
   it("204 devolve null", async () => {
     const fetchFn = mock(async () => new Response(null, { status: 204 }));
-    const api = createApiClient({ apiUrl: "https://c.io", token: "cap_a" }, fetchFn as unknown as typeof fetch);
+    const api = createApiClient(
+      { apiUrl: "https://c.io", token: "cap_a" },
+      fetchFn as unknown as typeof fetch,
+    );
     expect(await api.delete("/applications/a/env/X")).toBeNull();
   });
 });
 
 describe("readSse", () => {
   it("lê eventos quebrados em vários pedaços", async () => {
-    const chunks = ['event: progress\ndata: {"label":"Bu', 'ild"}\n\nevent: progress\n', 'data: {"done":true}\n\n'];
+    const chunks = [
+      'event: progress\ndata: {"label":"Bu',
+      'ild"}\n\nevent: progress\n',
+      'data: {"done":true}\n\n',
+    ];
     const body = new ReadableStream({
       start(controller) {
         for (const c of chunks) controller.enqueue(new TextEncoder().encode(c));

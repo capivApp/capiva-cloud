@@ -38,7 +38,9 @@ describe("despacho", () => {
 describe("login", () => {
   it("valida a chave na API e grava a configuração", async () => {
     const { deps, stdout, saved, calls } = makeDeps({}, { credentials: null });
-    expect(await runCli(["login", "--token", "cap_nova", "--api-url", "https://c.io/"], deps)).toBe(0);
+    expect(await runCli(["login", "--token", "cap_nova", "--api-url", "https://c.io/"], deps)).toBe(
+      0,
+    );
     expect(saved()).toEqual({ token: "cap_nova", apiUrl: "https://c.io" });
     expect(calls[0]?.path).toBe("/projects");
     expect(out(stdout)).toContain("Login feito");
@@ -80,9 +82,13 @@ describe("apps", () => {
 
 describe("deploy", () => {
   it("dispara e devolve o id", async () => {
-    const { deps, stdout, calls } = makeDeps({ "POST /applications/a1/deploy": () => ({ id: "d9", status: "QUEUED", version: "manual" }) });
+    const { deps, stdout, calls } = makeDeps({
+      "POST /applications/a1/deploy": () => ({ id: "d9", status: "QUEUED", version: "manual" }),
+    });
     expect(await runCli(["deploy", "api"], deps)).toBe(0);
-    expect(calls.some((c) => c.method === "POST" && c.path === "/applications/a1/deploy")).toBe(true);
+    expect(calls.some((c) => c.method === "POST" && c.path === "/applications/a1/deploy")).toBe(
+      true,
+    );
     expect(out(stdout)).toContain("d9");
   });
 
@@ -92,8 +98,14 @@ describe("deploy", () => {
       "GET /streams/deployments/d9": () =>
         sseResponse([
           { event: "snapshot", data: { id: "d9", status: "QUEUED" } },
-          { event: "progress", data: { label: "Build iniciado", status: "BUILDING", progress: 10 } },
-          { event: "progress", data: { label: "Health Check OK", status: "HEALTHY", progress: 100, done: true } },
+          {
+            event: "progress",
+            data: { label: "Build iniciado", status: "BUILDING", progress: 10 },
+          },
+          {
+            event: "progress",
+            data: { label: "Health Check OK", status: "HEALTHY", progress: 100, done: true },
+          },
         ]),
     });
     expect(await runCli(["deploy", "api", "--wait"], deps)).toBe(0);
@@ -105,17 +117,29 @@ describe("deploy", () => {
   it("--wait sai com 1 quando o deploy falha", async () => {
     const { deps } = makeDeps({
       "POST /applications/a1/deploy": () => ({ id: "d9", status: "QUEUED" }),
-      "GET /streams/deployments/d9": () => sseResponse([{ event: "progress", data: { label: "capiva.json inválido: port", status: "FAILED", done: true } }]),
+      "GET /streams/deployments/d9": () =>
+        sseResponse([
+          {
+            event: "progress",
+            data: { label: "capiva.json inválido: port", status: "FAILED", done: true },
+          },
+        ]),
     });
     expect(await runCli(["deploy", "api", "--wait"], deps)).toBe(1);
   });
 });
 
 describe("logs", () => {
-  const logs = (batches: { ts: string; line: string }[][]) => () => sseResponse(batches.map((data) => ({ event: "logs", data })));
+  const logs = (batches: { ts: string; line: string }[][]) => () =>
+    sseResponse(batches.map((data) => ({ event: "logs", data })));
 
   it("sem -f imprime o lote atual e sai", async () => {
-    const { deps, stdout } = makeDeps({ "GET /streams/applications/a1/logs": logs([[{ ts: "1", line: "subiu" }], [{ ts: "2", line: "depois" }]]) });
+    const { deps, stdout } = makeDeps({
+      "GET /streams/applications/a1/logs": logs([
+        [{ ts: "1", line: "subiu" }],
+        [{ ts: "2", line: "depois" }],
+      ]),
+    });
     expect(await runCli(["logs", "api"], deps)).toBe(0);
     expect(out(stdout)).toContain("subiu");
     expect(out(stdout)).not.toContain("depois");
@@ -123,7 +147,13 @@ describe("logs", () => {
 
   it("-f segue o stream sem repetir linhas", async () => {
     const { deps, stdout } = makeDeps({
-      "GET /streams/applications/a1/logs": logs([[{ ts: "1", line: "um" }], [{ ts: "1", line: "um" }, { ts: "2", line: "dois" }]]),
+      "GET /streams/applications/a1/logs": logs([
+        [{ ts: "1", line: "um" }],
+        [
+          { ts: "1", line: "um" },
+          { ts: "2", line: "dois" },
+        ],
+      ]),
     });
     expect(await runCli(["logs", "api", "-f"], deps)).toBe(0);
     expect(out(stdout).match(/um/g)?.length).toBe(1);
@@ -173,7 +203,10 @@ describe("env", () => {
   it("env unset remove a chave", async () => {
     const { deps, calls } = makeDeps({ "DELETE /applications/a1/env/LOG_LEVEL": () => null });
     expect(await runCli(["env", "unset", "api", "LOG_LEVEL"], deps)).toBe(0);
-    expect(calls.at(-1)).toMatchObject({ method: "DELETE", path: "/applications/a1/env/LOG_LEVEL" });
+    expect(calls.at(-1)).toMatchObject({
+      method: "DELETE",
+      path: "/applications/a1/env/LOG_LEVEL",
+    });
   });
 });
 
@@ -211,8 +244,15 @@ describe("init", () => {
       { key: "DATABASE_URL", value: "x", secret: false, source: "INJECTED" },
     ],
     "GET /applications/a1/domains": () => [{ id: "dm1", host: "api.loja.com" }],
-    "GET /applications/a1/volumes": () => [{ name: "dados", mountPath: "/data", sizeGi: 5, accessMode: "RWO" }],
-    "GET /applications/a1/scaling": () => ({ minReplicas: 2, maxReplicas: 5, metric: "CPU", target: 70 }),
+    "GET /applications/a1/volumes": () => [
+      { name: "dados", mountPath: "/data", sizeGi: 5, accessMode: "RWO" },
+    ],
+    "GET /applications/a1/scaling": () => ({
+      minReplicas: 2,
+      maxReplicas: 5,
+      metric: "CPU",
+      target: 70,
+    }),
   };
 
   it("gera o capiva.json a partir da aplicação, sem segredos", async () => {
@@ -221,7 +261,12 @@ describe("init", () => {
     const written = JSON.parse(files["/projeto/capiva.json"] ?? "{}");
     expect(written).toEqual({
       $schema: "https://capiva.test/schemas/capiva.json",
-      build: { type: "GITHUB", dockerfile: "Dockerfile.prod", context: "apps/api", args: { NODE_ENV: "production" } },
+      build: {
+        type: "GITHUB",
+        dockerfile: "Dockerfile.prod",
+        context: "apps/api",
+        args: { NODE_ENV: "production" },
+      },
       port: 8080,
       healthcheck: { path: "/health" },
       profile: "SMALL",

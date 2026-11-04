@@ -30,15 +30,49 @@ export const APPS = [
     observedStatus: "running",
     port: 8080,
     profile: "SMALL",
-    sourceConfig: { repo: "org/loja", branch: "main", dockerfile: "Dockerfile.prod", subPath: "apps/api", healthPath: "/health", buildArgs: [{ key: "NODE_ENV", value: "production" }] },
+    sourceConfig: {
+      repo: "org/loja",
+      branch: "main",
+      dockerfile: "Dockerfile.prod",
+      subPath: "apps/api",
+      healthPath: "/health",
+      buildArgs: [{ key: "NODE_ENV", value: "production" }],
+    },
   },
-  { id: "a2", name: "web", projectId: "p1", source: "DOCKER_IMAGE", observedStatus: "stopped", port: 80, profile: "NANO", sourceConfig: { image: "nginx:1" } },
+  {
+    id: "a2",
+    name: "web",
+    projectId: "p1",
+    source: "DOCKER_IMAGE",
+    observedStatus: "stopped",
+    port: 80,
+    profile: "NANO",
+    sourceConfig: { image: "nginx:1" },
+  },
 ];
 
 export const DEPLOYMENTS = [
-  { id: "d3", version: "abc1234", status: "HEALTHY", imageRef: "r/api:abc1234", startedAt: "2026-11-04T12:00:00Z" },
-  { id: "d2", version: "fff0000", status: "FAILED", imageRef: null, startedAt: "2026-11-03T12:00:00Z" },
-  { id: "d1", version: "0001111", status: "HEALTHY", imageRef: "r/api:0001111", startedAt: "2026-11-02T12:00:00Z" },
+  {
+    id: "d3",
+    version: "abc1234",
+    status: "HEALTHY",
+    imageRef: "r/api:abc1234",
+    startedAt: "2026-11-04T12:00:00Z",
+  },
+  {
+    id: "d2",
+    version: "fff0000",
+    status: "FAILED",
+    imageRef: null,
+    startedAt: "2026-11-03T12:00:00Z",
+  },
+  {
+    id: "d1",
+    version: "0001111",
+    status: "HEALTHY",
+    imageRef: "r/api:0001111",
+    startedAt: "2026-11-02T12:00:00Z",
+  },
 ];
 
 export const BASE_ROUTES: Record<string, FakeHandler> = {
@@ -48,13 +82,23 @@ export const BASE_ROUTES: Record<string, FakeHandler> = {
   "GET /applications/a1/deployments": () => DEPLOYMENTS,
 };
 
-export function makeDeps(routes: Record<string, FakeHandler> = {}, options: { credentials?: StoredCredentials | null; files?: Record<string, string>; env?: Record<string, string> } = {}) {
+export function makeDeps(
+  routes: Record<string, FakeHandler> = {},
+  options: {
+    credentials?: StoredCredentials | null;
+    files?: Record<string, string>;
+    env?: Record<string, string>;
+  } = {},
+) {
   const all = { ...BASE_ROUTES, ...routes };
   const calls: FakeCall[] = [];
   const stdout: string[] = [];
   const stderr: string[] = [];
   const files: Record<string, string> = { ...(options.files ?? {}) };
-  let saved: StoredCredentials | null = options.credentials === undefined ? { token: "cap_test", apiUrl: "https://capiva.test" } : options.credentials;
+  let saved: StoredCredentials | null =
+    options.credentials === undefined
+      ? { token: "cap_test", apiUrl: "https://capiva.test" }
+      : options.credentials;
 
   const fetchFn = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = new URL(input instanceof Request ? input.url : input);
@@ -64,7 +108,11 @@ export function makeDeps(routes: Record<string, FakeHandler> = {}, options: { cr
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
     calls.push({ method, path, body, headers: (init?.headers ?? {}) as Record<string, string> });
     const handler = all[`${method} ${path}`];
-    if (!handler) return Response.json({ error: "NOT_FOUND", message: `Rota falsa ausente: ${method} ${path}` }, { status: 404 });
+    if (!handler)
+      return Response.json(
+        { error: "NOT_FOUND", message: `Rota falsa ausente: ${method} ${path}` },
+        { status: 404 },
+      );
     const result = handler(body);
     if (result instanceof Response) return result;
     if (result === null) return new Response(null, { status: 204 });

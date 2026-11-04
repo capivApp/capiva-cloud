@@ -1,4 +1,11 @@
-import { findApplication, formatFields, formatTable, listApplications, requireAppArg, type Deployment } from "@core/applications";
+import {
+  findApplication,
+  formatFields,
+  formatTable,
+  listApplications,
+  requireAppArg,
+  type Deployment,
+} from "@core/applications";
 import type { CommandStrategy } from "@core/context";
 
 export const appsListCommand: CommandStrategy = {
@@ -15,7 +22,8 @@ export const appsListCommand: CommandStrategy = {
   },
 };
 
-const describeDeploy = (d: Deployment | undefined): string => (d ? `${d.version} (${d.status}${d.startedAt ? `, ${d.startedAt}` : ""})` : "nenhum");
+const describeDeploy = (d: Deployment | undefined): string =>
+  d ? `${d.version} (${d.status}${d.startedAt ? `, ${d.startedAt}` : ""})` : "nenhum";
 
 export const appsStatusCommand: CommandStrategy = {
   usage: "apps status <app>",

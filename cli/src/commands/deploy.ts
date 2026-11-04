@@ -1,4 +1,9 @@
-import { findApplication, requireAppArg, TERMINAL_STATUS, type Deployment } from "@core/applications";
+import {
+  findApplication,
+  requireAppArg,
+  TERMINAL_STATUS,
+  type Deployment,
+} from "@core/applications";
 import { readSse } from "@core/sse";
 import type { ApiClient } from "@core/api";
 import type { CommandContext, CommandStrategy } from "@core/context";
@@ -12,16 +17,23 @@ interface ProgressEvent {
 
 const isFinished = (event: { event: string; data: unknown }): boolean => {
   const data = (event.data ?? {}) as ProgressEvent;
-  return Boolean(data.done) || (event.event === "snapshot" && TERMINAL_STATUS.has(data.status ?? ""));
+  return (
+    Boolean(data.done) || (event.event === "snapshot" && TERMINAL_STATUS.has(data.status ?? ""))
+  );
 };
 
 /** Acompanha `/streams/deployments/:id` (SSE) até o deploy terminar. Devolve o status final. */
-async function followDeployment(api: ApiClient, ctx: CommandContext, deploymentId: string): Promise<string> {
+async function followDeployment(
+  api: ApiClient,
+  ctx: CommandContext,
+  deploymentId: string,
+): Promise<string> {
   let status = "QUEUED";
   for await (const event of readSse(await api.stream(`/streams/deployments/${deploymentId}`))) {
     const data = (event.data ?? {}) as ProgressEvent;
     status = data.status ?? status;
-    if (data.label && !ctx.flags.json) ctx.out.line(`${String(data.progress ?? "").padStart(3)}%  ${data.label}`);
+    if (data.label && !ctx.flags.json)
+      ctx.out.line(`${String(data.progress ?? "").padStart(3)}%  ${data.label}`);
     if (isFinished(event)) break;
   }
   return status;

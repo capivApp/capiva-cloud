@@ -21,11 +21,16 @@ export const loginCommand: CommandStrategy = {
   usage: "login [--token cap_...] [--api-url https://...]",
   summary: "Grava a chave de API e a URL do Capiva",
   async run(ctx) {
-    const apiUrl = normalizeApiUrl(readFlag(ctx, "api-url", "URL do Capiva (ex.: https://capiva.suaempresa.com): "));
+    const apiUrl = normalizeApiUrl(
+      readFlag(ctx, "api-url", "URL do Capiva (ex.: https://capiva.suaempresa.com): "),
+    );
     const token = readFlag(ctx, "token", "Chave de API (cap_...): ");
     requireApiKey(token);
     await createApiClient({ token, apiUrl }, ctx.deps.fetch).get("/projects");
     await ctx.deps.configStore.save({ token, apiUrl });
-    ctx.out.result({ apiUrl, configPath: ctx.deps.configStore.path }, () => `Login feito em ${apiUrl}. Configuração em ${ctx.deps.configStore.path}.`);
+    ctx.out.result(
+      { apiUrl, configPath: ctx.deps.configStore.path },
+      () => `Login feito em ${apiUrl}. Configuração em ${ctx.deps.configStore.path}.`,
+    );
   },
 };

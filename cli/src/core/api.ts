@@ -32,7 +32,12 @@ const parseBody = async <T>(res: Response): Promise<T> => {
 export function createApiClient(credentials: StoredCredentials, fetchFn: typeof fetch): ApiClient {
   const headers = { Authorization: `Bearer ${credentials.token}`, Accept: "application/json" };
 
-  const send = async (method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<Response> => {
+  const send = async (
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<Response> => {
     const init: RequestInit = {
       method,
       signal,
