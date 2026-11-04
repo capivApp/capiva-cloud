@@ -63,6 +63,9 @@ const RESTORE_KINDS: Record<string, RestoreKindStrategy> = {
   MYSQL: new MysqlRestore(),
 };
 
+/** Tipo com dump lógico (o restore sabe carregar o backup dele). */
+export const isRestoreSuportado = (kind: string): boolean => kind in RESTORE_KINDS;
+
 /** Strategy do tipo de banco. Tipo sem dump lógico responde 400 com o motivo. */
 export const createRestoreKindStrategy = (kind: string): RestoreKindStrategy => {
   const strategy = RESTORE_KINDS[kind];

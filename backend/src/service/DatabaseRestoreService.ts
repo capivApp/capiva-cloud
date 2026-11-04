@@ -85,7 +85,7 @@ export class DatabaseRestoreService {
     mode.validate(input, source);
 
     const target = await mode.resolveTarget(source, input, (db, newName) =>
-      this.createCopy(db, newName, tenant),
+      this.createCopyOf(db, newName, tenant),
     );
     const restore = await withTransaction(
       () =>
@@ -135,7 +135,7 @@ export class DatabaseRestoreService {
   }
 
   /** Banco novo pelo fluxo de criação, com o mesmo usuário e banco lógico (o dump referencia o owner). */
-  private async createCopy(
+  async createCopyOf(
     source: ManagedDatabase,
     newName: string,
     tenant: Tenant,

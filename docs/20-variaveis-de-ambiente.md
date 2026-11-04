@@ -51,6 +51,7 @@ Lidas pelo backend (`@service/preview/previewSettings`). Ver
 |----------------------------|---------|-----------|
 | `CAPIVA_PREVIEW_DOMAIN`    | (vazio) | Domínio base dos previews por PR. O PR 42 da aplicação `api` sobe em `pr-42-api.<CAPIVA_PREVIEW_DOMAIN>`. Aponte um DNS curinga (`*.preview.exemplo.com`) para o ingress do cluster. Vazio: o preview é criado sem domínio público. |
 | `CAPIVA_PREVIEW_TTL_DAYS`  | `7`     | Dias sem atividade (sem push no PR, sem deploy) até o scheduler destruir o preview. Valor inválido ou `<= 0` volta ao default. |
+| `CAPIVA_PREVIEW_RESTORE_TIMEOUT_SECONDS` | `900` | Quanto o preview espera a cópia dos dados do banco antes do deploy. Passou do prazo: o deploy sai e o PR é avisado. |
 
 ## Variáveis da plataforma: tabela de preços (FinOps)
 

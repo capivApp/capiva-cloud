@@ -6,6 +6,12 @@ import { ApplicationService } from "@service/ApplicationService";
 import { DeploymentService } from "@service/DeploymentService";
 import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { PreviewNotifier } from "@service/preview/PreviewNotifier";
+import { PreviewDatabaseCloner } from "@service/preview/PreviewDatabaseCloner";
+import {
+  PreviewDatabaseMode,
+  readPreviewDatabaseMode,
+  readPreviewDatabaseNotes,
+} from "@service/preview/previewDatabase";
 import {
   createPreviewActionStrategy,
   type PreviewOperations,
@@ -43,6 +49,7 @@ export class PreviewDeploymentService {
     private readonly appService: ApplicationService,
     private readonly deployments: DeploymentService,
     private readonly notifier: PreviewNotifier,
+    private readonly cloner: PreviewDatabaseCloner,
   ) {}
 
   /** Processa um evento de PR. Retorna quantas aplicações de origem reagiram. */
@@ -85,6 +92,8 @@ export class PreviewDeploymentService {
         organizationId: preview.project.organizationId,
       }).catch(logError(`ttl ${preview.name}`));
     }
+    // Clones cuja origem foi apagada levando os previews junto (sem passar por aqui).
+    await this.cloner.removeOrphans().catch(logError("clones de banco órfãos"));
     return expirados.length;
   }
 
@@ -103,8 +112,10 @@ export class PreviewDeploymentService {
         });
       },
       destroyPreview: (preview) => this.removePreview(preview.id, tenant),
-      notify: (event, previewUrl) =>
-        this.notifier.notify(event, previewUrl).catch(logError("aviso no PR")),
+      notify: (event, previewUrl, notes) =>
+        this.notifier.notify(event, previewUrl, notes).catch(logError("aviso no PR")),
+      notesOf: (preview) =>
+        readPreviewDatabaseNotes(preview.sourceConfig as Record<string, unknown>),
       notifyFailure: (event, message) =>
         this.notifier.notifyFailure(event, message).catch(logError("aviso no PR")),
       previewUrlOf: (preview) =>
@@ -123,7 +134,39 @@ export class PreviewDeploymentService {
     );
     await this.copyEnvVars(origem.id, preview.id, tenant);
     await this.copyDependencies(origem.id, preview.id, tenant);
-    return preview;
+    // Sem a cópia, o preview subiria apontando para o banco de produção: desfaz e avisa.
+    const notes = await this.cloneDatabases(origem, preview, tenant).catch(async (error: Error) => {
+      await this.removePreview(preview.id, tenant);
+      throw error;
+    });
+    return this.saveDatabaseNotes(preview, notes, tenant);
+  }
+
+  /** Banco do preview por modo: cópia dos bancos da origem (padrão) ou os mesmos da origem. */
+  private cloneDatabases(
+    origem: Application,
+    preview: Application,
+    tenant: Tenant,
+  ): Promise<string[]> {
+    const byMode: Record<PreviewDatabaseMode, () => Promise<string[]>> = {
+      [PreviewDatabaseMode.COPY]: () => this.cloner.cloneForPreview(origem, preview, tenant),
+      [PreviewDatabaseMode.SHARED]: () => Promise.resolve([]),
+    };
+    return byMode[readPreviewDatabaseMode(origem.sourceConfig as Record<string, unknown>)]();
+  }
+
+  /** Avisos da cópia ficam no preview para o comentário do PR, que sai depois do deploy. */
+  private saveDatabaseNotes(
+    preview: Application,
+    notes: string[],
+    tenant: Tenant,
+  ): Promise<Application> {
+    if (notes.length === 0) return Promise.resolve(preview);
+    const sourceConfig = {
+      ...(preview.sourceConfig as Record<string, unknown>),
+      previewDatabase: { notes },
+    };
+    return withTransaction(() => this.apps.update(preview.id, { sourceConfig }), { tenant });
   }
 
   /**
@@ -161,6 +204,7 @@ export class PreviewDeploymentService {
     const ambientes = await withTransaction(() => this.deps.listTargetEnvironmentIds(previewId), {
       tenant,
     });
+    await this.cloner.removeForPreview(previewId, tenant);
     await this.appService.remove(previewId, tenant);
     await this.syncNetworkPolicies(ambientes, tenant);
   }

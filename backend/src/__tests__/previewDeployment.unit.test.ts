@@ -321,6 +321,7 @@ const makeOps = (existing: Application | null = null) => {
     notify: mock(async () => undefined),
     notifyFailure: mock(async () => undefined),
     previewUrlOf: mock(() => "https://pr-42-api.preview.capiva.cloud"),
+    notesOf: mock((): string[] => []),
   } satisfies PreviewOperations;
   return { ops, preview };
 };
@@ -337,6 +338,7 @@ describe("strategy por ação do PR", () => {
     expect(ops.notify).toHaveBeenCalledWith(
       expect.objectContaining({ number: 42 }),
       "https://pr-42-api.preview.capiva.cloud",
+      [],
     );
   });
 

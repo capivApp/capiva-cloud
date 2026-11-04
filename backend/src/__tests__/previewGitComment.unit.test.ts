@@ -31,6 +31,16 @@ describe("buildPreviewComment", () => {
     );
   });
 
+  test("avisos do banco entram como linhas depois da URL", () => {
+    expect(
+      buildPreviewComment(event, "https://pr-42-api.preview.local", [
+        "O banco pg subiu vazio no preview: não há backup concluído.",
+      ]),
+    ).toBe(
+      "Preview do PR #42 no ar: https://pr-42-api.preview.local\n\n- O banco pg subiu vazio no preview: não há backup concluído.",
+    );
+  });
+
   test("sem URL, avisa que o preview foi removido", () => {
     expect(buildPreviewComment(event, null)).toBe("Preview do PR #42 removido.");
   });

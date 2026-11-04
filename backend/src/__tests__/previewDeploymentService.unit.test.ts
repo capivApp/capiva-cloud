@@ -76,6 +76,11 @@ function makeService() {
   const apps = {
     listByGitConnection: mock(async () => [origem]),
     findPreview: mock(async () => null),
+    update: mock(async (_id: string, data: { sourceConfig: unknown }) => ({
+      ...preview,
+      sourceConfig: data.sourceConfig,
+    })),
+    listAllPreviewsWithOrg: mock(async () => []),
   };
   const envVars = {
     listByApplication: mock(async () => [externa]),
@@ -97,6 +102,11 @@ function makeService() {
     notify: mock(async () => undefined),
     notifyFailure: mock(async () => undefined),
   };
+  const cloner = {
+    cloneForPreview: mock(async (): Promise<string[]> => []),
+    removeForPreview: mock(async () => undefined),
+    removeOrphans: mock(async () => 0),
+  };
   const service = new PreviewDeploymentService(
     apps as never,
     envVars as never,
@@ -105,8 +115,19 @@ function makeService() {
     appService as never,
     deployments as never,
     notifier,
+    cloner as never,
   );
-  return { service, apps, envVars, deps, networkPolicies, appService, deployments, notifier };
+  return {
+    service,
+    apps,
+    envVars,
+    deps,
+    networkPolicies,
+    appService,
+    deployments,
+    notifier,
+    cloner,
+  };
 }
 
 describe("criação do preview", () => {
@@ -165,5 +186,67 @@ describe("remoção do preview", () => {
     await service.handlePullRequest({ ...event, action: "closed" });
     expect(appService.remove).toHaveBeenCalledWith("prev-1", tenant);
     expect(networkPolicies.syncEnvironmentQuietly).toHaveBeenCalledWith("env-dados", tenant);
+  });
+});
+
+describe("banco do preview", () => {
+  // Uma migration no boot do preview não pode tocar o banco de produção.
+  test("por padrão clona os bancos da origem antes do deploy", async () => {
+    const { service, cloner, deployments } = makeService();
+    await service.handlePullRequest(event);
+    expect(cloner.cloneForPreview).toHaveBeenCalledWith(origem, preview, tenant);
+    const clonou = cloner.cloneForPreview.mock.invocationCallOrder[0] ?? 0;
+    const deployou = deployments.trigger.mock.invocationCallOrder[0] ?? 0;
+    expect(clonou).toBeLessThan(deployou);
+  });
+
+  test("no modo compartilhado não clona nada", async () => {
+    const { service, apps, cloner } = makeService();
+    const compartilhada = {
+      ...origem,
+      sourceConfig: {
+        ...(origem.sourceConfig as object),
+        previews: { enabled: true, database: "shared" },
+      },
+    } as unknown as Application;
+    apps.listByGitConnection.mockImplementation(async () => [compartilhada]);
+    await service.handlePullRequest(event);
+    expect(cloner.cloneForPreview).not.toHaveBeenCalled();
+  });
+
+  test("os avisos da cópia vão no comentário do PR", async () => {
+    const { service, cloner, notifier } = makeService();
+    cloner.cloneForPreview.mockImplementation(async () => [
+      "O banco pg subiu vazio no preview: não há backup concluído.",
+    ]);
+    await service.handlePullRequest(event);
+    expect(notifier.notify).toHaveBeenCalledWith(event, null, [
+      "O banco pg subiu vazio no preview: não há backup concluído.",
+    ]);
+  });
+
+  // Preview sem a cópia subiria apontando para produção: melhor não subir.
+  test("falha ao clonar desfaz o preview e avisa o PR", async () => {
+    const { service, cloner, appService, notifier, deployments } = makeService();
+    cloner.cloneForPreview.mockImplementation(async () =>
+      Promise.reject(new Error("Quota do ambiente excedida.")),
+    );
+    await service.handlePullRequest(event);
+    expect(cloner.removeForPreview).toHaveBeenCalledWith("prev-1", tenant);
+    expect(appService.remove).toHaveBeenCalledWith("prev-1", tenant);
+    expect(notifier.notifyFailure).toHaveBeenCalledWith(event, "Quota do ambiente excedida.");
+    expect(deployments.trigger).not.toHaveBeenCalled();
+  });
+
+  test("remover o preview destrói os clones", async () => {
+    const { service, cloner } = makeService();
+    await service.destroyPreview("app-1", "prev-1", tenant);
+    expect(cloner.removeForPreview).toHaveBeenCalledWith("prev-1", tenant);
+  });
+
+  test("a limpeza periódica também destrói clones órfãos", async () => {
+    const { service, cloner } = makeService();
+    await service.destroyExpired();
+    expect(cloner.removeOrphans).toHaveBeenCalled();
   });
 });

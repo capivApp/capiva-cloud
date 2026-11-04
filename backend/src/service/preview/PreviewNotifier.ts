@@ -3,7 +3,8 @@ import type { PullRequestEvent } from "@infra/realtime/GitEventBus";
 
 /** Porta de aviso no PR (comentário com a URL do preview; `null` = preview destruído). */
 export interface IPreviewNotifier {
-  notify(event: PullRequestEvent, previewUrl: string | null): Promise<void>;
+  /** `notes`: avisos que acompanham a URL (ex.: banco do preview subiu vazio). */
+  notify(event: PullRequestEvent, previewUrl: string | null, notes?: string[]): Promise<void>;
   /** O preview não pôde ser criado (ex.: cota do ambiente): o PR recebe o motivo. */
   notifyFailure(event: PullRequestEvent, message: string): Promise<void>;
 }
@@ -17,7 +18,7 @@ export interface IPreviewNotifier {
  */
 @Injectable()
 export class PreviewNotifier implements IPreviewNotifier {
-  notify(_event: PullRequestEvent, _previewUrl: string | null): Promise<void> {
+  notify(_event: PullRequestEvent, _previewUrl: string | null, _notes?: string[]): Promise<void> {
     return Promise.resolve();
   }
 

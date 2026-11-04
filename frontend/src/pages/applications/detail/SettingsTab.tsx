@@ -14,7 +14,12 @@ import {
   CapivaJsonNotice,
 } from "@/pages/applications/components/CapivaJsonNotice";
 import type { Application } from "@/pages/applications/hooks/useApplications";
-import { isPreviewDisponivel } from "@/pages/applications/preview";
+import {
+  PREVIEW_DATABASE_OPTIONS,
+  isPreviewDisponivel,
+  readPreviewDatabase,
+  type PreviewDatabase,
+} from "@/pages/applications/preview";
 
 const PROFILES = ["NANO", "SMALL", "MEDIUM", "LARGE", "XLARGE", "CUSTOM"];
 
@@ -39,6 +44,7 @@ interface PatchInput {
   autoDeploy?: boolean;
   watchPaths?: string[];
   previewsEnabled?: boolean;
+  previewsDatabase?: PreviewDatabase;
   deployTrigger?: DeployTrigger;
   tagPattern?: string;
 }
@@ -73,6 +79,8 @@ export function SettingsTab({ app }: { app: Application }) {
   );
   const previewsSalvos = (cfg.previews as { enabled?: boolean } | undefined)?.enabled === true;
   const [previewsEnabled, setPreviewsEnabled] = useState(previewsSalvos);
+  const previewsDatabaseSalvo = readPreviewDatabase(cfg);
+  const [previewsDatabase, setPreviewsDatabase] = useState<PreviewDatabase>(previewsDatabaseSalvo);
   const savedTrigger = (cfg.deployTrigger as DeployTrigger | undefined) ?? "branch";
   const [deployTrigger, setDeployTrigger] = useState<DeployTrigger>(savedTrigger);
   const [tagPattern, setTagPattern] = useState(String(cfg.tagPattern ?? ""));
@@ -106,6 +114,7 @@ export function SettingsTab({ app }: { app: Application }) {
       dto.watchPaths = parsedWatchPaths;
     }
     if (previewsEnabled !== previewsSalvos) dto.previewsEnabled = previewsEnabled;
+    if (previewsDatabase !== previewsDatabaseSalvo) dto.previewsDatabase = previewsDatabase;
     if (deployTrigger !== savedTrigger) dto.deployTrigger = deployTrigger;
     if (tagPattern.trim() !== (cfg.tagPattern ?? "")) dto.tagPattern = tagPattern.trim();
     if (buildError) return toast.error(buildError);
@@ -347,6 +356,27 @@ export function SettingsTab({ app }: { app: Application }) {
               Cada PR para a branch {String(cfg.branch ?? "main")} ganha um ambiente próprio. Ele é
               removido quando o PR é fechado.
             </p>
+            {previewsEnabled && (
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-xs">Banco do preview</Label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  value={previewsDatabase}
+                  onChange={(e) => setPreviewsDatabase(e.target.value as PreviewDatabase)}
+                >
+                  {PREVIEW_DATABASE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                {previewsDatabase === "shared" && (
+                  <p className="text-xs text-warning">
+                    O preview usa o banco da aplicação e pode alterar os dados reais.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

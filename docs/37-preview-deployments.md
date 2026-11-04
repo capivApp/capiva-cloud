@@ -72,6 +72,42 @@ bootstrap/previewDeployments.ts ── gitEvents.onPullRequest
 - Metadados do PR em `sourceConfig.preview` (`number`, `title`, `sourceBranch`,
   `targetBranch`, `headSha`, `author`, `url`).
 
+## Banco do preview
+
+Opção por aplicação, `sourceConfig.previews.database` (`PATCH /applications/:id` com
+`previewsDatabase`, ou o seletor "Banco do preview" em Configurações):
+
+| Modo | Padrão | O que acontece |
+|------|--------|----------------|
+| `copy` | sim | Cada banco gerenciado que a origem usa ganha um clone `pr-<n>-<banco>` no mesmo ambiente, e o preview passa a apontar para ele. |
+| `shared` | não | O preview usa os mesmos bancos da origem (comportamento antigo). A tela avisa que os dados reais podem ser alterados. |
+
+Como a cópia funciona (`@service/preview/PreviewDatabaseCloner`):
+
+- **Quais bancos.** O `attach` não grava vínculo, só injeta a conexão como variável
+  `INJECTED`. O clonador decifra essas variáveis da origem e compara o host com o host
+  interno de cada banco do projeto (`internalHostOf`, a mesma função que monta a URL).
+  A comparação é por igualdade, então `mydb` não casa com `db`. Clones de outros previews
+  nunca são clonados.
+- **Dados.** PostgreSQL e MySQL recebem o último backup concluído de um banco só
+  (`.sql.gz`), pelo restore como cópia (`DatabaseRestoreService.requestRestore`, modo
+  `AS_COPY`). Sem backup, ou em tipo sem dump lógico (Redis, RabbitMQ, Kafka e afins),
+  o clone sobe vazio (`createCopyOf`).
+- **Ordem.** O deploy do preview só sai depois que a cópia termina (polling do restore até
+  `CAPIVA_PREVIEW_RESTORE_TIMEOUT_SECONDS`, padrão 900). A migration do boot roda sobre os
+  dados copiados, e não disputa com o restore.
+- **Ligação.** O clone é marcado com `ManagedDatabase.previewOfApplicationId` e ligado ao
+  preview com `attachToApplication`, que sobrescreve a variável copiada da origem.
+- **Avisos.** Banco que subiu vazio, cópia que falhou ou que passou do prazo vão como
+  linhas no comentário do PR (`sourceConfig.previewDatabase.notes`).
+- **Falha.** Se a clonagem falhar (quota do ambiente, por exemplo), o preview é desfeito
+  e o PR recebe o motivo. Um preview sem a cópia subiria apontando para produção.
+- **Remoção.** Fechar o PR, destruir pela tela ou expirar por TTL destrói os clones. O
+  scheduler de limpeza também destrói clones órfãos, cujo preview sumiu quando a origem
+  foi removida. Por isso a coluna não tem FK: o registro sobrevive à aplicação.
+
+Migration `20261104140000_preview_database_clones`.
+
 ## Banco de dados
 
 - `Application.previewOfId` (FK para a origem, `ON DELETE CASCADE`) +
@@ -129,11 +165,10 @@ primeiro PR. Falha no aviso é logada e não interrompe o preview.
 
 ## Pendências
 
-- **Clonar banco com seed para o preview: fora de escopo.** Hoje o preview herda as
-  variáveis da origem, inclusive as `INJECTED` de dependência: ele aponta para os MESMOS
-  bancos da aplicação original. Migration rodando no boot do preview altera o banco da
-  origem. Até existir o clone, ligue previews só em aplicações cujo banco aceite isso
-  (homologação), ou sobrescreva as variáveis no preview.
+- O clone recebe o último backup concluído, que pode ter até um dia de atraso em relação
+  à produção. Dump na hora (dados atuais) não existe.
+- Aguardar a cópia segura o webhook do PR até `CAPIVA_PREVIEW_RESTORE_TIMEOUT_SECONDS`.
+  Se passar do prazo, o deploy sai assim mesmo e o PR é avisado.
 - Remover a ORIGEM remove os previews por `ApplicationService.remove`, que não
   ressincroniza a NetworkPolicy dos ambientes de destino das dependências do preview:
   a liberação pelo nome do preview fica até o próximo sync daquele ambiente.

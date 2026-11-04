@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEPLOY_TRIGGERS } from "@service/git/deployTrigger.strategy";
+import { PreviewDatabaseMode } from "@service/preview/previewDatabase";
 
 export const sourceKind = z.enum([
   "DOCKER_IMAGE",
@@ -203,6 +204,12 @@ export const updateApplicationSchema = z
     watchPaths: z.array(z.string().trim().min(1).max(255)).max(50).optional(),
     /** Ambientes de preview por PR → sourceConfig.previews.enabled. */
     previewsEnabled: z.boolean().optional(),
+    /** Banco dos previews → sourceConfig.previews.database (padrão: cópia). */
+    previewsDatabase: z
+      .enum(Object.values(PreviewDatabaseMode), {
+        error: "Escolha cópia do banco ou banco compartilhado.",
+      })
+      .optional(),
     /** O que dispara o deploy automático: push na branch (padrão), tag ou release. */
     deployTrigger: z.enum(DEPLOY_TRIGGERS, { error: "Escolha branch, tag ou release." }).optional(),
     /** Glob das tags aceitas nos modos tag/release (ex.: `v*`). Vazio limpa. */

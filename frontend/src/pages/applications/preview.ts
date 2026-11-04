@@ -29,3 +29,18 @@ export function readPreviewInfo(preview: PreviewApplication): PreviewInfo {
 export const isPreviewDisponivel = (
   app: Pick<Application, "gitConnectionId" | "previewOfId">,
 ): boolean => Boolean(app.gitConnectionId) && !app.previewOfId;
+
+/** Banco dos previews: cópia dos bancos da origem (padrão) ou os mesmos bancos da origem. */
+export type PreviewDatabase = "copy" | "shared";
+
+export const PREVIEW_DATABASE_OPTIONS: { value: PreviewDatabase; label: string }[] = [
+  { value: "copy", label: "Cópia do banco, com os dados do último backup" },
+  { value: "shared", label: "Mesmo banco da aplicação" },
+];
+
+export const readPreviewDatabase = (
+  sourceConfig: Record<string, unknown> | null | undefined,
+): PreviewDatabase =>
+  (sourceConfig?.previews as { database?: unknown } | undefined)?.database === "shared"
+    ? "shared"
+    : "copy";

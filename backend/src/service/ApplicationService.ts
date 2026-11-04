@@ -1,4 +1,5 @@
 import { isReconcileDeferred } from "@functions/reconcileScope";
+import type { PreviewDatabaseMode } from "@service/preview/previewDatabase";
 import { Injectable } from "@di/index";
 import {
   ApplicationRepository,
@@ -421,6 +422,7 @@ export class ApplicationService {
       autoDeploy?: boolean;
       watchPaths?: string[];
       previewsEnabled?: boolean;
+      previewsDatabase?: PreviewDatabaseMode;
       deployTrigger?: DeployTrigger;
       tagPattern?: string;
       replicas?: number;
@@ -449,6 +451,8 @@ export class ApplicationService {
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
     if (dto.previewsEnabled !== undefined)
       cfg.previews = { ...(cfg.previews ?? {}), enabled: dto.previewsEnabled };
+    if (dto.previewsDatabase !== undefined)
+      cfg.previews = { ...(cfg.previews ?? {}), database: dto.previewsDatabase };
     if (dto.deployTrigger !== undefined) cfg.deployTrigger = dto.deployTrigger;
     // Réplicas e comandos de build/start (declarados pelo capiva.json ou pela tela).
     for (const key of ["replicas", "buildCommand", "startCommand"] as const) {

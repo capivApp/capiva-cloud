@@ -16,7 +16,9 @@ export interface PreviewOperations {
   refreshPreview(preview: Application, event: PullRequestEvent): Promise<Application>;
   deployPreview(preview: Application, event: PullRequestEvent): Promise<void>;
   destroyPreview(preview: Application): Promise<void>;
-  notify(event: PullRequestEvent, previewUrl: string | null): Promise<void>;
+  notify(event: PullRequestEvent, previewUrl: string | null, notes?: string[]): Promise<void>;
+  /** Avisos gravados na criação (banco do preview vazio, cópia falhou). */
+  notesOf(preview: Application): string[];
   notifyFailure(event: PullRequestEvent, message: string): Promise<void>;
   previewUrlOf(preview: Application): string | null;
 }
@@ -50,7 +52,7 @@ class CreatePreviewStrategy implements PreviewActionStrategy {
     if (existing) return ops.deployPreview(existing, event);
     const preview = await createOrNotifyFailure(origem, event, ops);
     await ops.deployPreview(preview, event);
-    await ops.notify(event, ops.previewUrlOf(preview));
+    await ops.notify(event, ops.previewUrlOf(preview), ops.notesOf(preview));
   }
 }
 

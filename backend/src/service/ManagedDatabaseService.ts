@@ -398,11 +398,20 @@ function normalizeConfig(config: Partial<DatabaseConfig> | null, name: string): 
 }
 
 /** Monta a URL de conexão INTERNA (DNS do cluster) com as credenciais da app. */
+/** Host interno (DNS do cluster) do banco: é o que a URL injetada na app aponta. */
+export function internalHostOf(
+  db: Pick<ManagedDatabase, "kind" | "name">,
+  namespace: string,
+): string {
+  const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
+  return `${meta.host(db.name)}.${namespace}.svc.cluster.local`;
+}
+
 function buildUrl(db: ManagedDatabase, cfg: DatabaseConfig, namespace: string): string {
   const meta = CONNECTION_META[db.kind] ?? CONNECTION_META.POSTGRESQL;
   return urlWith(
     db,
-    `${meta.host(db.name)}.${namespace}.svc.cluster.local`,
+    internalHostOf(db, namespace),
     meta.port,
     cfg.username,
     safeDecrypt(cfg.passwordCipher),

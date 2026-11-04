@@ -263,7 +263,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           tags: ["Applications"],
           summary: "Editar configurações gerais e de build",
           description:
-            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy automático, `watchPaths` restringe o disparo a caminhos do monorepo, `deployTrigger` escolhe o gatilho (`branch` padrão, `tag` ou `release`) e `tagPattern` (glob, ex. `v*`) filtra as tags aceitas. `previewsEnabled` liga os preview deployments por PR (ver docs/37-preview-deployments.md). Mudanças de build valem no próximo deploy.",
+            "Altera nome, perfil, porta, health check e a configuração de build (`dockerfile`, `subPath`, `compose`). Também controla o CD: `autoDeploy` liga/desliga o deploy automático, `watchPaths` restringe o disparo a caminhos do monorepo, `deployTrigger` escolhe o gatilho (`branch` padrão, `tag` ou `release`) e `tagPattern` (glob, ex. `v*`) filtra as tags aceitas. `previewsEnabled` liga os preview deployments por PR e `previewsDatabase` escolhe o banco deles (`copy`, padrão: clone dos bancos da origem com o último backup; `shared`: os mesmos bancos da origem). Ver docs/37-preview-deployments.md. Mudanças de build valem no próximo deploy.",
           security: bearer,
           parameters: [appId, orgHeader],
           requestBody: body(updateApplicationSchema),

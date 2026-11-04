@@ -27,6 +27,33 @@ export class ManagedDatabaseRepository extends BaseRepository {
     });
   }
 
+  /** Marca o banco como clone de um preview de PR (destruído junto com ele). */
+  async markAsPreviewOf(id: string, previewApplicationId: string): Promise<ManagedDatabase> {
+    await this.ensureScoped(() => this.findById(id), "Banco");
+    return this.tx.managedDatabase.update({
+      where: { id },
+      data: { previewOfApplicationId: previewApplicationId },
+    });
+  }
+
+  listByPreviewApplication(previewApplicationId: string): Promise<ManagedDatabase[]> {
+    return this.tx.managedDatabase.findMany({
+      where: { previewOfApplicationId: previewApplicationId, ...this.scope("managedDatabase") },
+    });
+  }
+
+  /** Todos os clones de preview da plataforma (fora de tenant, como o `listAllWithOrg`): varredura de órfãos. */
+  listPreviewClonesWithOrg(): Promise<
+    (ManagedDatabase & { previewOfApplicationId: string; project: { organizationId: string } })[]
+  > {
+    return this.tx.managedDatabase.findMany({
+      where: { previewOfApplicationId: { not: null } },
+      include: { project: { select: { organizationId: true } } },
+    }) as Promise<
+      (ManagedDatabase & { previewOfApplicationId: string; project: { organizationId: string } })[]
+    >;
+  }
+
   findById(id: string): Promise<ManagedDatabase | null> {
     return this.tx.managedDatabase.findFirst({ where: { id, ...this.scope("managedDatabase") } });
   }

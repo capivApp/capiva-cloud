@@ -4,9 +4,16 @@ import { GitService } from "@service/GitService";
 import type { IPreviewNotifier } from "@service/preview/PreviewNotifier";
 
 /** Texto do comentário no PR (upsert pelo marcador que o GitService acrescenta). */
-export function buildPreviewComment(event: PullRequestEvent, previewUrl: string | null): string {
+export function buildPreviewComment(
+  event: PullRequestEvent,
+  previewUrl: string | null,
+  notes: string[] = [],
+): string {
   if (!previewUrl) return `Preview do PR #${event.number} removido.`;
-  return `Preview do PR #${event.number} no ar: ${previewUrl}`;
+  const avisos = notes.map((note) => `- ${note}`).join("\n");
+  return [`Preview do PR #${event.number} no ar: ${previewUrl}`, avisos]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** Comentário de falha na criação. O motivo costuma vir com ponto final: fica um só. */
@@ -22,8 +29,8 @@ export function buildPreviewFailureComment(event: PullRequestEvent, message: str
 export class GitCommentPreviewNotifier implements IPreviewNotifier {
   constructor(private readonly git: GitService) {}
 
-  notify(event: PullRequestEvent, previewUrl: string | null): Promise<void> {
-    return this.comment(event, buildPreviewComment(event, previewUrl));
+  notify(event: PullRequestEvent, previewUrl: string | null, notes: string[] = []): Promise<void> {
+    return this.comment(event, buildPreviewComment(event, previewUrl, notes));
   }
 
   notifyFailure(event: PullRequestEvent, message: string): Promise<void> {

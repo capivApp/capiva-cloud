@@ -77,7 +77,7 @@ Focus on building software. Let the platform handle the infrastructure.
 - Multi-cluster architecture.
 - Secure by default.
 - Real builds for every source: Dockerfile (Kaniko), Nixpacks, Railpack, Cloud Native Buildpacks, static sites and Docker Compose services.
-- Preview deployments per pull request, with the URL commented on the PR and automatic cleanup.
+- Preview deployments per pull request, each with its own copy of the app's databases (restored from the latest backup), the URL commented on the PR and automatic cleanup.
 - Deploys triggered by branch push, tag or release, with commit status reported back to GitHub, GitLab and Gitea.
 - Vulnerability scan of every image with Trivy, with an optional policy that blocks critical or high CVEs.
 - Metric alerts (CPU, memory, 5xx rate, p95 latency) plus downtime, recovery and rollback notifications.

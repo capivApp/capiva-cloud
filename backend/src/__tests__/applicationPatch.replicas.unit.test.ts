@@ -158,3 +158,15 @@ describe("ApplicationService.patch: réplicas", () => {
     expect(k8s.scaleDeployment).not.toHaveBeenCalled();
   });
 });
+
+describe("ApplicationService.patch: banco do preview", () => {
+  it("grava o modo do banco dos previews sem perder o toggle", async () => {
+    const { service, updates } = makeService({
+      app: { sourceConfig: { previews: { enabled: true } } },
+    });
+    await service.patch("app_1", { previewsDatabase: "shared" }, tenant);
+    expect(updates[0]?.sourceConfig).toMatchObject({
+      previews: { enabled: true, database: "shared" },
+    });
+  });
+});
