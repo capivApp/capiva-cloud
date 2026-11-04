@@ -1,4 +1,3 @@
-/// <reference types="bun" />
 /** Opções de build por origem no wizard: quais campos cada origem usa e o que vai no sourceConfig. */
 import { describe, expect, it } from "bun:test";
 import {

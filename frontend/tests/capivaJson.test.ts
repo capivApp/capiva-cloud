@@ -1,4 +1,3 @@
-/// <reference types="bun" />
 /**
  * Marca "definido pelo capiva.json" gravada pelo backend em `sourceConfig.capivaJson`.
  * Puro, sem React.
