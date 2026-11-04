@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+!backend/src/infra/build/
 .env
 .env.local
 *.log
