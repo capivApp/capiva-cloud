@@ -6,6 +6,8 @@
 import { describe, expect, it, mock } from "bun:test";
 import { CapivaConfigService } from "@service/CapivaConfigService";
 import { CapivaConfigError } from "@schemas/capivaConfig.schema";
+import { HttpError } from "@functions/HttpError";
+import { isReconcileDeferred } from "@functions/reconcileScope";
 import type { Application } from "@prisma-generated/client";
 
 const tenant = { organizationId: "org1" };
@@ -128,5 +130,47 @@ describe("CapivaConfigService.applyForDeploy", () => {
       tenant,
     );
     expect(events).toEqual(["capiva.json aplicado (apps/api/capiva.json)"]);
+  });
+
+  it("origem por build do Git (NIXPACKS) com conexão e repositório também lê o arquivo", async () => {
+    const nixpacks = makeApp({ source: "NIXPACKS" });
+    const { service, readFile, apps, onEvent } = makeService({ "capiva.json": JSON.stringify({ build: { startCommand: "bun start" } }) }, nixpacks);
+    await service.applyForDeploy(nixpacks, "abc", tenant, onEvent);
+    expect(readFile).toHaveBeenCalled();
+    expect(apps.patch).toHaveBeenCalledWith("app1", { startCommand: "bun start" }, tenant);
+  });
+
+  it("conexão Git sem repositório configurado não lê nem limpa nada", async () => {
+    const semRepo = makeApp({ sourceConfig: { branch: "main", capivaJson: { fields: ["port"] } } });
+    const { service, readFile, apps, onEvent } = makeService({}, semRepo);
+    await service.applyForDeploy(semRepo, "abc", tenant, onEvent);
+    expect(readFile).not.toHaveBeenCalled();
+    expect(apps.saveCapivaMarker).not.toHaveBeenCalled();
+  });
+
+  it("os services da tela gravam sem reconciliar: o reconcile do deploy aplica depois do build", async () => {
+    const { service, apps, envVars, domains, onEvent } = makeService({
+      "capiva.json": JSON.stringify({ port: 8080, env: { A: "1" }, domains: ["api.exemplo.com"] }),
+    });
+    const deferred: boolean[] = [];
+    const record = async () => void deferred.push(isReconcileDeferred());
+    apps.patch.mockImplementation(async () => (await record(), makeApp()));
+    envVars.replace.mockImplementation(async () => (await record(), []));
+    domains.add.mockImplementation(async () => (await record(), {}));
+    await service.applyForDeploy(makeApp(), "abc", tenant, onEvent);
+    expect(deferred).toEqual([true, true, true]);
+    expect(isReconcileDeferred()).toBe(false);
+  });
+
+  it("erro do service da tela vai para a timeline como erro do capiva.json, com a mensagem original", async () => {
+    const { service, domains, apps, events, onEvent } = makeService({ "capiva.json": JSON.stringify({ domains: ["api.exemplo.com"] }) });
+    domains.add.mockImplementation(async () => {
+      throw HttpError.conflict("Este domínio já está em uso.");
+    });
+    const error = await service.applyForDeploy(makeApp(), "abc", tenant, onEvent).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(CapivaConfigError);
+    expect((error as Error).message).toContain("Este domínio já está em uso.");
+    expect(events).toEqual([(error as Error).message]);
+    expect(apps.saveCapivaMarker).not.toHaveBeenCalled();
   });
 });

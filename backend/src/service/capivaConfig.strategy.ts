@@ -3,7 +3,7 @@ import type { Application, ScalingMetric } from "@prisma-generated/client";
 
 /** Estado atual da aplicação, como a tela o vê (variáveis secretas mascaradas). */
 export interface CapivaSnapshot {
-  app: Pick<Application, "source" | "port" | "profile"> & { sourceConfig: unknown };
+  app: Pick<Application, "source" | "port" | "profile"> & { sourceConfig: unknown; previewOfId?: string | null };
   env: {
     key: string;
     value: string;
@@ -91,9 +91,9 @@ const PATCH_FIELDS: PatchField[] = [
 ];
 
 /** Campos simples: um único PATCH com o que mudou. */
-const patchSection: CapivaSectionStrategy = {
+const patchSectionOf = (fields: PatchField[]): CapivaSectionStrategy => ({
   plan(config, snapshot) {
-    const declared = PATCH_FIELDS.filter((f) => f.read(config) !== undefined);
+    const declared = fields.filter((f) => f.read(config) !== undefined);
     const changed = declared.filter((f) => f.read(config) !== f.current(snapshot));
     const dto = Object.fromEntries(changed.map((f) => [f.dtoKey, f.read(config)])) as CapivaPatchDto;
     return {
@@ -101,7 +101,7 @@ const patchSection: CapivaSectionStrategy = {
       actions: changed.length ? [{ kind: "patch", dto }] : [],
     };
   },
-};
+});
 
 const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
@@ -195,8 +195,22 @@ const volumesSection: CapivaSectionStrategy = {
   },
 };
 
-/** Ordem de aplicação: build primeiro, depois runtime, depois rede. */
-const SECTIONS: CapivaSectionStrategy[] = [patchSection, buildArgsSection, envSection, scalingSection, domainsSection, volumesSection];
+/** O preview roda no perfil mínimo, com uma réplica: estes campos da origem não valem nele. */
+const PREVIEW_FIXED_FIELDS = new Set<keyof CapivaPatchDto>(["profile", "replicas"]);
+
+type CapivaAppKind = "application" | "preview";
+
+/**
+ * Seções por tipo de aplicação, na ordem de aplicação: build, runtime, rede. O preview
+ * lê o capiva.json da ORIGEM: domínios tentariam tomar os hosts dela (domínio em uso) e
+ * apagar o `pr-N`; autoscaling, perfil e réplicas tirariam o preview do perfil mínimo.
+ */
+const SECTIONS_BY_KIND: Record<CapivaAppKind, CapivaSectionStrategy[]> = {
+  application: [patchSectionOf(PATCH_FIELDS), buildArgsSection, envSection, scalingSection, domainsSection, volumesSection],
+  preview: [patchSectionOf(PATCH_FIELDS.filter((f) => !PREVIEW_FIXED_FIELDS.has(f.dtoKey))), buildArgsSection, envSection, volumesSection],
+};
+
+const kindOf = (snapshot: CapivaSnapshot): CapivaAppKind => (snapshot.app.previewOfId ? "preview" : "application");
 
 const requireMesmaOrigem = (config: CapivaConfig, snapshot: CapivaSnapshot): void => {
   const declared = config.build?.type;
@@ -211,7 +225,7 @@ const requireMesmaOrigem = (config: CapivaConfig, snapshot: CapivaSnapshot): voi
  */
 export function planCapivaConfig(config: CapivaConfig, snapshot: CapivaSnapshot): CapivaPlan {
   requireMesmaOrigem(config, snapshot);
-  const results = SECTIONS.map((section) => section.plan(config, snapshot));
+  const results = SECTIONS_BY_KIND[kindOf(snapshot)].map((section) => section.plan(config, snapshot));
   return {
     actions: results.flatMap((r) => r.actions ?? []),
     fields: results.flatMap((r) => r.fields ?? []),

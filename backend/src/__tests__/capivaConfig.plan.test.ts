@@ -155,3 +155,32 @@ describe("planCapivaConfig: autoscaling, domínios e volumes", () => {
     expect(result.actions).toEqual([{ kind: "addVolume", volume: { name: "dados", mountPath: "/data", sizeGi: 2, accessMode: "RWO" } }]);
   });
 });
+
+describe("planCapivaConfig: preview de PR", () => {
+  const preview = makeSnapshot({
+    app: { ...makeSnapshot().app, profile: "NANO", previewOfId: "origem" },
+    domains: [{ id: "d-pr", host: "pr-7.api.capiva.app" }],
+  });
+  const origem = {
+    port: 8080,
+    profile: "LARGE",
+    replicas: 3,
+    autoscaling: { min: 2, max: 6, target: 70 },
+    domains: ["api.exemplo.com"],
+    env: { LOG_LEVEL: "info" },
+  };
+
+  it("não toca em domínios, autoscaling, perfil e réplicas da origem", () => {
+    const result = plan(origem, preview);
+    expect(result.actions).toEqual([
+      { kind: "patch", dto: { port: 8080 } },
+      { kind: "env", vars: [{ key: "LOG_LEVEL", value: "info", secret: false }] },
+    ]);
+    expect(result.fields).toEqual(["port", "env"]);
+  });
+
+  it("a aplicação de origem continua recebendo todas as seções", () => {
+    const result = plan(origem);
+    expect(result.actions.map((a) => a.kind)).toEqual(["patch", "env", "scaling", "addDomain"]);
+  });
+});

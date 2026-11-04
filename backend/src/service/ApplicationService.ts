@@ -1,3 +1,4 @@
+import { isReconcileDeferred } from "@functions/reconcileScope";
 import { Injectable } from "@di/index";
 import { ApplicationRepository, type ApplicationWithPreviews } from "@repository/ApplicationRepository";
 import { EnvVarRepository } from "@repository/EnvVarRepository";
@@ -191,6 +192,8 @@ export class ApplicationService {
 
   /** Reconcilia a aplicação (idempotente). Atualiza e retorna o estado observado. */
   async reconcile(app: Application, tenant: { organizationId: string }, replicas = desiredReplicasOf(app), imageOverride?: string) {
+    // capiva.json no deploy: os services gravam; o reconcile do deploy, com a imagem nova, aplica tudo.
+    if (isReconcileDeferred()) return { ready: false, replicas: 0 };
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
     const cfg = app.sourceConfig as Record<string, unknown>;
     const image = imageOverride ?? (cfg?.image as string) ?? "ghcr.io/capiva/placeholder:latest";

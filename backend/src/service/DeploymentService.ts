@@ -7,13 +7,14 @@ import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { BuildStrategyResolver } from "@infra/build/strategies";
 import { NotificationService } from "@service/NotificationService";
-import { CommitStatusService } from "@service/CommitStatusService";
+import { CommitStatusService, type DeployCommit, type DeployPhase } from "@service/CommitStatusService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
 import { ImageScanBlockedError, ImageScanService } from "@service/ImageScanService";
 import { CapivaConfigService } from "@service/CapivaConfigService";
 import { CapivaConfigError } from "@schemas/capivaConfig.schema";
+import { BuildConfigError } from "@infra/build/BuildConfigError";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
@@ -25,6 +26,23 @@ export interface DeployOrigin {
   commitSha?: string;
   gitRef?: string;
 }
+
+/** Resultado da espera pelos pods. `rolledBack`: o próprio Argo já devolveu o tráfego à versão estável. */
+interface ReadyResult {
+  ready: boolean;
+  replicas: number;
+  podsTotal: number;
+  issues: string[];
+  rolledBack?: boolean;
+}
+
+/** Param antes de tocar no que está no ar (arquivo, build impossível, scan): não há o que reverter. */
+const ERRORS_BEFORE_LIVE = [CapivaConfigError, BuildConfigError, ImageScanBlockedError];
+
+const isBeforeLive = (error: unknown): boolean => ERRORS_BEFORE_LIVE.some((E) => error instanceof E);
+
+/** Bloqueio pelo scan reprova o commit (failure); o resto é erro da plataforma. */
+const phaseOfError = (error: unknown): DeployPhase => (error instanceof ImageScanBlockedError ? "failed" : "errored");
 
 /**
  * Orquestra o ciclo de deploy: build → push → deploy → health, registrando a
@@ -93,10 +111,8 @@ export class DeploymentService {
 
     const commit = { sha: origin?.commitSha, deploymentId: deployment.id };
     this.run(deployment.id, app, version, tenant, origin, commitId).catch(async (error) => {
-      void this.commitStatus.report(app, commit, "errored", tenant);
-      // capiva.json inválido ou imagem bloqueada pelo scan param antes de tocar no que
-      // está no ar: não há o que reverter.
-      await this.fail(deployment.id, tenant, !(error instanceof CapivaConfigError || error instanceof ImageScanBlockedError));
+      void this.commitStatus.report(app, commit, phaseOfError(error), tenant);
+      await this.fail(deployment.id, tenant, !isBeforeLive(error));
       console.error("[deploy] falhou", error);
     });
 
@@ -135,8 +151,9 @@ export class DeploymentService {
         deploymentEvents.emit(deploymentId, { label, status, progress });
       }, { tenant });
 
-    // capiva.json no commit do deploy: aplicado pelos services da tela antes do build.
-    const app = await this.capivaConfig.applyForDeploy(declared, origin?.commitSha ?? commitId, tenant, (label) => step(label, "QUEUED", 5));
+    // capiva.json no commit do deploy (ou na tag da release): aplicado pelos services da tela antes do build.
+    const ref = origin?.commitSha ?? origin?.gitRef ?? commitId;
+    const app = await this.capivaConfig.applyForDeploy(declared, ref, tenant, (label) => step(label, "QUEUED", 5));
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     await step("Build iniciado", "BUILDING", 10);
@@ -166,33 +183,38 @@ export class DeploymentService {
     // Espera os pods ficarem prontos, reportando o estado real no timeline e
     // falhando com o erro concreto (ex.: ImagePullBackOff) em vez de travar.
     const result = await this.awaitReady(ctx, app, deploymentId, tenant);
+    if (!result.ready) return this.failNotReady(app, commit, imageRef, result, tenant);
 
     await withTransaction(async () => {
-      const label = result.ready
-        ? "Health Check OK"
-        : result.issues.length
-          ? `Falha ao subir pods: ${result.issues.join(" | ")}`
-          : "Health check expirou — pods não ficaram prontos a tempo";
+      const label = "Health Check OK";
       await this.deployments.addEvent({ deploymentId, label });
-      await this.deployments.update(deploymentId, {
-        status: result.ready ? "HEALTHY" : "FAILED",
-        progress: 100,
-        imageRef,
-        podCount: result.ready ? result.replicas : result.podsTotal,
-        finishedAt: new Date(),
-      });
-      deploymentEvents.emit(deploymentId, { label, status: result.ready ? "HEALTHY" : "FAILED", progress: 100, done: true });
+      await this.deployments.update(deploymentId, { status: "HEALTHY", progress: 100, imageRef, podCount: result.replicas, finishedAt: new Date() });
+      deploymentEvents.emit(deploymentId, { label, status: "HEALTHY", progress: 100, done: true });
     }, { tenant });
-    void this.commitStatus.report(app, commit, result.ready ? "succeeded" : "failed", tenant);
+    void this.commitStatus.report(app, commit, "succeeded", tenant);
+    void this.notifications.dispatch(tenant.organizationId, {
+      event: "deploy.succeeded",
+      title: `Deploy concluído: ${app.name}`,
+      body: `Versão ${version} publicada com sucesso (${result.replicas} réplicas).`,
+      data: { applicationId: app.id, deploymentId },
+    });
+  }
 
-    if (result.ready) {
-      void this.notifications.dispatch(tenant.organizationId, {
-        event: "deploy.succeeded",
-        title: `Deploy concluído: ${app.name}`,
-        body: `Versão ${version} publicada com sucesso (${result.replicas} réplicas).`,
-        data: { applicationId: app.id, deploymentId },
-      });
-    }
+  /**
+   * Pods que não sobem: o motivo concreto vai para a timeline e o `fail()` fecha o deploy
+   * (deploy.failed + rollback). Rollout abortado pelo Argo já manteve a versão estável:
+   * um segundo rollback sobraria.
+   */
+  private async failNotReady(app: Application, commit: DeployCommit, imageRef: string, result: ReadyResult, tenant: { organizationId: string }): Promise<void> {
+    const { deploymentId } = commit;
+    void this.commitStatus.report(app, commit, "failed", tenant);
+    const label = result.issues.length ? `Falha ao subir pods: ${result.issues.join(" | ")}` : "Os pods não ficaram prontos a tempo.";
+    await withTransaction(async () => {
+      await this.deployments.addEvent({ deploymentId, label });
+      await this.deployments.update(deploymentId, { imageRef, podCount: result.podsTotal });
+      deploymentEvents.emit(deploymentId, { label, status: "DEPLOYING", progress: 95 });
+    }, { tenant });
+    await this.fail(deploymentId, tenant, !result.rolledBack);
   }
 
   /** Motivos de pod que NÃO se resolvem sozinhos → falha o deploy de imediato. */
@@ -207,7 +229,7 @@ export class DeploymentService {
     app: Application,
     deploymentId: string,
     tenant: { organizationId: string },
-  ): Promise<{ ready: boolean; replicas: number; podsTotal: number; issues: string[] }> {
+  ): Promise<ReadyResult> {
     const [apiVersion, kind] = app.rolloutStrategy === "ROLLING" ? ["apps/v1", "Deployment"] : ["argoproj.io/v1alpha1", "Rollout"];
     const deadline = Date.now() + 180_000;
     let lastReport = "";
@@ -220,8 +242,9 @@ export class DeploymentService {
           event: "deploy.rollback",
           title: `Rollback automático: ${app.name}`,
           body: "A nova versão falhou na análise e a versão estável foi mantida.",
+          data: { applicationId: app.id, deploymentId },
         });
-        return { ready: false, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: ["Rollout abortado pela análise, versão estável mantida"] };
+        return { ready: false, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: ["Rollout abortado pela análise, versão estável mantida"], rolledBack: true };
       }
       if (obs.ready) return { ready: true, replicas: obs.replicas ?? 0, podsTotal: obs.replicas ?? 0, issues: [] };
 
@@ -314,6 +337,7 @@ export class DeploymentService {
       event: "deploy.rollback",
       title: `${automatic ? "Rollback automático" : "Rollback"}: ${app.name}`,
       body: `Versão ${target.version} restaurada.`,
+      data: { applicationId, deploymentId: rollback.id },
     });
 
     return rollback;

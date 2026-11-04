@@ -2,6 +2,7 @@ import { Injectable } from "@di/index";
 import { GitConnectionRepository } from "@repository/GitConnectionRepository";
 import { GitProviderFactory } from "@infra/git/GitProviderFactory";
 import { withTransaction } from "@database/withTransaction";
+import { repoOf } from "@functions/gitRepo";
 import type { CommitStatusInput, CommitStatusState, IGitProvider } from "@interface/integrations";
 import type { Application } from "@prisma-generated/client";
 import { config } from "../config";
@@ -32,11 +33,6 @@ export interface DeployCommit {
   sha?: string;
   deploymentId: string;
 }
-
-const repoOf = (sourceConfig: Application["sourceConfig"]): string | undefined => {
-  const cfg = (sourceConfig ?? {}) as Record<string, unknown>;
-  return (cfg.repo as string | undefined) ?? (cfg.fullName as string | undefined);
-};
 
 /**
  * Reporta o andamento do deploy como status do commit (GitHub statuses, GitLab
