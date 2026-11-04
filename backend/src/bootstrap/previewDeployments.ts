@@ -1,6 +1,8 @@
 import { container } from "@di/index";
 import { gitEvents } from "@infra/realtime/GitEventBus";
 import { PreviewDeploymentService } from "@service/PreviewDeploymentService";
+import { GitCommentPreviewNotifier } from "@service/preview/GitCommentPreviewNotifier";
+import { PreviewNotifier } from "@service/preview/PreviewNotifier";
 
 /**
  * Liga os preview deployments ao barramento de eventos Git. O service é
@@ -11,6 +13,7 @@ import { PreviewDeploymentService } from "@service/PreviewDeploymentService";
  * memória, então só ela reage.
  */
 export function startPreviewDeployments(): () => void {
+  container.register(PreviewNotifier, container.get(GitCommentPreviewNotifier));
   return gitEvents.onPullRequest(async (event) => {
     const reagiram = await container
       .get(PreviewDeploymentService)

@@ -82,8 +82,9 @@ atividade.
 ## Aviso no PR
 
 Porta `PreviewNotifier` (`@service/preview/PreviewNotifier`), com implementação no-op por
-padrão. A classe é o token de DI; a integração troca a implementação antes do primeiro
-evento:
+padrão. A classe é o token de DI. O boot (`@bootstrap/previewDeployments`) registra o
+`GitCommentPreviewNotifier`, que comenta no PR/MR pelo `GitService.commentOnPullRequest`
+(upsert pelo marcador `<!-- capiva-preview -->`, best-effort):
 
 ```ts
 container.register(PreviewNotifier, container.get(GitCommentPreviewNotifier));
@@ -123,8 +124,6 @@ primeiro PR. Falha no aviso é logada e não interrompe o preview.
   (homologação), ou sobrescreva as variáveis no preview.
 - As NetworkPolicies do banco liberam as aplicações dependentes pelo nome; o preview não
   é dependente cadastrado e pode ter o acesso ao banco bloqueado.
-- O aviso no PR (comentário com a URL) depende de `GitService.commentOnPullRequest`,
-  ligado na integração.
 - Destruir por TTL não avisa o PR (o scheduler não tem o evento).
 - Barramento em memória: com várias réplicas, segue valendo porque o webhook chega a uma
   só. Trocar por Redis pub/sub mantém a interface.
