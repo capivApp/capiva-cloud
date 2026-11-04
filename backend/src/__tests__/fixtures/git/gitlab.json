@@ -1,0 +1,302 @@
+{
+  "push": {
+    "event": "Push Hook",
+    "body": {
+      "object_kind": "push",
+      "event_name": "push",
+      "before": "95790bf891e76fee5e1747ab589903a6a1f80f22",
+      "after": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+      "ref": "refs/heads/main",
+      "ref_protected": true,
+      "checkout_sha": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+      "user_id": 4,
+      "user_name": "John Smith",
+      "user_username": "jsmith",
+      "user_email": "john@example.com",
+      "project_id": 15,
+      "project": {
+        "id": 15,
+        "name": "Diaspora",
+        "web_url": "https://gitlab.acme.dev/mike/diaspora",
+        "git_http_url": "https://gitlab.acme.dev/mike/diaspora.git",
+        "namespace": "Mike",
+        "path_with_namespace": "mike/diaspora",
+        "default_branch": "main"
+      },
+      "commits": [
+        {
+          "id": "b6568db1bc1dcd7f8b4d5a946b0b91f9dacd7327",
+          "message": "Update Catalan translation to e38cb41.",
+          "title": "Update Catalan translation to e38cb41.",
+          "timestamp": "2026-11-04T10:15:32+02:00",
+          "url": "https://gitlab.acme.dev/mike/diaspora/commit/b6568db1bc1dcd7f8b4d5a946b0b91f9dacd7327",
+          "author": { "name": "Jordi Mallach", "email": "jordi@softcatala.org" },
+          "added": ["CHANGELOG"],
+          "modified": ["app/controller/application.rb"],
+          "removed": []
+        },
+        {
+          "id": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+          "message": "fixed readme",
+          "title": "fixed readme",
+          "timestamp": "2026-11-04T10:57:21+02:00",
+          "url": "https://gitlab.acme.dev/mike/diaspora/commit/da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+          "author": { "name": "GitLab dev user", "email": "gitlabdev@dv6700.(none)" },
+          "added": ["CHANGELOG"],
+          "modified": ["app/controller/application.rb"],
+          "removed": []
+        }
+      ],
+      "total_commits_count": 2,
+      "repository": {
+        "name": "Diaspora",
+        "url": "git@gitlab.acme.dev:mike/diaspora.git",
+        "homepage": "https://gitlab.acme.dev/mike/diaspora",
+        "git_http_url": "https://gitlab.acme.dev/mike/diaspora.git"
+      }
+    }
+  },
+  "branchDeleted": {
+    "event": "Push Hook",
+    "body": {
+      "object_kind": "push",
+      "event_name": "push",
+      "before": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+      "after": "0000000000000000000000000000000000000000",
+      "ref": "refs/heads/feature/login",
+      "checkout_sha": null,
+      "project_id": 15,
+      "project": { "id": 15, "path_with_namespace": "mike/diaspora" },
+      "commits": [],
+      "total_commits_count": 0
+    }
+  },
+  "tag": {
+    "event": "Tag Push Hook",
+    "body": {
+      "object_kind": "tag_push",
+      "event_name": "tag_push",
+      "before": "0000000000000000000000000000000000000000",
+      "after": "82b3d5ae55f7080f1e6022629cdb57bfae7cccc7",
+      "ref": "refs/tags/v1.0.0",
+      "ref_protected": true,
+      "checkout_sha": "82b3d5ae55f7080f1e6022629cdb57bfae7cccc7",
+      "message": "Tag message",
+      "user_id": 1,
+      "user_name": "John Smith",
+      "user_username": "jsmith",
+      "project_id": 1,
+      "project": {
+        "id": 1,
+        "name": "Example",
+        "web_url": "https://gitlab.acme.dev/jsmith/example",
+        "path_with_namespace": "jsmith/example",
+        "default_branch": "main"
+      },
+      "commits": [],
+      "total_commits_count": 0
+    }
+  },
+  "tagDeleted": {
+    "event": "Tag Push Hook",
+    "body": {
+      "object_kind": "tag_push",
+      "event_name": "tag_push",
+      "before": "82b3d5ae55f7080f1e6022629cdb57bfae7cccc7",
+      "after": "0000000000000000000000000000000000000000",
+      "ref": "refs/tags/v0.9.0",
+      "checkout_sha": null,
+      "project_id": 1,
+      "project": { "id": 1, "path_with_namespace": "jsmith/example" },
+      "commits": [],
+      "total_commits_count": 0
+    }
+  },
+  "release": {
+    "event": "Release Hook",
+    "body": {
+      "id": 1,
+      "created_at": "2026-11-04 10:00:00 UTC",
+      "description": "v1.0.0 has been released",
+      "name": "v1.0.0",
+      "released_at": "2026-11-04 10:00:00 UTC",
+      "tag": "v1.0.0",
+      "object_kind": "release",
+      "project": {
+        "id": 2,
+        "name": "release-webhook-example",
+        "web_url": "https://gitlab.acme.dev/acme/release-webhook-example",
+        "path_with_namespace": "acme/release-webhook-example",
+        "default_branch": "main"
+      },
+      "url": "https://gitlab.acme.dev/acme/release-webhook-example/-/releases/v1.0.0",
+      "action": "create",
+      "assets": { "count": 0, "links": [], "sources": [] },
+      "commit": {
+        "id": "ee0a3fb31ac16e11b9dbb596ad16d4af654d08f8",
+        "message": "Release v1.0.0",
+        "title": "Release v1.0.0",
+        "timestamp": "2026-11-04T09:55:00+00:00",
+        "url": "https://gitlab.acme.dev/acme/release-webhook-example/-/commit/ee0a3fb31ac16e11b9dbb596ad16d4af654d08f8",
+        "author": { "name": "Example User", "email": "user@example.com" }
+      }
+    }
+  },
+  "releaseUpdated": {
+    "event": "Release Hook",
+    "body": {
+      "object_kind": "release",
+      "action": "update",
+      "tag": "v1.0.0",
+      "name": "v1.0.0",
+      "project": { "id": 2, "path_with_namespace": "acme/release-webhook-example" },
+      "commit": { "id": "ee0a3fb31ac16e11b9dbb596ad16d4af654d08f8" }
+    }
+  },
+  "mergeRequestOpened": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "event_type": "merge_request",
+      "user": { "id": 1, "name": "Administrator", "username": "root", "email": "admin@example.com" },
+      "project": {
+        "id": 1,
+        "name": "Gitlab Test",
+        "web_url": "https://gitlab.acme.dev/gitlabhq/gitlab-test",
+        "path_with_namespace": "gitlabhq/gitlab-test",
+        "default_branch": "master"
+      },
+      "object_attributes": {
+        "id": 99,
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "source_project_id": 14,
+        "target_project_id": 14,
+        "author_id": 51,
+        "title": "MS-Viewport",
+        "state": "opened",
+        "merge_status": "unchecked",
+        "url": "https://gitlab.acme.dev/gitlabhq/gitlab-test/-/merge_requests/1",
+        "last_commit": {
+          "id": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+          "message": "fixed readme",
+          "author": { "name": "GitLab dev user", "email": "gitlabdev@dv6700.(none)" }
+        },
+        "action": "open"
+      },
+      "labels": [],
+      "changes": {}
+    }
+  },
+  "mergeRequestUpdatedWithPush": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "event_type": "merge_request",
+      "user": { "id": 1, "name": "Administrator", "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport",
+        "state": "opened",
+        "url": "https://gitlab.acme.dev/gitlabhq/gitlab-test/-/merge_requests/1",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "oldrev": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+        "action": "update"
+      }
+    }
+  },
+  "mergeRequestUpdatedMetadata": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "event_type": "merge_request",
+      "user": { "id": 1, "name": "Administrator", "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport (novo titulo)",
+        "state": "opened",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "action": "update"
+      },
+      "changes": { "title": { "previous": "MS-Viewport", "current": "MS-Viewport (novo titulo)" } }
+    }
+  },
+  "mergeRequestReopened": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "user": { "id": 1, "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport",
+        "state": "opened",
+        "url": "https://gitlab.acme.dev/gitlabhq/gitlab-test/-/merge_requests/1",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "action": "reopen"
+      }
+    }
+  },
+  "mergeRequestClosed": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "user": { "id": 1, "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport",
+        "state": "closed",
+        "url": "https://gitlab.acme.dev/gitlabhq/gitlab-test/-/merge_requests/1",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "action": "close"
+      }
+    }
+  },
+  "mergeRequestMerged": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "user": { "id": 1, "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport",
+        "state": "merged",
+        "url": "https://gitlab.acme.dev/gitlabhq/gitlab-test/-/merge_requests/1",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "action": "merge"
+      }
+    }
+  },
+  "mergeRequestApproved": {
+    "event": "Merge Request Hook",
+    "body": {
+      "object_kind": "merge_request",
+      "user": { "id": 1, "username": "root" },
+      "project": { "id": 1, "path_with_namespace": "gitlabhq/gitlab-test" },
+      "object_attributes": {
+        "iid": 1,
+        "target_branch": "master",
+        "source_branch": "ms-viewport",
+        "title": "MS-Viewport",
+        "state": "opened",
+        "last_commit": { "id": "7b5c3cc8be40ee161ae89a06bba6229da1032a0c" },
+        "action": "approved"
+      }
+    }
+  }
+}

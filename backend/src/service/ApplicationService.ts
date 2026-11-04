@@ -16,6 +16,7 @@ import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
 import { isValidHostname, tlsModeToStored } from "@functions/hostname";
 import type { Application, Prisma } from "@prisma-generated/client";
+import type { DeployTrigger } from "@service/git/deployTrigger.strategy";
 
 export interface CreateApplicationInput {
   projectId: string;
@@ -257,6 +258,8 @@ export class ApplicationService {
       autoDeploy?: boolean;
       watchPaths?: string[];
       previewsEnabled?: boolean;
+      deployTrigger?: DeployTrigger;
+      tagPattern?: string;
     },
     tenant: { organizationId: string },
   ): Promise<Application> {
@@ -270,7 +273,7 @@ export class ApplicationService {
     // Configuração de build: vale no PRÓXIMO deploy (não reconstrói sozinha).
     // String vazia limpa o campo — o builder volta ao default (ex.: "Dockerfile"
     // na raiz) em vez de gravar um caminho vazio que falharia o build.
-    for (const key of ["dockerfile", "subPath", "compose"] as const) {
+    for (const key of ["dockerfile", "subPath", "compose", "tagPattern"] as const) {
       const value = dto[key];
       if (value === undefined) continue;
       if (value === "") delete cfg[key];
@@ -279,6 +282,7 @@ export class ApplicationService {
     if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
     if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews as object) ?? {}), enabled: dto.previewsEnabled };
+    if (dto.deployTrigger !== undefined) cfg.deployTrigger = dto.deployTrigger;
 
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;

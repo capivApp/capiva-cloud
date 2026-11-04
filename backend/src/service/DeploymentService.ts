@@ -7,6 +7,7 @@ import { ReconcilerFactory } from "@infra/kubernetes/ReconcilerFactory";
 import { KubernetesAdapter } from "@infra/kubernetes/KubernetesAdapter";
 import { BuildStrategyResolver } from "@infra/build/strategies";
 import { NotificationService } from "@service/NotificationService";
+import { CommitStatusService } from "@service/CommitStatusService";
 import { GitConnectionService } from "@service/GitConnectionService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { KubeContextResolver } from "@service/KubeContextResolver";
@@ -17,6 +18,12 @@ import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
 import { isRolloutAborted } from "@functions/rolloutStatus";
 import type { Application, Deployment } from "@prisma-generated/client";
+
+/** De onde veio o deploy disparado por webhook: sha completo (status do commit) e ref a construir (tag). */
+export interface DeployOrigin {
+  commitSha?: string;
+  gitRef?: string;
+}
 
 /**
  * Orquestra o ciclo de deploy: build → push → deploy → health, registrando a
@@ -38,6 +45,7 @@ export class DeploymentService {
     private readonly gitConnections: GitConnectionService,
     private readonly registries: DockerRegistryService,
     private readonly scans: ImageScanService,
+    private readonly commitStatus: CommitStatusService,
   ) {}
 
   listByApplication(applicationId: string, tenant: { organizationId: string }): Promise<Deployment[]> {
@@ -64,6 +72,7 @@ export class DeploymentService {
     version: string,
     tenant: { organizationId: string },
     commitId?: string,
+    origin?: DeployOrigin,
   ): Promise<Deployment> {
     const app = await withTransaction(() => this.apps.findById(applicationId), { tenant });
     if (!app) throw HttpError.notFound("Aplicação não encontrada.");
@@ -80,7 +89,9 @@ export class DeploymentService {
       { tenant },
     );
 
-    this.run(deployment.id, app, version, tenant).catch(async (error) => {
+    const commit = { sha: origin?.commitSha, deploymentId: deployment.id };
+    this.run(deployment.id, app, version, tenant, origin).catch(async (error) => {
+      void this.commitStatus.report(app, commit, "errored", tenant);
       await this.fail(deployment.id, tenant);
       console.error("[deploy] falhou", error);
     });
@@ -102,7 +113,15 @@ export class DeploymentService {
     }
   }
 
-  private async run(deploymentId: string, app: Application, version: string, tenant: { organizationId: string }): Promise<void> {
+  private async run(
+    deploymentId: string,
+    app: Application,
+    version: string,
+    tenant: { organizationId: string },
+    origin?: DeployOrigin,
+  ): Promise<void> {
+    const commit = { sha: origin?.commitSha, deploymentId };
+    void this.commitStatus.report(app, commit, "started", tenant);
     const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
 
     const step = (label: string, status: Deployment["status"], progress: number) =>
@@ -122,7 +141,7 @@ export class DeploymentService {
     // O resultado do build define a imagem a deployar: para DOCKER_IMAGE é a
     // própria imagem informada; para origens por código é a imagem publicada.
     const push = pushTarget ? { insecure: pushTarget.insecure, credentials: pushTarget.credentials } : undefined;
-    const built = await this.builds.resolve(app.source).build({ source: app.source, config: app.sourceConfig as any, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push, port: app.port ?? undefined });
+    const built = await this.builds.resolve(app.source).build({ source: app.source, config: { ...(app.sourceConfig as Record<string, unknown>), ...(origin?.gitRef ? { gitRef: origin.gitRef } : {}) }, imageRef: target, ctx, app: app.name, deploymentId, gitAuth, push, port: app.port ?? undefined });
     // Origens por código geram um Job de build (Kaniko) — aplica para rodar e expor logs.
     if (built.manifest) await this.k8s.apply(ctx, built.manifest).catch((e) => console.error("[build] apply:", (e as Error).message));
     const imageRef = built.imageRef;
@@ -156,6 +175,7 @@ export class DeploymentService {
       });
       deploymentEvents.emit(deploymentId, { label, status: result.ready ? "HEALTHY" : "FAILED", progress: 100, done: true });
     }, { tenant });
+    void this.commitStatus.report(app, commit, result.ready ? "succeeded" : "failed", tenant);
 
     if (result.ready) {
       void this.notifications.dispatch(tenant.organizationId, {

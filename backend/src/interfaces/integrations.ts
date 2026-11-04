@@ -138,11 +138,26 @@ export interface StackDetection {
   signals: string[];
 }
 
+/** Estado do commit no provedor. O GitLab não tem failure/error: a strategy traduz. */
+export type CommitStatusState = "pending" | "success" | "failure" | "error";
+
+export interface CommitStatusInput {
+  state: CommitStatusState;
+  description: string;
+  /** Link para o deploy no painel. */
+  targetUrl: string;
+  context: "capiva-cloud";
+}
+
 export interface IGitProvider {
   listRepos(): Promise<GitRepo[]>;
   listBranches(repo: string): Promise<string[]>;
   detectStack(repo: string, branch: string): Promise<StackDetection>;
   verifyWebhook(signature: string | undefined, rawBody: Buffer | string): boolean;
+  /** Publica o status do commit (checks do PR, lista de commits). */
+  setCommitStatus(repo: string, sha: string, status: CommitStatusInput): Promise<void>;
+  /** Cria ou atualiza (pelo `marker`, comentário HTML oculto) o comentário da plataforma no PR/MR. */
+  commentOnPullRequest(repo: string, number: number, body: string, marker: string): Promise<void>;
 }
 
 // --------- Build (Strategy) ---------
