@@ -27,20 +27,24 @@ import { CapivaJsonNotice } from "@/pages/applications/components/CapivaJsonNoti
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 import { DeploymentScanBadge } from "@/pages/applications/components/scan/DeploymentScanBadge";
 import { ScanPolicyCard } from "@/pages/applications/components/scan/ScanPolicyCard";
+import {
+  isDeploymentDestacado,
+  readApplicationTab,
+  readDeploymentDestacado,
+  scrollIntoDeployment,
+  writeApplicationTab,
+} from "@/pages/applications/detail/deploymentLink";
 
 export function ApplicationDetailPage() {
   const { id = "" } = useParams();
   const { app, deployments, refetchDeployments, deploy, isDeploying, rollback, latestDeploymentId } = useApplication(id);
   const [strategyOpen, setStrategyOpen] = useState(false);
-  // A aba fica na URL para o link dos logs filtrados abrir direto nela.
+  // A aba fica na URL para o link dos logs filtrados abrir direto nela, e o
+  // `?deployment=` do status de commit no Git abre em Deploys com o deploy destacado.
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") ?? "deploys";
-  const onTabChange = (next: string) =>
-    setSearchParams((current) => {
-      const params = new URLSearchParams(current);
-      params.set("tab", next);
-      return params;
-    }, { replace: true });
+  const tab = readApplicationTab(searchParams);
+  const deploymentDestacado = readDeploymentDestacado(searchParams);
+  const onTabChange = (next: string) => setSearchParams((current) => writeApplicationTab(current, next), { replace: true });
 
   const metrics = useMetricsStream(id || null);
   const progress = useEventSource<{ label: string; progress: number; status: string; done?: boolean }>(
@@ -144,12 +148,23 @@ export function ApplicationDetailPage() {
                 return deployments.map((d) => {
                   const isActive = d.id === activeId;
                   const superseded = d.status === "HEALTHY" && !isActive;
+                  const isDestacado = isDeploymentDestacado(d.id, deploymentDestacado);
                   return (
-                    <div key={d.id} className={cn("flex items-center justify-between rounded-lg border px-3 py-2 text-sm", isActive ? "border-success/40" : "border-border", superseded && "opacity-70")}>
+                    <div
+                      key={d.id}
+                      ref={isDestacado ? scrollIntoDeployment : undefined}
+                      aria-current={isDestacado || undefined}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border px-3 py-2 text-sm",
+                        isActive ? "border-success/40" : "border-border",
+                        superseded && "opacity-70",
+                        isDestacado && "border-primary bg-primary/5 ring-2 ring-primary/40",
+                      )}
+                    >
                       <span className="font-mono text-xs">{d.version}</span>
                       <span className="text-muted-foreground">{isActive ? `${d.podCount} pods em execução` : superseded ? "inativo (0 pods)" : `${d.podCount} pods`}</span>
                       <div className="flex items-center gap-2">
-                        <DeploymentScanBadge summary={d.scanSummary} version={d.version} />
+                        <DeploymentScanBadge summary={d.scanSummary} version={d.version} defaultOpen={isDestacado} />
                         {isActive ? <Badge variant="success">Ativo</Badge> : superseded ? <Badge variant="muted">Substituído</Badge> : <Badge variant={d.status === "FAILED" ? "danger" : "warning"}>{d.status}</Badge>}
                         {superseded && (
                           <Button variant="ghost" size="sm" onClick={act(() => rollback(d.id), "Restaurando versão…")}>

@@ -11,6 +11,7 @@ import { TlsCertificateService } from "@service/TlsCertificateService";
 import { DockerRegistryService } from "@service/DockerRegistryService";
 import { QuotaService } from "@service/QuotaService";
 import { toRecursoDaAplicacao, toRecursoDoVolume } from "@functions/finops/inventario";
+import { resolveReplicasFixas } from "@functions/finops/consumo";
 import { NetworkPolicyService } from "@service/NetworkPolicyService";
 import { SecretStoreService } from "@service/SecretStoreService";
 import { buildContainerEnvVars } from "@functions/containerEnv";
@@ -19,8 +20,11 @@ import { withTransaction } from "@database/withTransaction";
 import { decrypt } from "@functions/crypto";
 import { HttpError } from "@functions/HttpError";
 import { isValidHostname, tlsModeToStored } from "@functions/hostname";
-import type { Application, Prisma } from "@prisma-generated/client";
+import type { Application, Prisma, ScalingPolicy } from "@prisma-generated/client";
 import type { DeployTrigger } from "@service/git/deployTrigger.strategy";
+
+/** Com HPA ativo o autoscaling é o dono das réplicas; o valor fixo fica gravado, sem efeito. */
+export const AVISO_REPLICAS_COM_HPA = "O autoscaling está ativo e controla as réplicas. Para usar réplicas fixas, desative o autoscaling.";
 
 export interface CreateApplicationInput {
   projectId: string;
@@ -74,7 +78,13 @@ export class ApplicationService {
 
   /** Recusa antes de gravar a criação que estoura a quota do ambiente. */
   private requireQuotaDaCriacao(input: CreateApplicationInput, tenant: { organizationId: string }): Promise<void> {
-    const app = toRecursoDaAplicacao({ profile: input.profile ?? "SMALL", customResources: null, scaling: null });
+    const app = toRecursoDaAplicacao({
+      profile: input.profile ?? "SMALL",
+      customResources: null,
+      scaling: null,
+      sourceConfig: input.sourceConfig,
+      previewOfId: input.previewOf?.applicationId ?? null,
+    });
     const volumes = (input.volumes ?? []).filter((v) => v.name.trim() && v.mountPath.trim()).map(toRecursoDoVolume);
     return this.quotas.requireCabe(
       input.environmentId,
@@ -83,22 +93,36 @@ export class ApplicationService {
     );
   }
 
-  /** Troca de perfil/recursos: desconta o consumo atual da própria aplicação. */
-  private async requireQuotaDoPerfil(
+  /** Troca de perfil, recursos ou réplicas: desconta o consumo atual da própria aplicação. */
+  private requireQuotaDaTroca(
     app: Application,
-    next: { profile: string; customResources: unknown },
+    next: { profile: string; customResources: unknown; sourceConfig: unknown },
+    scaling: ScalingPolicy | null,
+    path: string,
     tenant: { organizationId: string },
   ): Promise<void> {
-    const scaling = await withTransaction(() => this.scalingRepo.findByApplication(app.id), { tenant });
-    return this.quotas.requireCabe(
-      app.environmentId,
-      {
-        pedido: [toRecursoDaAplicacao({ ...next, scaling })],
-        substitui: [toRecursoDaAplicacao({ profile: app.profile, customResources: app.customResources, scaling })],
-        paths: { cpuMillicores: "profile", memoryMib: "profile", pods: "profile" },
-      },
-      tenant,
-    );
+    const atual = { profile: app.profile, customResources: app.customResources, sourceConfig: app.sourceConfig, previewOfId: app.previewOfId, scaling };
+    return this.quotas.requireCabeNaAplicacao(app.environmentId, { atual, novo: { ...atual, ...next } }, path, tenant);
+  }
+
+  /**
+   * Réplicas novas numa aplicação que já existe. O reconcile não mexe nas réplicas de um
+   * Deployment existente (preserva a escala manual e não briga com o HPA), por isso a
+   * escala é aplicada aqui. Canário e blue/green recebem as réplicas pelo próprio reconcile.
+   */
+  private async applyReplicas(
+    app: Application,
+    replicas: number | undefined,
+    scaling: ScalingPolicy | null,
+    tenant: { organizationId: string },
+  ): Promise<string | undefined> {
+    if (replicas === undefined) return undefined;
+    if (scaling && app.rolloutStrategy === "ROLLING") return AVISO_REPLICAS_COM_HPA;
+    if (app.rolloutStrategy !== "ROLLING" || app.desiredStatus === "stopped") return undefined;
+    const ctx = await this.kube.forEnvironment(app.environmentId, tenant);
+    if (!ctx.kubeconfig) return undefined;
+    await this.k8s.scaleDeployment(ctx, app.name, replicas).catch((e) => console.error("[app] patch scale:", (e as Error).message));
+    return undefined;
   }
 
   listByProject(projectId: string, tenant: { organizationId: string }): Promise<Application[]> {
@@ -298,13 +322,9 @@ export class ApplicationService {
       startCommand?: string;
     },
     tenant: { organizationId: string },
-  ): Promise<Application> {
+  ): Promise<Application & { aviso?: string }> {
     const app = await this.getById(id, tenant);
     const renaming = Boolean(dto.name && dto.name !== app.name);
-    const isRecursoAlterado = dto.profile !== undefined || dto.customResources !== undefined;
-    if (isRecursoAlterado) {
-      await this.requireQuotaDoPerfil(app, { profile: dto.profile ?? app.profile, customResources: dto.customResources ?? app.customResources }, tenant);
-    }
 
     const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}) };
     if (dto.branch !== undefined) cfg.branch = dto.branch;
@@ -328,6 +348,13 @@ export class ApplicationService {
       if (dto[key] !== undefined) cfg[key] = dto[key];
     }
 
+    const isRecursoAlterado = dto.profile !== undefined || dto.customResources !== undefined;
+    const scaling = await withTransaction(() => this.scalingRepo.findByApplication(app.id), { tenant });
+    if (isRecursoAlterado || dto.replicas !== undefined) {
+      const next = { profile: dto.profile ?? app.profile, customResources: dto.customResources ?? app.customResources, sourceConfig: cfg };
+      await this.requireQuotaDaTroca(app, next, scaling, isRecursoAlterado ? "profile" : "replicas", tenant);
+    }
+
     const data: Prisma.ApplicationUncheckedUpdateInput = { sourceConfig: cfg as Prisma.InputJsonValue };
     if (dto.name) data.name = dto.name;
     if (dto.profile) data.profile = dto.profile;
@@ -349,7 +376,8 @@ export class ApplicationService {
 
     const updated = await withTransaction(() => this.apps.update(id, data), { tenant });
     await this.reconcile(updated, tenant).catch((e) => console.error("[app] patch reconcile:", (e as Error).message));
-    return updated;
+    const aviso = await this.applyReplicas(updated, dto.replicas, scaling, tenant);
+    return aviso ? { ...updated, aviso } : updated;
   }
 
   async updateTags(id: string, tags: string[], tenant: { organizationId: string }): Promise<Application> {
@@ -475,10 +503,7 @@ export interface CapivaMarker {
   envKeys: string[];
 }
 
-/** Réplicas desejadas: as gravadas (tela ou capiva.json) ou o padrão de 2. */
+/** Réplicas desejadas: as gravadas (tela ou capiva.json) ou o padrão (mesma regra da quota). */
 export function desiredReplicasOf(app: { sourceConfig: unknown; previewOfId?: string | null }): number {
-  const replicas = (app.sourceConfig as Record<string, unknown> | null)?.replicas;
-  if (typeof replicas === "number") return replicas;
-  // Preview roda com uma réplica; as demais aplicações, com duas.
-  return app.previewOfId ? 1 : 2;
+  return resolveReplicasFixas(app);
 }

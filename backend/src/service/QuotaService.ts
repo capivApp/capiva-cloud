@@ -6,9 +6,9 @@ import { KubeContextResolver } from "@service/KubeContextResolver";
 import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
 import { requireCabeNaQuota, toColunasDeQuota, toLimiteDoAmbiente, type PedidoDeQuota } from "@functions/finops/checagem";
-import { buildUsoDoInventario } from "@functions/finops/inventario";
+import { buildUsoDoInventario, toRecursoDaAplicacao, type RecursoDaAplicacaoInput } from "@functions/finops/inventario";
 import { buildDisponivel, type QuotaLimite } from "@functions/finops/quota";
-import type { Consumo } from "@functions/finops/consumo";
+import type { Consumo, RecursoDeConsumo } from "@functions/finops/consumo";
 import type { Environment } from "@prisma-generated/client";
 
 type Tenant = { organizationId: string };
@@ -67,5 +67,23 @@ export class QuotaService {
       const [env, inventario] = await Promise.all([this.findAmbiente(environmentId), this.finops.findInventarioDoAmbiente(environmentId)]);
       requireCabeNaQuota({ ...pedido, limite: toLimiteDoAmbiente(env), inventario });
     }, { tenant });
+  }
+
+  /**
+   * Troca de perfil, recursos ou réplicas de uma aplicação: o recurso novo no lugar
+   * do atual. O atual tem de ser medido como o inventário o mede, senão o desconto erra.
+   */
+  requireCabeNaAplicacao(
+    environmentId: string,
+    troca: { atual: RecursoDaAplicacaoInput; novo: RecursoDaAplicacaoInput },
+    path: string,
+    tenant: Tenant,
+  ): Promise<void> {
+    const paths: Partial<Record<RecursoDeConsumo, string>> = { cpuMillicores: path, memoryMib: path, pods: path };
+    return this.requireCabe(
+      environmentId,
+      { pedido: [toRecursoDaAplicacao(troca.novo)], substitui: [toRecursoDaAplicacao(troca.atual)], paths },
+      tenant,
+    );
   }
 }

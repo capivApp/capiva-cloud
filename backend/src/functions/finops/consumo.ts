@@ -50,11 +50,21 @@ export type TipoDeRecurso = RecursoMedido["tipo"];
 
 /** Réplicas fixas quando não há HPA: o mesmo default do `ApplicationReconciler`. */
 export const REPLICAS_FIXAS = 2;
+/** Preview por PR roda com uma réplica quando nada foi gravado. */
+export const REPLICAS_DO_PREVIEW = 1;
+
+/** Réplicas fixas da aplicação: as gravadas (tela ou capiva.json) ou o padrão. */
+export const resolveReplicasFixas = (app: { sourceConfig?: unknown; previewOfId?: string | null }): number => {
+  const replicas = (app.sourceConfig as Record<string, unknown> | null | undefined)?.replicas;
+  if (typeof replicas === "number") return replicas;
+  return app.previewOfId ? REPLICAS_DO_PREVIEW : REPLICAS_FIXAS;
+};
 
 export const resolveReplicasDaAplicacao = (
   scaling: { minReplicas: number; maxReplicas: number } | null | undefined,
+  fixas = REPLICAS_FIXAS,
 ): { min: number; max: number } => {
-  if (!scaling) return { min: REPLICAS_FIXAS, max: REPLICAS_FIXAS };
+  if (!scaling) return { min: fixas, max: fixas };
   return { min: scaling.minReplicas, max: Math.max(scaling.minReplicas, scaling.maxReplicas) };
 };
 

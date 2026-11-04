@@ -4,9 +4,20 @@ import { ScanDetails } from "@/pages/applications/components/scan/ScanDetails";
 import { VulnerabilityBadge } from "@/pages/applications/components/scan/VulnerabilityBadge";
 import type { ScanSummary } from "@/pages/applications/components/scan/types";
 
-/** Selo clicável do deploy: abre o detalhe do scan com as principais CVEs. */
-export function DeploymentScanBadge({ summary, version }: { summary: ScanSummary | null | undefined; version: string }) {
-  const [open, setOpen] = useState(false);
+/**
+ * Selo clicável do deploy: abre o detalhe do scan com as principais CVEs.
+ * `defaultOpen` abre o detalhe já na montagem (link do status de commit para este deploy).
+ */
+export function DeploymentScanBadge({
+  summary,
+  version,
+  defaultOpen = false,
+}: {
+  summary: ScanSummary | null | undefined;
+  version: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   if (!summary) return null;
   return (
     <>

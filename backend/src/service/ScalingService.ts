@@ -7,7 +7,6 @@ import { withTransaction } from "@database/withTransaction";
 import { HttpError } from "@functions/HttpError";
 import type { HpaLiveStatus } from "@interface/integrations";
 import { QuotaService } from "@service/QuotaService";
-import { toRecursoDaAplicacao } from "@functions/finops/inventario";
 import type { Application, ScalingMetric, ScalingPolicy } from "@prisma-generated/client";
 
 export interface SetScalingInput {
@@ -48,16 +47,8 @@ export class ScalingService {
     tenant: { organizationId: string },
   ): Promise<void> {
     const atual = await withTransaction(() => this.policies.findByApplication(app.id), { tenant });
-    const base = { profile: app.profile, customResources: app.customResources };
-    await this.quotas.requireCabe(
-      app.environmentId,
-      {
-        pedido: [toRecursoDaAplicacao({ ...base, scaling: next })],
-        substitui: [toRecursoDaAplicacao({ ...base, scaling: atual })],
-        paths: { cpuMillicores: path, memoryMib: path, pods: path },
-      },
-      tenant,
-    );
+    const base = { profile: app.profile, customResources: app.customResources, sourceConfig: app.sourceConfig, previewOfId: app.previewOfId };
+    await this.quotas.requireCabeNaAplicacao(app.environmentId, { atual: { ...base, scaling: atual }, novo: { ...base, scaling: next } }, path, tenant);
   }
 
   getPolicy(applicationId: string, tenant: { organizationId: string }): Promise<ScalingPolicy | null> {

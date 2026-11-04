@@ -30,6 +30,13 @@ observabilidade ao vivo (sem polling).
   scale up/down.
 - **Escala manual** (`scaleDeployment`): ajusta `spec.replicas` do Deployment. Se houver HPA
   ativo, o autoscaler pode sobrescrever — a UI avisa e oferece "Desativar".
+- **Réplicas fixas** (`sourceConfig.replicas`, pelo `PATCH /applications/:id` ou pelo
+  `capiva.json`): o PATCH checa a quota com as réplicas novas (422 com `errors[].path =
+  "replicas"`) e, num Deployment que já existe, aplica a escala com `scaleDeployment` (o
+  reconcile preserva as réplicas de um Deployment existente). Canário e blue/green recebem
+  as réplicas pelo próprio Rollout. Com HPA ativo, o valor fica gravado sem efeito e a
+  resposta traz `aviso`. A quota (`toRecursoDaAplicacao`) conta `sourceConfig.replicas`
+  quando não há HPA; com HPA continuam valendo o mínimo e o máximo da política.
 
 ## UI
 

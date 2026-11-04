@@ -1,6 +1,7 @@
 import {
   buildFaixaDeConsumo,
   resolveReplicasDaAplicacao,
+  resolveReplicasFixas,
   sumConsumo,
   type AplicacaoDeConsumo,
   type BancoDeConsumo,
@@ -18,6 +19,9 @@ export interface AplicacaoInventario {
   profile: string;
   customResources: unknown;
   scaling: { minReplicas: number; maxReplicas: number } | null;
+  /** `sourceConfig.replicas` vale como réplicas fixas quando não há HPA. */
+  sourceConfig?: unknown;
+  previewOfId?: string | null;
   volumes: { id: string; name: string; sizeGi: number }[];
 }
 
@@ -36,8 +40,10 @@ export interface Inventario {
   bancos: BancoInventario[];
 }
 
-export const toRecursoDaAplicacao = (app: Pick<AplicacaoInventario, "profile" | "customResources" | "scaling">): AplicacaoDeConsumo => {
-  const replicas = resolveReplicasDaAplicacao(app.scaling);
+export type RecursoDaAplicacaoInput = Pick<AplicacaoInventario, "profile" | "customResources" | "scaling" | "sourceConfig" | "previewOfId">;
+
+export const toRecursoDaAplicacao = (app: RecursoDaAplicacaoInput): AplicacaoDeConsumo => {
+  const replicas = resolveReplicasDaAplicacao(app.scaling, resolveReplicasFixas(app));
   return {
     tipo: "APPLICATION",
     profile: app.profile,
@@ -65,5 +71,5 @@ export const listRecursosMedidos = (inventario: Inventario): RecursoMedido[] => 
 export const buildConsumoMaximo = (recursos: RecursoMedido[]): Consumo =>
   sumConsumo(recursos.map((recurso) => buildFaixaDeConsumo(recurso).max));
 
-/** Uso que a quota considera: réplicas máximas do HPA, volumes e bancos. */
+/** Uso que a quota considera: réplicas máximas do HPA (ou as fixas gravadas), volumes e bancos. */
 export const buildUsoDoInventario = (inventario: Inventario): Consumo => buildConsumoMaximo(listRecursosMedidos(inventario));

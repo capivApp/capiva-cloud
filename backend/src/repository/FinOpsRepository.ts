@@ -9,6 +9,8 @@ const SELECT_APLICACAO = {
   environmentId: true,
   profile: true,
   customResources: true,
+  sourceConfig: true,
+  previewOfId: true,
   scaling: { select: { minReplicas: true, maxReplicas: true } },
   volumes: { select: { id: true, name: true, sizeGi: true } },
 } as const;
