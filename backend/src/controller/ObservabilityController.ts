@@ -6,6 +6,9 @@ import { ScalingService } from "@service/ScalingService";
 import { ManagedDatabaseService } from "@service/ManagedDatabaseService";
 import { deploymentEvents } from "@infra/realtime/EventBus";
 import { tenantOf } from "@functions/tenant";
+import { logDownloadSchema, logFiltrosSchema } from "@schemas/logs.schema";
+import { createLogExportFormat, type LogExportStrategy } from "@service/logSearch/logExport.strategy";
+import type { LogLine } from "@interface/logs";
 
 function openSse(res: Response): void {
   res.writeHead(200, {
@@ -14,6 +17,28 @@ function openSse(res: Response): void {
     Connection: "keep-alive",
   });
   res.write("\n");
+}
+
+const buildLogFileName = (app: string, extension: string, now: Date): string =>
+  `${app.replace(/[^a-zA-Z0-9._-]/g, "-")}-logs-${now.toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-")}.${extension}`;
+
+/**
+ * Escreve as páginas conforme chegam. Erro antes do primeiro byte ainda vira resposta
+ * JSON no errorHandler; depois disso só dá para encerrar o arquivo.
+ */
+async function streamLogPages(req: Request, res: Response, pages: AsyncGenerator<LogLine[]>, format: LogExportStrategy): Promise<void> {
+  let closed = false;
+  req.on("close", () => (closed = true));
+  try {
+    for await (const page of pages) {
+      if (closed) break;
+      res.write(page.map(format.serialize).join(""));
+    }
+  } catch (error) {
+    if (!res.headersSent) throw error;
+    console.error("[logs] download interrompido", error);
+  }
+  res.end();
 }
 
 @Injectable()
@@ -76,16 +101,40 @@ export class ObservabilityController {
     res.end();
   };
 
-  /** SSE: logs ao vivo (poll do Loki a cada 2s). */
+  /** JSON: busca de logs com filtros (texto, regex, nível, pod, intervalo). */
+  searchLogs = async (req: Request, res: Response): Promise<void> => {
+    const filtros = logFiltrosSchema.parse(req.query);
+    res.json(await this.observability.searchLogs(String(req.params.id), tenantOf(req), filtros));
+  };
+
+  /** JSON: pods com log no intervalo, para o filtro da tela. */
+  logPods = async (req: Request, res: Response): Promise<void> => {
+    const filtros = logFiltrosSchema.parse(req.query);
+    res.json(await this.observability.logPods(String(req.params.id), tenantOf(req), filtros));
+  };
+
+  /** Arquivo .txt/.ndjson com os logs filtrados, em streaming, até `maxLines`. */
+  downloadLogs = async (req: Request, res: Response): Promise<void> => {
+    const { filtros, format, maxLines } = logDownloadSchema.parse(req.query);
+    const { app, pages } = await this.observability.exportLogs(String(req.params.id), tenantOf(req), filtros, maxLines);
+    const strategy = createLogExportFormat(format);
+    res.setHeader("Content-Type", strategy.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${buildLogFileName(app, strategy.extension, new Date())}"`);
+    await streamLogPages(req, res, pages, strategy);
+  };
+
+  /** SSE: logs ao vivo (poll do Loki a cada 2s), com os filtros de texto/nível/pod. */
   streamLogs = async (req: Request, res: Response): Promise<void> => {
     const applicationId = String(req.params.id);
     const tenant = tenantOf(req);
+    const filtros = logFiltrosSchema.parse(req.query);
     openSse(res);
 
     let stop = false;
     req.on("close", () => (stop = true));
     while (!stop) {
-      const lines = await this.observability.logs(applicationId, tenant);
+      // Filtro recusado pelo Loki não derruba o stream: a busca mostra o erro.
+      const lines = await this.observability.logs(applicationId, tenant, filtros).catch(() => []);
       res.write(`event: logs\ndata: ${JSON.stringify(lines)}\n\n`);
       await new Promise((r) => setTimeout(r, 2000));
     }

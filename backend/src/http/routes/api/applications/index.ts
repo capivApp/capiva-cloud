@@ -28,6 +28,9 @@ export const registry = (router: Router): void => {
   router.post("/:id/dependencies", dev, ctrl.connectDependency);
   router.delete("/:id/dependencies/:depId", dev, ctrl.disconnectDependency);
   router.get("/:id/metrics", obs.metrics);
+  router.get("/:id/logs", obs.searchLogs);
+  router.get("/:id/logs/pods", obs.logPods);
+  router.get("/:id/logs/download", obs.downloadLogs);
   router.patch("/:id/strategy", dev, ctrl.updateStrategy);
   router.post("/:id/rollback", dev, ctrl.rollback);
   router.post("/:id/promote", dev, ctrl.promote);

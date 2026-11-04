@@ -1,6 +1,6 @@
 import { ArrowLeft, RotateCcw, Rocket, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,19 +22,26 @@ import { AlertsTab } from "@/pages/applications/detail/AlertsTab";
 import { PreviewsTab } from "@/pages/applications/detail/PreviewsTab";
 import { PreviewBadge } from "@/pages/applications/components/PreviewBadge";
 import { isPreviewDisponivel } from "@/pages/applications/preview";
+import { LogsTab } from "@/pages/applications/detail/LogsTab";
 import { useApplication } from "@/pages/applications/hooks/useApplication";
 import { DeploymentScanBadge } from "@/pages/applications/components/scan/DeploymentScanBadge";
 import { ScanPolicyCard } from "@/pages/applications/components/scan/ScanPolicyCard";
-
-interface LogLine { ts: string; line: string }
 
 export function ApplicationDetailPage() {
   const { id = "" } = useParams();
   const { app, deployments, refetchDeployments, deploy, isDeploying, rollback, latestDeploymentId } = useApplication(id);
   const [strategyOpen, setStrategyOpen] = useState(false);
+  // A aba fica na URL para o link dos logs filtrados abrir direto nela.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") ?? "deploys";
+  const onTabChange = (next: string) =>
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current);
+      params.set("tab", next);
+      return params;
+    }, { replace: true });
 
   const metrics = useMetricsStream(id || null);
-  const logs = useEventSource<LogLine[]>(id ? `/streams/applications/${id}/logs` : null, "logs");
   const progress = useEventSource<{ label: string; progress: number; status: string; done?: boolean }>(
     latestDeploymentId ? `/streams/deployments/${latestDeploymentId}` : null,
     "progress",
@@ -96,7 +103,7 @@ export function ApplicationDetailPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="deploys">
+      <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>
           <TabsTrigger value="deploys">Deploys</TabsTrigger>
           <TabsTrigger value="env">Variáveis</TabsTrigger>
@@ -195,16 +202,7 @@ export function ApplicationDetailPage() {
         </TabsContent>
 
         <TabsContent value="logs" className="pt-5">
-          <Card>
-            <CardContent className="pt-5">
-              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1 text-success"><span className="size-1.5 animate-pulse rounded-full bg-current" /> Live</span>
-              </div>
-              <pre className="max-h-96 overflow-auto rounded-lg bg-background p-4 font-mono text-xs leading-relaxed text-muted-foreground">
-                {(logs ?? []).map((l) => l.line).join("\n") || "Aguardando logs…"}
-              </pre>
-            </CardContent>
-          </Card>
+          {app && <LogsTab applicationId={app.id} />}
         </TabsContent>
       </Tabs>
 

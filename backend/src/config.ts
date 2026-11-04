@@ -3,7 +3,11 @@
  * antes de qualquer outro módulo. Não colocar regra de negócio aqui.
  */
 import "reflect-metadata";
+import { z } from "zod";
 import { installBunKubeFetchShim } from "@infra/kubernetes/nodeFetchShim";
+
+// Mensagem de validação que ninguém escreveu à mão sai em português, não em inglês.
+z.config(z.locales.pt());
 
 process.env.NODE_ENV ??= "development";
 
