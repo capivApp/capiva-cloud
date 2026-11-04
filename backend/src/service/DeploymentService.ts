@@ -157,6 +157,7 @@ export class DeploymentService {
         event: "deploy.succeeded",
         title: `Deploy concluído: ${app.name}`,
         body: `Versão ${version} publicada com sucesso (${result.replicas} réplicas).`,
+        data: { applicationId: app.id, deploymentId },
       });
     }
   }
@@ -206,15 +207,16 @@ export class DeploymentService {
       deploymentEvents.emit(deploymentId, { label: "Deploy falhou", status: "FAILED", progress: 100, done: true });
     }, { tenant });
 
+    const failed = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
     void this.notifications.dispatch(tenant.organizationId, {
       event: "deploy.failed",
       title: "Deploy falhou",
       body: `Um deploy falhou e será avaliado para rollback automático.`,
+      data: failed ? { applicationId: failed.applicationId, deploymentId } : undefined,
     });
 
     // Smart rollback: se a app tem rollback automático e existe um deploy saudável
     // anterior, restaura automaticamente a versão estável.
-    const failed = await withTransaction(() => this.deployments.findById(deploymentId), { tenant });
     if (!failed) return;
     const app = await withTransaction(() => this.apps.findById(failed.applicationId), { tenant });
     const autoRollback = (app?.rolloutConfig as Record<string, unknown> | null)?.autoRollback !== false;

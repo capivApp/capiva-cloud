@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { registerSchema, loginSchema } from "@schemas/auth.schema";
-import { createApplicationSchema, updateApplicationSchema } from "@schemas/application.schema";
+import { createApplicationSchema, scaleReplicasSchema, setScalingSchema, updateApplicationSchema } from "@schemas/application.schema";
 import {
   createClusterSchema,
   createDatabaseSchema,
@@ -112,6 +112,46 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       },
       "/applications/{id}/deploy": {
         post: { tags: ["Applications"], summary: "Disparar deploy", security: bearer, responses: { "202": { description: "Deploy enfileirado" } } },
+      },
+      "/applications/{id}/rollback": {
+        post: {
+          tags: ["Applications"],
+          summary: "Rollback para um deploy anterior",
+          description: "Republica a imagem de um deploy saudável anterior, sem rebuild. Exige DEVELOPER ou superior.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["deploymentId"], properties: { deploymentId: { type: "string" } } } } } },
+          responses: { "202": { description: "Deploy de rollback criado" }, "400": { description: "Deploy alvo sem imagem" }, "403": { description: "VIEWER não pode" } },
+        },
+      },
+      "/applications/{id}/restart": {
+        post: { tags: ["Applications"], summary: "Reiniciar pods (rollout restart)", description: "Exige DEVELOPER ou superior.", security: bearer, parameters: [appId, orgHeader], responses: { "202": { description: "Reinício solicitado" }, "403": { description: "VIEWER não pode" } } },
+      },
+      "/applications/{id}/scaling": {
+        get: { tags: ["Applications"], summary: "Política de autoscaling (HPA)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "Política ou null" } } },
+        put: {
+          tags: ["Applications"],
+          summary: "Definir mínimo, máximo, métrica e alvo do HPA",
+          description: "Só para estratégia ROLLING. Exige DEVELOPER ou superior.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(setScalingSchema),
+          responses: { "200": { description: "Política salva" }, "400": { description: "Estratégia sem HPA ou máximo menor que o mínimo" }, "403": { description: "VIEWER não pode" } },
+        },
+      },
+      "/applications/{id}/scaling/status": {
+        get: { tags: ["Applications"], summary: "Estado vivo da escala (HPA e réplicas atuais)", security: bearer, parameters: [appId, orgHeader], responses: { "200": { description: "OK" } } },
+      },
+      "/applications/{id}/scaling/replicas": {
+        post: {
+          tags: ["Applications"],
+          summary: "Escalar réplicas manualmente (0 a 100)",
+          description: "Com HPA ativo, o autoscaler pode sobrescrever o valor. Exige DEVELOPER ou superior.",
+          security: bearer,
+          parameters: [appId, orgHeader],
+          requestBody: body(scaleReplicasSchema),
+          responses: { "200": { description: "Réplicas aplicadas" }, "400": { description: "Ambiente sem cluster" }, "403": { description: "VIEWER não pode" } },
+        },
       },
       "/applications/{id}/dependencies": {
         get: { tags: ["Applications"], summary: "Listar dependências", security: bearer, responses: { "200": { description: "OK" } } },
