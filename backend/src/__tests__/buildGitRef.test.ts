@@ -22,7 +22,7 @@ const baseInput: BuildJobInput = {
 
 type KanikoJob = { spec: { template: { spec: { containers: { args: string[] }[] } } } };
 const contextOf = (job: unknown) =>
-  (job as KanikoJob).spec.template.spec.containers[0]!.args.find((a) => a.startsWith("--context="));
+  (job as KanikoJob).spec.template.spec.containers[0].args.find((a) => a.startsWith("--context="));
 
 describe("resolveBuildRef", () => {
   it("sem gitRef usa a branch configurada", () => {

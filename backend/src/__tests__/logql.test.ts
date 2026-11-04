@@ -28,7 +28,7 @@ function parseQuery(query: string) {
     let value = "";
     while (query[i] !== '"') {
       if (i >= query.length) throw new Error("string sem fechamento");
-      const c = query[i] === "\\" ? (UNESCAPE[query[++i]!] ?? query[i]) : query[i];
+      const c = query[i] === "\\" ? (UNESCAPE[query[++i]] ?? query[i]) : query[i];
       value += c;
       i++;
     }
@@ -46,13 +46,13 @@ function parseQuery(query: string) {
   const matchers: Array<[string, string, string]> = [];
   while (query[i] !== "}") {
     const [, label, op] = expect(/^,?([a-zA-Z_]+)(=~|!=|!~|=)/);
-    matchers.push([label!, op!, readString()]);
+    matchers.push([label, op, readString()]);
   }
   i++;
   const stages: Array<[string, string]> = [];
   while (i < query.length) {
     const [, op] = expect(/^ (\|=|!=|\|~|!~) /);
-    stages.push([op!, readString()]);
+    stages.push([op, readString()]);
   }
   return { matchers, stages };
 }

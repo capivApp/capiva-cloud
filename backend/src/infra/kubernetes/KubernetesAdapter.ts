@@ -96,7 +96,7 @@ export class KubernetesAdapter implements IKubernetesAdapter {
 
     // Server-Side Apply: cria ou atualiza convergindo para o estado desejado.
     await resolved.api.patch(
-      obj as KubernetesObject,
+      obj,
       undefined,
       undefined,
       fieldManager,
@@ -137,7 +137,7 @@ export class KubernetesAdapter implements IKubernetesAdapter {
     if (this.ensuredNs.has(key)) return;
     try {
       await api.patch(
-        { apiVersion: "v1", kind: "Namespace", metadata: { name: namespace, labels: { "app.kubernetes.io/managed-by": "capiva" } } } as KubernetesObject,
+        { apiVersion: "v1", kind: "Namespace", metadata: { name: namespace, labels: { "app.kubernetes.io/managed-by": "capiva" } } },
         undefined,
         undefined,
         "capiva",

@@ -256,9 +256,9 @@ describe("parseGitWebhook: entradas inválidas", () => {
 
   // Chave do protótipo não pode ser tratada como parser ou ação.
   it("nome de evento ou ação igual a propriedade do protótipo é ignorado", () => {
-    expect(parseGitWebhook("GITHUB", "constructor", github.push!.body)).toBeNull();
-    const mr = gitlab.mergeRequestOpened!.body as { object_attributes: Record<string, unknown> };
+    expect(parseGitWebhook("GITHUB", "constructor", github.push.body)).toBeNull();
+    const mr = gitlab.mergeRequestOpened.body as { object_attributes: Record<string, unknown> };
     expect(parseGitWebhook("GITLAB", "Merge Request Hook", { ...mr, object_attributes: { ...mr.object_attributes, action: "constructor" } })).toBeNull();
-    expect(parseGitWebhook("GITHUB", "pull_request", { ...(github.pullRequestOpened!.body as object), action: "toString" })).toBeNull();
+    expect(parseGitWebhook("GITHUB", "pull_request", { ...(github.pullRequestOpened.body as object), action: "toString" })).toBeNull();
   });
 });

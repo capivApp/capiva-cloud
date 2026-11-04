@@ -23,7 +23,7 @@ import { setQuotaSchema } from "@schemas/finops.schema";
  */
 function json(schema: z.ZodType): Record<string, unknown> {
   // Zod 4 expõe conversão nativa para JSON Schema.
-  return z.toJSONSchema(schema) as Record<string, unknown>;
+  return z.toJSONSchema(schema);
 }
 
 export function buildOpenApiDocument(): Record<string, unknown> {

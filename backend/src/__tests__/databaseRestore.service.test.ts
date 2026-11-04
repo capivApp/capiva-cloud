@@ -81,7 +81,7 @@ function makeService(overrides: { backup?: Record<string, unknown>; db?: Record<
     storage as never,
     kube as never,
     k8s as never,
-  ) as Service;
+  );
   return { service, records, applied, removed, managedDatabases, observed, k8s };
 }
 

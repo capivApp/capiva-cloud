@@ -21,7 +21,7 @@ describe("sseAuthMiddleware com chave de API", () => {
     const req = makeReq("Bearer cap_abc_def");
     const next = mock((_error?: unknown) => undefined);
 
-    await sseAuthMiddleware(req, {} as Response, next as unknown as NextFunction);
+    await sseAuthMiddleware(req, {} as Response, next);
 
     expect(next).toHaveBeenCalledWith();
     expect(req.organizationId).toBe("org1");
@@ -33,7 +33,7 @@ describe("sseAuthMiddleware com chave de API", () => {
     restore = () => spy.mockRestore();
     const next = mock((_error?: unknown) => undefined);
 
-    await sseAuthMiddleware(makeReq("Bearer cap_xxx"), {} as Response, next as unknown as NextFunction);
+    await sseAuthMiddleware(makeReq("Bearer cap_xxx"), {} as Response, next);
 
     const error = next.mock.calls[0]?.[0] as HttpError;
     expect(error).toBeInstanceOf(HttpError);

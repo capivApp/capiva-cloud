@@ -4,7 +4,7 @@ const limiteDe = (rotulo: string) =>
   z
     .number({ error: `Informe ${rotulo} em número inteiro.` })
     .int(`Informe ${rotulo} em número inteiro.`)
-    .min(1, `${rotulo[0]!.toUpperCase()}${rotulo.slice(1)} precisa ser maior que zero.`)
+    .min(1, `${rotulo[0].toUpperCase()}${rotulo.slice(1)} precisa ser maior que zero.`)
     .nullable()
     .default(null);
 

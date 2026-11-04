@@ -51,10 +51,10 @@ export const config = {
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT}`,
   databaseProvider: process.env.DATABASE_PROVIDER as "postgresql" | "mysql" | "sqlite",
   auth: {
-    accessTtl: process.env.ACCESS_TOKEN_TTL!,
+    accessTtl: process.env.ACCESS_TOKEN_TTL,
     refreshTtlMs: Number(process.env.REFRESH_TOKEN_TTL_MS),
-    issuer: process.env.JWT_ISSUER!,
-    audience: process.env.JWT_AUDIENCE!,
+    issuer: process.env.JWT_ISSUER,
+    audience: process.env.JWT_AUDIENCE,
     cookieSecure: process.env.COOKIE_SECURE === "true",
   },
   originWhitelist: parseOrigins(),

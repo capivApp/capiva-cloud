@@ -47,7 +47,7 @@ function makeService(overrides: { backup?: Record<string, unknown>; backupStatus
       return volumeState.current;
     }),
   };
-  const service = new VolumeRestoreService(restores as never, backups as never, volumes as never, apps as never, kube as never, k8s as never) as Service;
+  const service = new VolumeRestoreService(restores as never, backups as never, volumes as never, apps as never, kube as never, k8s as never);
   return { service, applied, observedCalls, volumeState };
 }
 

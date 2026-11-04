@@ -297,7 +297,7 @@ export class DeploymentService {
       { tenant },
     );
 
-    const status = await this.appService.reconcile(app, tenant, undefined, target.imageRef!);
+    const status = await this.appService.reconcile(app, tenant, undefined, target.imageRef);
 
     await withTransaction(async () => {
       const label = automatic ? "Rollback automático concluído" : "Rollback concluído";

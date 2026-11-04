@@ -79,7 +79,7 @@ export class OperatorInstallerService {
         // Recursos de observabilidade (ServiceMonitor/PodMonitor) são opcionais e
         // exigem o Prometheus Operator — pulamos se o bundle os incluir.
         if (doc.apiVersion?.startsWith("monitoring.coreos.com")) continue;
-        await this.k8s.applyRaw(ctx, doc as Parameters<KubernetesAdapter["applyRaw"]>[1]);
+        await this.k8s.applyRaw(ctx, doc);
       }
     }
     for (const manifest of spec.manifests?.() ?? []) await this.k8s.apply(ctx, manifest);

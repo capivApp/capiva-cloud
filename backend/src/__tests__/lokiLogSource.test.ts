@@ -50,7 +50,7 @@ describe("LokiLogSource", () => {
   it("manda query, intervalo, limite e direção e lê o pod de cada stream", async () => {
     requests.length = 0;
     const lines = await new LokiLogSource(baseUrl).range(request('{namespace="a",app="b"} |= "x"'));
-    const sent = requests[0]!;
+    const sent = requests[0];
     expect(sent.pathname).toBe("/loki/api/v1/query_range");
     expect(Object.fromEntries(sent.searchParams)).toEqual({ query: '{namespace="a",app="b"} |= "x"', limit: "50", start: "1", end: "999", direction: "forward" });
     expect(lines).toEqual([

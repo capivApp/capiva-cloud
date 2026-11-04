@@ -123,8 +123,8 @@ export class ApplicationService {
           name: input.name,
           source: input.source,
           gitConnectionId: input.gitConnectionId ?? null,
-          sourceConfig: sourceConfig as Prisma.InputJsonValue,
-          tags: (input.tags ?? []) as Prisma.InputJsonValue,
+          sourceConfig: sourceConfig,
+          tags: (input.tags ?? []),
           profile: input.profile ?? "SMALL",
           rolloutStrategy: input.rolloutStrategy ?? "ROLLING",
           port: input.port ?? 3000,
@@ -183,7 +183,7 @@ export class ApplicationService {
       { tenant },
     );
     const resolvedEnv = buildContainerEnvVars(app.name, envVars, safeDecrypt);
-    const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" }));
+    const volumeSpecs = volumes.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode }));
 
     // NetworkPolicy padrão do namespace (deny-all + liberações + dependências).
     await this.networkPolicies.syncEnvironmentQuietly(app.environmentId, tenant);
@@ -193,7 +193,7 @@ export class ApplicationService {
     });
 
     // TLS por domínio: se UPLOADED, decifra o certificado da org para virar Secret.
-    const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT") as TlsModeManifest;
+    const tlsMode = (app.tlsMode ?? "LETS_ENCRYPT");
     const tlsCert =
       tlsMode === "UPLOADED" && app.tlsCertificateId
         ? await this.tlsCerts.decrypted(tenant.organizationId, app.tlsCertificateId)
@@ -215,7 +215,7 @@ export class ApplicationService {
     const tlsModeMap = { lets_encrypt: "LETS_ENCRYPT", uploaded: "UPLOADED", none: "NONE" } as const;
     const domains = await Promise.all(
       domainRows.map(async (d) => {
-        const mode = (tlsModeMap[d.tlsMode as keyof typeof tlsModeMap] ?? "LETS_ENCRYPT") as TlsModeManifest;
+        const mode = (tlsModeMap[d.tlsMode as keyof typeof tlsModeMap] ?? "LETS_ENCRYPT");
         const cert =
           mode === "UPLOADED" && d.tlsCertificateId
             ? await this.tlsCerts.decrypted(tenant.organizationId, d.tlsCertificateId).catch(() => undefined)
@@ -321,7 +321,7 @@ export class ApplicationService {
     }
     if (dto.autoDeploy !== undefined) cfg.autoDeploy = dto.autoDeploy;
     if (dto.watchPaths !== undefined) cfg.watchPaths = dto.watchPaths;
-    if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews as object) ?? {}), enabled: dto.previewsEnabled };
+    if (dto.previewsEnabled !== undefined) cfg.previews = { ...((cfg.previews) ?? {}), enabled: dto.previewsEnabled };
     if (dto.deployTrigger !== undefined) cfg.deployTrigger = dto.deployTrigger;
     // Réplicas e comandos de build/start (declarados pelo capiva.json ou pela tela).
     for (const key of ["replicas", "buildCommand", "startCommand"] as const) {
@@ -354,7 +354,7 @@ export class ApplicationService {
 
   async updateTags(id: string, tags: string[], tenant: { organizationId: string }): Promise<Application> {
     await this.getById(id, tenant);
-    return withTransaction(() => this.apps.update(id, { tags: tags as Prisma.InputJsonValue }), { tenant });
+    return withTransaction(() => this.apps.update(id, { tags: tags }), { tenant });
   }
 
   /** Atualiza o modo TLS do domínio e reconcilia o Ingress/Secret. */
@@ -425,7 +425,7 @@ export class ApplicationService {
     return withTransaction(async () => {
       const app = await this.getById(id, tenant);
       const cfg = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), buildArgs };
-      return this.apps.update(id, { sourceConfig: cfg as Prisma.InputJsonValue });
+      return this.apps.update(id, { sourceConfig: cfg });
     }, { tenant });
   }
 
@@ -451,7 +451,7 @@ export class ApplicationService {
         app,
         image: "",
         domains: domainRows.map((d) => ({ host: d.host, tlsMode: "NONE" as TlsModeManifest })),
-        volumes: volumeRows.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode as "RWO" | "RWX" })),
+        volumes: volumeRows.map((v) => ({ name: v.name, mountPath: v.mountPath, sizeGi: v.sizeGi, accessMode: v.accessMode })),
       },
       ctx,
     );

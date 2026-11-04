@@ -44,7 +44,7 @@ type Container = {
 const podSpec = (m: unknown) =>
   (m as { spec: { template: { spec: { initContainers?: Container[]; containers: Container[]; volumes?: { name: string }[] } } } }).spec.template.spec;
 const initNamed = (m: unknown, name: string) => podSpec(m).initContainers?.find((c) => c.name === name);
-const mainContainer = (m: unknown) => podSpec(m).containers[0] as Container;
+const mainContainer = (m: unknown) => podSpec(m).containers[0];
 const envOf = (c: Container | undefined, name: string) => c?.env?.find((e) => e.name === name)?.value;
 
 describe("dockerfileJobManifest — Git com Dockerfile continua no Kaniko puro", () => {

@@ -28,7 +28,7 @@ const ESCAPES: Record<string, string> = {
 };
 
 /** String literal do LogQL (aspas duplas, escape estilo Go). */
-export const quoteLogQL = (value: string): string => `"${value.replace(/[\\"\n\r\t]/g, (c) => ESCAPES[c]!)}"`;
+export const quoteLogQL = (value: string): string => `"${value.replace(/[\\"\n\r\t]/g, (c) => ESCAPES[c])}"`;
 
 const matcher = (label: string, value: string) => `${label}=${quoteLogQL(value)}`;
 

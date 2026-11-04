@@ -34,6 +34,6 @@ const STATE_BY_BREACH: Record<string, AlertState> = { true: "FIRING", false: "OK
  */
 export const evaluateAlertRule = (rule: EvaluableRule, value: number | null): AlertEvaluation => {
   const breached = isRuleBreached(rule, value);
-  const state = breached === null ? rule.state : STATE_BY_BREACH[String(breached)]!;
+  const state = breached === null ? rule.state : STATE_BY_BREACH[String(breached)];
   return { state, event: alertEventFor(rule.state, state), value };
 };

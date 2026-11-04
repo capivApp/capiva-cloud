@@ -45,5 +45,5 @@ export const computePercentile = (values: number[], quantile: number): number | 
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const rank = Math.max(1, Math.ceil(quantile * sorted.length));
-  return sorted[rank - 1]!;
+  return sorted[rank - 1];
 };

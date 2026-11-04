@@ -42,7 +42,7 @@ const makeApp = (overrides: Partial<Application> = {}): Application =>
     createdAt: new Date("2026-11-01T12:00:00Z"),
     updatedAt: new Date("2026-11-01T12:00:00Z"),
     ...overrides,
-  }) as Application;
+  });
 
 const makeEvent = (overrides: Partial<PullRequestEvent> = {}): PullRequestEvent => ({
   connectionId: "conn-1",

@@ -20,7 +20,7 @@ function safeDecrypt(value: unknown): string {
  * de um Deployment. Centraliza a leitura de saúde para a UI não ficar "fake".
  */
 export function interpretDbStatus(obs: ObservedStatus): ObservedStatus & { instances?: number; readyInstances?: number; phase?: string } {
-  const raw = (obs.raw ?? {}) as Record<string, unknown>;
+  const raw = (obs.raw ?? {});
   const instances = (raw.instances as number) ?? (raw.readyReplicas as number) ?? undefined;
   const readyInstances = (raw.readyInstances as number) ?? (raw.availableReplicas as number) ?? (raw.readyReplicas as number) ?? undefined;
   const phase = raw.phase as string | undefined;

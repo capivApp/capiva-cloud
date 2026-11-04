@@ -40,7 +40,7 @@ export class ApiKeyService {
           keyHash: sha256(secret),
           prefix,
           role: input.role ?? "DEVELOPER",
-          scopes: (input.scopes ?? []) as unknown as object,
+          scopes: input.scopes ?? [],
         }),
       { tenant: { organizationId } },
     );

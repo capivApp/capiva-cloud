@@ -91,7 +91,7 @@ function parseRefEvent(body: Payload, sha: string | undefined, repo: string | un
   const ref = asString(body.ref) ?? "";
   const prefix = Object.keys(REF_EVENTS).find((p) => ref.startsWith(p));
   if (!prefix) return null;
-  return REF_EVENTS[prefix]!(ref.slice(prefix.length), { sha, repo, body });
+  return REF_EVENTS[prefix](ref.slice(prefix.length), { sha, repo, body });
 }
 
 // ----------------------------- GitHub / Gitea -----------------------------

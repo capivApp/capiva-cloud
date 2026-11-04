@@ -13,7 +13,7 @@ import type { K8sManifest } from "@interface/integrations";
 
 type Container = { name: string; image: string; command: string[]; env?: { name: string; value: string }[]; envFrom?: unknown[]; resources?: unknown };
 const podSpec = (m: K8sManifest) => (m.spec as { template: { spec: { containers: Container[]; restartPolicy: string } } }).template.spec;
-const container = (m: K8sManifest) => podSpec(m).containers[0]!;
+const container = (m: K8sManifest) => podSpec(m).containers[0];
 const envOf = (m: K8sManifest) => Object.fromEntries((container(m).env ?? []).map((e) => [e.name, e.value]));
 
 const base = { name: "scan-dep1", namespace: "prod", imageRef: "registry.local:5000/api:1.4.0", deploymentId: "dep1" };
@@ -80,8 +80,8 @@ describe("trivyCredentialsSecretManifest", () => {
     const secret = trivyCredentialsSecretManifest("scan-dep1-auth", "prod", { username: "ci", password: "s3cr3t" });
     expect(secret).toMatchObject({ apiVersion: "v1", kind: "Secret", type: "Opaque", metadata: { name: "scan-dep1-auth", namespace: "prod" } });
     const data = secret.data as Record<string, string>;
-    expect(Buffer.from(data.TRIVY_USERNAME!, "base64").toString()).toBe("ci");
-    expect(Buffer.from(data.TRIVY_PASSWORD!, "base64").toString()).toBe("s3cr3t");
+    expect(Buffer.from(data.TRIVY_USERNAME, "base64").toString()).toBe("ci");
+    expect(Buffer.from(data.TRIVY_PASSWORD, "base64").toString()).toBe("s3cr3t");
   });
 });
 

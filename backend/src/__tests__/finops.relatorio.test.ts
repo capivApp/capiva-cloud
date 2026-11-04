@@ -27,7 +27,7 @@ const inventario: Inventario = {
 
 describe("buildUsoDoInventario", () => {
   it("soma o máximo de cada recurso (réplicas máximas do HPA, volumes e bancos)", () => {
-    const soProd = { ...inventario, aplicacoes: [inventario.aplicacoes[0]!] };
+    const soProd = { ...inventario, aplicacoes: [inventario.aplicacoes[0]] };
     // api LARGE x3 = 3000m / 6144Mi / 3 pods ; volume 4Gi ; pg SMALL HA = 1500m / 3072Mi / 3 pods / 30Gi
     expect(buildUsoDoInventario(soProd)).toEqual({ cpuMillicores: 4500, memoryMib: 9216, pods: 6, storageGi: 34 });
   });
@@ -49,7 +49,7 @@ describe("buildRelatorioDeCusto", () => {
     // api: LARGE 87.6 por réplica (1 a 3) + volume 4 GiB = 2
     expect(relatorio.aplicacoes[0]).toMatchObject({ id: "app-1", custo: { min: 89.6, max: 264.8 } });
     // web: NANO x2 (sem HPA) = 0.2 vCPU = 14.6 ; 0.25 GB = 1.825 -> 16.43 (arredondado)
-    expect(relatorio.aplicacoes[1]!.custo).toEqual({ min: 16.43, max: 16.43 });
+    expect(relatorio.aplicacoes[1].custo).toEqual({ min: 16.43, max: 16.43 });
   });
 
   it("banco gerenciado entra com tamanho x instâncias", () => {

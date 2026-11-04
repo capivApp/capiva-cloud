@@ -72,7 +72,7 @@ export class ImageScanService {
       const app = await this.apps.findById(applicationId);
       if (!app) throw HttpError.notFound("Aplicação não encontrada.");
       const sourceConfig = { ...((app.sourceConfig as Record<string, unknown>) ?? {}), security: { ...policy } };
-      return this.apps.update(applicationId, { sourceConfig: sourceConfig as Prisma.InputJsonObject });
+      return this.apps.update(applicationId, { sourceConfig: sourceConfig });
     }, { tenant });
   }
 

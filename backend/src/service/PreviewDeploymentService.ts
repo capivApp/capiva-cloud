@@ -108,6 +108,6 @@ export class PreviewDeploymentService {
 
   private refreshPreview(preview: Application, event: PullRequestEvent, tenant: Tenant): Promise<Application> {
     const cfg = { ...((preview.sourceConfig as Record<string, unknown>) ?? {}), branch: event.sourceBranch, preview: buildPreviewMeta(event) };
-    return withTransaction(() => this.apps.update(preview.id, { sourceConfig: cfg as Prisma.InputJsonValue }), { tenant });
+    return withTransaction(() => this.apps.update(preview.id, { sourceConfig: cfg }), { tenant });
   }
 }

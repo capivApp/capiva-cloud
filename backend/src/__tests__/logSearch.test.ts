@@ -118,11 +118,11 @@ describe("buildLogPredicate (filtro em memória, usado sem Loki)", () => {
   });
 
   it("aplica contém, não contém, regex e nível como o LogQL", () => {
-    expect(filtra({ contains: "/orders" })).toEqual([linhas[2]!, linhas[3]!]);
+    expect(filtra({ contains: "/orders" })).toEqual([linhas[2], linhas[3]]);
     expect(filtra({ notContains: "/health" })).toEqual(linhas.slice(1));
-    expect(filtra({ regex: "\\d{3}ms" })).toEqual([linhas[1]!]);
-    expect(filtra({ levels: ["error", "warn"] })).toEqual([linhas[1]!, linhas[2]!]);
-    expect(filtra({ contains: "/orders", levels: ["info"] })).toEqual([linhas[3]!]);
+    expect(filtra({ regex: "\\d{3}ms" })).toEqual([linhas[1]]);
+    expect(filtra({ levels: ["error", "warn"] })).toEqual([linhas[1], linhas[2]]);
+    expect(filtra({ contains: "/orders", levels: ["info"] })).toEqual([linhas[3]]);
   });
 
   it("filtra por pod quando a linha informa o pod", () => {
