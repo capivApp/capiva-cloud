@@ -31,6 +31,7 @@
     "express": "^5.0.0",
     "jsonwebtoken": "^9.0.2",
     "node-ssh": "^13.2.1",
+    "prisma": "^7.0.0",
     "reflect-metadata": "^0.2.2",
     "zod": "^4.0.0"
   },
@@ -43,7 +44,6 @@
     "oxfmt": "^0.76.0",
     "oxlint": "^1.91.0",
     "oxlint-tsgolint": "^7.0.2005",
-    "prisma": "^7.0.0",
     "typescript": "7.0.2"
   }
 }

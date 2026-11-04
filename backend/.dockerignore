@@ -9,3 +9,5 @@ coverage
 !.env.example
 src/keys
 src/prisma/generated
+# Testes não vão para a imagem de produção.
+src/__tests__

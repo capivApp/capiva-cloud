@@ -1,15 +1,16 @@
 # ---- Capiva Cloud — Backend (Bun) — imagem de deploy ----
 # Diferenças em relação ao Dockerfile de desenvolvimento:
-#   - git no build (a dependência @mateusseiboth/ts-decorators vem do GitHub);
 #   - sem `|| true`: falha de install/generate quebra o build em vez de gerar
 #     uma imagem silenciosamente quebrada;
 #   - aplica as migrations antes de subir a API;
-#   - roda como usuário sem privilégios.
+#   - roda como usuário sem privilégios;
+#   - só dependências de produção, sem ferramentas de build na imagem final.
 
-# Estágio de dependências: o better-sqlite3 (adapter do Prisma para SQLite) compila
-# código nativo no install e precisa de python3/make/g++. Essas ferramentas ficam só
-# aqui; a imagem final recebe o node_modules pronto.
-FROM oven/bun:1 AS deps
+# Estágio de build. Aqui ficam o que só o install precisa:
+#   - git: a dependência @mateusseiboth/ts-decorators vem do GitHub;
+#   - python3/make/g++: o better-sqlite3 (adapter do Prisma para SQLite) compila
+#     código nativo no install.
+FROM oven/bun:1.4.4-slim AS deps
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates python3 make g++ \
@@ -17,33 +18,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 
 COPY package.json bunfig.toml tsconfig.json ./
 COPY prisma ./prisma
-RUN bun install
+# Sem devDependencies (TypeScript, oxlint, oxfmt, tipos). O CLI do Prisma é dependência
+# de produção: o container roda `prisma migrate deploy` ao subir.
+RUN bun install --production --omit=peer
 
-FROM oven/bun:1 AS runtime
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY --from=deps /app/node_modules ./node_modules
+# O bunfig.toml faz preload do src/config.ts em todo comando bun: o generate precisa
+# do código. Vem depois do install para o cache dele sobreviver a mudanças no código.
 COPY . .
-
 # O prisma.config.ts exige DATABASE_URL mesmo para gerar o client; o generate não
 # conecta no banco, então um endereço qualquer basta no build.
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" bunx prisma generate
 
+FROM oven/bun:1.4.4-slim AS runtime
+WORKDIR /app
+
 # A imagem oven/bun já traz o usuário `bun` (uid 1000). Rodar como root daria ao
 # processo — que executa comandos em clusters e nós via SSH — privilégio total
-# dentro do container sem necessidade nenhuma.
-RUN chown -R bun:bun /app
+# dentro do container sem necessidade nenhuma. O `--chown` no COPY evita um
+# `chown -R` depois, que duplicaria o node_modules inteiro numa camada nova.
+RUN chown bun:bun /app
+COPY --chown=bun:bun --from=deps /app/node_modules ./node_modules
+COPY --chown=bun:bun . .
+COPY --chown=bun:bun --from=deps /app/src/prisma/generated ./src/prisma/generated
 USER bun
 
 ENV NODE_ENV=production
 EXPOSE 3000 3001
 
 # `/ready` valida a conexão com o banco; `/health` só diz que o processo subiu.
+# O fetch do próprio Bun substitui o curl, que não está na imagem.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:3000/ready || exit 1
+  CMD ["bun", "-e", "fetch('http://127.0.0.1:3000/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
 # NOTA: com mais de uma réplica do backend, rode `prisma migrate deploy` como
 # passo único do rollout (job/init container) em vez de no CMD — o Prisma usa
