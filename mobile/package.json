@@ -42,8 +42,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
     "tailwindcss": "^3.4",
-    "typescript": "~6.0.3"
+    "typescript": "7.0.2"
   },
   "scripts": {
     "start": "expo start",
@@ -51,7 +53,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "private": true
 }

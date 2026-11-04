@@ -1,0 +1,66 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["dist", "dev-dist", "public", "node_modules"],
+  // Padrão de frontend do time (SIART-REFACTOR/frontend). Espelha o que o ESLint tinha:
+  // js recomendado + typescript-eslint recomendado + react-hooks + react-refresh +
+  // react-compiler. `unicorn` e `oxc` vêm ligados por padrão no oxlint e ficam FORA de
+  // propósito: a troca de linter precisa ser neutra.
+  // Regras da casa: `no-enum` — TypeScript não usa `enum` (cópia do plugin do bun-commons).
+  "jsPlugins": [{ "name": "quality", "specifier": "./lint/oxlint-quality.mjs" }],
+  "plugins": ["eslint", "typescript", "react"],
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "quality/no-enum": "error",
+    // ── React Hooks ──────────────────────────────────────────────────────────
+    // As regras derivadas do React Compiler (`set-state-in-effect`, `refs`,
+    // `incompatible-library`) vivem no plugin `react` do oxlint: é o que substitui o
+    // `eslint-plugin-react-compiler` que o ESLint daqui usava.
+    "react/rules-of-hooks": "error",
+    "react/set-state-in-effect": "error",
+    "react/refs": "error",
+    "react/incompatible-library": "error",
+    // Desligada no padrão do time: reativar exige varrer o app inteiro, não é decisão
+    // desta troca.
+    "react/exhaustive-deps": "off",
+
+    // Fast Refresh: constante exportada junto do componente é permitida (preset Vite).
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+
+    // ── TypeScript ───────────────────────────────────────────────────────────
+    // Já estava desligada no ESLint deste frontend.
+    "typescript/no-explicit-any": "off",
+    "typescript/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_"
+      }
+    ],
+    "typescript/ban-types": "off",
+    "eslint/preserve-caught-error": "off"
+  },
+  "overrides": [
+    {
+      // Os `.d.ts` são declarações puras: `no-unused-vars` e afins não se aplicam.
+      "files": ["**/*.d.ts"],
+      "rules": {
+        "typescript/no-unused-vars": "off"
+      }
+    },
+    {
+      // Configs de build (Tailwind/PostCSS) rodam no Node.
+      "files": ["*.config.js", "*.config.ts"],
+      "env": {
+        "node": true
+      }
+    }
+  ]
+}
