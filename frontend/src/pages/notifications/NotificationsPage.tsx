@@ -8,8 +8,25 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNotifications, type NotificationType } from "@/hooks/useNotifications";
+import { ApiError } from "@/lib/api";
 
-const TYPES: NotificationType[] = ["DISCORD", "SLACK", "TELEGRAM", "TEAMS", "LARK", "EMAIL", "RESEND", "PUSH", "WEBHOOK"];
+const TYPES: NotificationType[] = ["DISCORD", "SLACK", "TELEGRAM", "TEAMS", "LARK", "CAPIVAPP_EMAIL", "EMAIL", "RESEND", "PUSH", "WEBHOOK"];
+
+// Rótulo de tela por tipo; os demais aparecem pelo próprio nome.
+const TYPE_LABELS: Partial<Record<NotificationType, string>> = { CAPIVAPP_EMAIL: "E-mail da CapivApp" };
+const typeLabel = (t: NotificationType) => TYPE_LABELS[t] ?? t;
+
+interface ValidationIssue {
+  path: (string | number)[];
+  message: string;
+}
+
+/** Erros de validação da API (422) por campo de config: `config.to` -> `to`. */
+const readConfigErrors = (e: unknown): Record<string, string> => {
+  if (!(e instanceof ApiError)) return {};
+  const issues = (e.body as { issues?: ValidationIssue[] } | undefined)?.issues ?? [];
+  return Object.fromEntries(issues.filter((i) => i.path[0] === "config" && i.path[1] !== undefined).map((i) => [String(i.path[1]), i.message]));
+};
 
 // Campos de configuração por tipo (labels + chaves do objeto config).
 const FIELDS: Record<NotificationType, { key: string; label: string; placeholder?: string }[]> = {
@@ -20,6 +37,7 @@ const FIELDS: Record<NotificationType, { key: string; label: string; placeholder
   WEBHOOK: [{ key: "webhookUrl", label: "URL" }],
   TELEGRAM: [{ key: "botToken", label: "Bot token" }, { key: "chatId", label: "Chat ID" }],
   RESEND: [{ key: "apiKey", label: "API key" }, { key: "from", label: "From" }, { key: "to", label: "To" }],
+  CAPIVAPP_EMAIL: [{ key: "to", label: "Destinatários", placeholder: "voce@empresa.com, equipe@empresa.com" }],
   EMAIL: [{ key: "webhookUrl", label: "Gateway URL" }, { key: "to", label: "To" }],
   PUSH: [{ key: "expoTokens", label: "Expo tokens (vírgula)", placeholder: "ExponentPushToken[…], …" }],
 };
@@ -39,9 +57,10 @@ export function NotificationsPage() {
   const [type, setType] = useState<NotificationType>("DISCORD");
   const [name, setName] = useState("");
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [configErrors, setConfigErrors] = useState<Record<string, string>>({});
   const [selectedEvents, setSelectedEvents] = useState<string[]>(["deploy.succeeded", "deploy.failed"]);
 
-  const reset = () => { setName(""); setConfig({}); setSelectedEvents(["deploy.succeeded", "deploy.failed"]); setType("DISCORD"); };
+  const reset = () => { setName(""); setConfig({}); setConfigErrors({}); setSelectedEvents(["deploy.succeeded", "deploy.failed"]); setType("DISCORD"); };
 
   const submit = async () => {
     if (!name.trim()) return toast.error("Informe um nome.");
@@ -53,7 +72,9 @@ export function NotificationsPage() {
       setOpen(false);
       toast.success("Canal criado.");
     } catch (e) {
-      toast.error((e as Error).message);
+      const fieldErrors = readConfigErrors(e);
+      setConfigErrors(fieldErrors);
+      toast.error(Object.values(fieldErrors)[0] ?? (e as Error).message);
     }
   };
 
@@ -78,7 +99,7 @@ export function NotificationsPage() {
               <div className="flex items-center gap-2">
                 <Bell className="size-4 text-muted-foreground" />
                 <span className="font-medium">{c.name}</span>
-                <Badge variant="muted">{c.type}</Badge>
+                <Badge variant="muted">{typeLabel(c.type)}</Badge>
                 <span className="flex flex-wrap gap-1">{c.events.map((e) => <Badge key={e} variant="default">{EVENT_LABELS[e] ?? e}</Badge>)}</span>
               </div>
               <div className="flex items-center gap-1">
@@ -96,14 +117,15 @@ export function NotificationsPage() {
           <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Discord #deploys" /></div>
           <div className="space-y-1.5">
             <Label>Tipo</Label>
-            <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={type} onChange={(e) => { setType(e.target.value as NotificationType); setConfig({}); }}>
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={type} onChange={(e) => { setType(e.target.value as NotificationType); setConfig({}); setConfigErrors({}); }}>
+              {TYPES.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}
             </select>
           </div>
           {FIELDS[type].map((f) => (
             <div key={f.key} className="space-y-1.5">
               <Label>{f.label}</Label>
               <Input value={config[f.key] ?? ""} onChange={(e) => setConfig({ ...config, [f.key]: e.target.value })} placeholder={f.placeholder} />
+              {configErrors[f.key] && <p className="text-xs text-destructive">{configErrors[f.key]}</p>}
             </div>
           ))}
           <div className="space-y-2">

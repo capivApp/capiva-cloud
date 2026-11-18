@@ -73,6 +73,10 @@ services:
       S3_BUCKET: capiva
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      # Canal de notificação "E-mail da CapivApp" (mail-send).
+      MAIL_SEND_URL: ${MAIL_SEND_URL:-https://mail.capivapp.com.br}
+      MAIL_SEND_TOKEN: ${MAIL_SEND_TOKEN:-}
+      EMAIL_NOME: ${EMAIL_NOME:-Capiva Cloud}
     ports:
       - "${API_PORT:-8411}:3000"
     # SIGTERM inicia o encerramento gracioso (drena as requisições em voo e

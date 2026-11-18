@@ -665,6 +665,7 @@ enum NotificationType {
   TEAMS
   EMAIL
   RESEND
+  CAPIVAPP_EMAIL // e-mail pelo mail-send da CapivApp (credencial da plataforma)
   LARK
   PUSH // Expo push notifications (app mobile)
   WEBHOOK // webhook genérico

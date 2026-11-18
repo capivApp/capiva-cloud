@@ -24,6 +24,8 @@ process.env.REFRESH_TOKEN_TTL_MS ??= String(7 * 24 * 60 * 60 * 1000);
 process.env.JWT_ISSUER ??= "capiva-cloud";
 process.env.JWT_AUDIENCE ??= "capiva-cloud-client";
 process.env.DATABASE_PROVIDER ??= "postgresql";
+process.env.MAIL_SEND_URL ??= "https://mail.capivapp.com.br";
+process.env.EMAIL_NOME ??= "Capiva Cloud";
 
 /** Chave de desenvolvimento — recusada em produção (ver assertProductionSecrets). */
 const DEV_ENCRYPTION_KEY = "change-me-32-bytes-key-000000000000";
@@ -61,6 +63,12 @@ export const config = {
     bucket: process.env.S3_BUCKET,
     accessKeyId: process.env.S3_ACCESS_KEY_ID,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+  /** mail-send (e-mail da CapivApp): canal de notificação CAPIVAPP_EMAIL. */
+  mailSend: {
+    url: process.env.MAIL_SEND_URL!,
+    token: process.env.MAIL_SEND_TOKEN,
+    nome: process.env.EMAIL_NOME!,
   },
 } as const;
 

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/useAuthStore";
 
-export type NotificationType = "DISCORD" | "SLACK" | "TELEGRAM" | "TEAMS" | "EMAIL" | "RESEND" | "LARK" | "PUSH" | "WEBHOOK";
+export type NotificationType = "DISCORD" | "SLACK" | "TELEGRAM" | "TEAMS" | "EMAIL" | "RESEND" | "CAPIVAPP_EMAIL" | "LARK" | "PUSH" | "WEBHOOK";
 
 export interface NotificationChannel {
   id: string;

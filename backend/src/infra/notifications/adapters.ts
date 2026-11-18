@@ -1,3 +1,6 @@
+import { config } from "@config";
+import { buildMailSendAdapter } from "@infra/notifications/mailSend";
+
 /**
  * Adapters de notificação (Strategy por tipo de canal). Cada adapter recebe a
  * config decifrada e a mensagem, e dispara via webhook/API. Tudo best-effort.
@@ -57,6 +60,8 @@ const ADAPTERS: Record<string, NotificationAdapter> = {
   WEBHOOK: webhook,
   TELEGRAM: telegram,
   RESEND: resend,
+  /** E-mail da CapivApp: mail-send com a credencial da plataforma (o usuário só informa destinatários). */
+  CAPIVAPP_EMAIL: buildMailSendAdapter(config.mailSend),
   EMAIL: email,
   PUSH: push,
 };

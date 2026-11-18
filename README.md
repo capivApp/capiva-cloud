@@ -135,6 +135,9 @@ docker compose -f docker-compose.deploy.yml up -d --build
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | — | Credentials of the dedicated MinIO (backups/uploads) |
 | `ORIGIN_WHITELIST` | empty in prod | Extra CORS origins, comma-separated |
 | `CAPIVA_K8S_INSECURE_TLS` | `false` | Accept self-signed certs **only** on Kubernetes API server calls |
+| `MAIL_SEND_URL` | `https://mail.capivapp.com.br` | CapivApp e-mail service (mail-send) used by the "E-mail da CapivApp" notification channel |
+| `MAIL_SEND_TOKEN` | empty | This app's mail-send token. Empty: the channel is unavailable and its test reports the error |
+| `EMAIL_NOME` | `Capiva Cloud` | Sender name of those e-mails (the address is always `noreply@capivapp.com.br`) |
 
 > ⚠️ **Before running in production**, read [docs/32 — Hardening](./docs/32-hardening-producao.md).
 > Two steps are mandatory: rotate the JWT key pair (the previous private key was committed

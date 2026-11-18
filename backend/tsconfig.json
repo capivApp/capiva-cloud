@@ -29,7 +29,8 @@
       "@functions/*": ["./src/functions/*"],
       "@interface/*": ["./src/interfaces/*"],
       "@openapi/*": ["./src/openapi/*"],
-      "@prisma-generated/*": ["./src/prisma/generated/*"]
+      "@prisma-generated/*": ["./src/prisma/generated/*"],
+      "@config": ["./src/config.ts"]
     }
   },
   "include": ["src/**/*.ts", "prisma.config.ts"]
